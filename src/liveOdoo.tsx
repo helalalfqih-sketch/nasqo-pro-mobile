@@ -111,6 +111,6 @@ export function LiveOdooGate({ children }: { children: ReactNode }) {
         "تعذّر تحميل بيانات نسقو ERP. لم يتم عرض أي بيانات تجريبية بدلًا عنها."}</p>
     {live.status === "login" ? <a href={loginUrl}>تسجيل الدخول إلى نسقو</a> : null}
     {live.status === "error" ? <button type="button" onClick={live.refresh}>إعادة المحاولة</button> : null}
-    <small>قراءة فقط — دون إنشاء فواتير أو تعديل سجلات</small>
+    <small>تُعرض البيانات بحسب صلاحيات Odoo؛ إنشاء الفواتير والقيود المالية يتم عبر نماذج Odoo الأصلية.</small>
   </main>;
 }
