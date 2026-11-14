@@ -12,6 +12,7 @@ import {
 import { BottomSheet, FlowStack, KeyboardInput, MobileScroll, useKeyboard, useScreenPortal, type FlowControls, type FlowScreen } from "./mobile";
 import { LiveOdooProvider, LiveOdooGate, useLiveOdoo } from "./liveOdoo";
 import { LiveInvoicesPage } from "./LiveInvoices";
+import { NasqoDashboard } from "./NasqoDashboard";
 import { openNativeOdoo, openOdooWhatsAppStatus, type NativeOdooAction } from "./odooNavigation";
 import { ContactSaveError, saveOdooContact } from "./odooContacts";
 
@@ -565,8 +566,15 @@ function DashboardPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
   return <><MobileScroll className="app-screen dashboard-scroll">
     <main className="dashboard-page page-with-footer" data-testid="dashboard-screen">
       {live.enabled ? <p className="live-data-notice">متصل بنسقو ERP · بيانات حقيقية وصلاحيات Odoo {live.problems.length ? "· " + live.problems.map(section => live.deniedSections.includes(section) ? section + ": لا تملك صلاحية القراءة في Odoo" : "تعذر تحميل: " + section).join("، ") : ""}</p> : null}
+      {live.enabled ? <NasqoDashboard
+        newInvoice={ctx.openInvoice}
+        newPurchase={() => ctx.nativeAction("purchaseOrders")}
+        newContact={() => ctx.openAccountCreate("compact")}
+        openInvoices={() => flow.push(liveInvoicesScreen(ctx))}
+        openStock={() => ctx.nativeAction("stockMoves")}
+      /> : null}
       <section className="section-block quick-section"><div className="quick-grid">{displayActions.map((item) => <button key={item.label} className={item.accent ? "quick-action accent" : "quick-action"} onClick={item.action}><item.icon /><span>{item.label}</span></button>)}</div></section>
-      <section className="section-block metrics-section"><div className="metrics-grid">{displayMetrics.map((metric) => <button key={metric.label} className={`metric-card ${metric.tone ?? "measurement"}`} onClick={metric.action ?? (() => ctx.showToast(`${metric.label} متاح للمعاينة فقط`))}><span className="metric-icon"><metric.icon /></span><span className="metric-copy"><small>{metric.label}</small>{metric.value ? <strong>{metric.value}</strong> : null}</span></button>)}</div></section>
+      {!live.enabled ? <section className="section-block metrics-section"><div className="metrics-grid">{displayMetrics.map((metric) => <button key={metric.label} className={`metric-card ${metric.tone ?? "measurement"}`} onClick={metric.action ?? (() => ctx.showToast(`${metric.label} متاح للمعاينة فقط`))}><span className="metric-icon"><metric.icon /></span><span className="metric-copy"><small>{metric.label}</small>{metric.value ? <strong>{metric.value}</strong> : null}</span></button>)}</div></section> : null}
     </main>
   </MobileScroll><button className="fab dashboard-fab" onClick={() => ctx.openSheet("add-operation")} aria-label="إضافة عملية"><PlusIcon /></button></>;
 }
