@@ -365,7 +365,7 @@ function WarehousesPage({ ctx, searchControl }: { ctx: AppContext; searchControl
     id: w.id, name: w.name, details: "", isDefault: false,
   })) : warehouses;
   return <><MobileScroll className="warehouse-scroll"><main className="warehouse-page page-with-footer" data-testid="warehouses-screen">
-    {live.enabled ? <p className="live-data-notice">مخازن نسقو ERP الفعلية · قراءة فقط</p> : null}
+    {live.enabled ? <p className="live-data-notice">{live.deniedSections.includes("المخازن") ? "المخازن: لا يملك هذا الحساب صلاحية القراءة في Odoo. اطلب من مسؤول النظام مراجعة صلاحيات المخزون." : live.problems.includes("المخازن") ? "تعذر تحميل المخازن من Odoo. حاول تحديث الصفحة." : "مخازن نسقو ERP الفعلية · قراءة فقط"}</p> : null}
     {searchOpen ? <KeyboardInput className="warehouse-search" aria-label="اسم المخزن للبحث" placeholder="ابحث عن المخزن" value={search} onChange={event => setSearch(event.target.value)} /> : null}
     {availableWarehouses.filter(warehouse => warehouse.name.includes(search)).map(warehouse => <article className="warehouse-card" key={warehouse.id}>
       <button className="warehouse-icon" aria-label={`فتح ${warehouse.name}`} onClick={() => live.enabled ? ctx.nativeAction("stockMoves") : ctx.flowRef.current?.push(inventoryReportScreen(ctx, warehouse.name))}><CubeIcon /></button>
@@ -564,7 +564,7 @@ function DashboardPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
   })) : metrics;
   return <><MobileScroll className="app-screen dashboard-scroll">
     <main className="dashboard-page page-with-footer" data-testid="dashboard-screen">
-      {live.enabled ? <p className="live-data-notice">متصل بنسقو ERP · بيانات حقيقية وصلاحيات Odoo {live.problems.length ? "· تعذر تحميل: " + live.problems.join("، ") : ""}</p> : null}
+      {live.enabled ? <p className="live-data-notice">متصل بنسقو ERP · بيانات حقيقية وصلاحيات Odoo {live.problems.length ? "· " + live.problems.map(section => live.deniedSections.includes(section) ? section + ": لا تملك صلاحية القراءة في Odoo" : "تعذر تحميل: " + section).join("، ") : ""}</p> : null}
       <section className="section-block quick-section"><div className="quick-grid">{displayActions.map((item) => <button key={item.label} className={item.accent ? "quick-action accent" : "quick-action"} onClick={item.action}><item.icon /><span>{item.label}</span></button>)}</div></section>
       <section className="section-block metrics-section"><div className="metrics-grid">{displayMetrics.map((metric) => <button key={metric.label} className={`metric-card ${metric.tone ?? "measurement"}`} onClick={metric.action ?? (() => ctx.showToast(`${metric.label} متاح للمعاينة فقط`))}><span className="metric-icon"><metric.icon /></span><span className="metric-copy"><small>{metric.label}</small>{metric.value ? <strong>{metric.value}</strong> : null}</span></button>)}</div></section>
     </main>
