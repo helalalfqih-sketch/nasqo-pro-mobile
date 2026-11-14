@@ -14,7 +14,8 @@
     "build": "tsc && vite build && node scripts/prepare-sites-build.mjs",
     "build:erp": "npm run check:runtime && tsc && vite build --base=/nasqo-mobile/ --outDir dist/erp-client",
     "test:erp": "node --test tests/nasqo-erp-build.test.mjs",
-    "test:odoo": "node --test tests/odoo-actions.test.mjs"
+    "test:odoo": "node --test tests/odoo-actions.test.mjs",
+    "test:warehouse": "node --test tests/odoo-warehouse-access.test.mjs"
   },
   "dependencies": {
     "@fontsource/roboto": "5.2.10",
