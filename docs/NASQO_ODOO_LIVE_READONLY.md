@@ -1,55 +1,103 @@
-# NASQO Pro Mobile — Odoo read-only integration
+# NASQO Pro Mobile — Odoo 19 read-only integration and HTTPS cutover
 
-## Scope
-The mobile UI can read permitted contacts, warehouses and the most recent 100 purchase/sales invoices from NASQO's existing Odoo 19 using Odoo's own session and ORM access controls. It does **not** modify accounts, post invoices, send WhatsApp messages, or expose any Odoo service credentials.
+## Verified status (2026-11-15)
 
+**Not live on the production hostname yet.** The actual production Caddyfile is root-owned, and the current Remote Desktop Commander account cannot write it. This is a staging and operator handoff, not evidence of authenticated business-data access.
+
+- Source repository: `helalalfqih-sketch/nasqo-pro-mobile`
+- PR: `https://github.com/helalalfqih-sketch/nasqo-pro-mobile/pull/1` (draft)
 - Source branch: `feat/nasqo-odoo-readonly`
-- Intended HTTPS location: `https://erp.indexesstore.com/nasqo-mobile/`
-- Login: same-origin `/web/login?redirect=%2Fnasqo-mobile%2F`
-- JSON-RPC (same-origin): `/web/session/get_session_info` and `/web/dataset/call_kw/<model>/search_read`
-- Models requested: `res.partner`, `stock.warehouse`, `account.move`.
-- Read limit: 100 records per model; counts are **not** full business totals.
-- The existing IP/HTTP preview is still a demo. Live API calls are enabled **only** when the browser is on HTTPS at `erp.indexesstore.com` under `/nasqo-mobile`.
-- Authorization is always by Odoo's logged-in user; no `sudo` or API token is used.
-- Unsupported screens remain non-live and are blocked from the live navigation. Financial writes remain disabled.
+- Target path: `https://erp.indexesstore.com/nasqo-mobile/`
+- Existing Odoo 19 production hostname: `https://erp.indexesstore.com`
+- Separate private-network app container: `nasqo-pro-mobile-erp` on `indexes-waha_default` (no published host port)
+- App internal upstream: `nasqo-pro-mobile-erp:8080`
+- Existing HTTP public prototype: `nasqo-pro-mobile-web`, unchanged, still demonstration-only.
+- Production proxy: `indexes-waha-caddy-1` routes ERP to `nasqo-odoo19:8069`.
 
-## Build and verification on the authorized host
-1. `npm ci --no-audit --no-fund`
-2. `npm run check:runtime`
-3. `npm run build`
-4. `npm run test:sites`
+## App data integration contract
 
-Actual checks: protected runtime check PASS (28 files); TypeScript + Vite production build PASS; 4/4 Sites tests PASS. The remote Odoo endpoint returned `Odoo Session Expired` to an anonymous JSON-RPC POST, as intended. No authenticated user integration or browser end-to-end test has been performed.
+`src/liveOdoo.tsx` uses same-origin Odoo JSON-RPC with `credentials: 'same-origin'` and no stored API keys. Live data mode is enabled **only** on HTTPS at the exact ERP hostname with URL prefix `/nasqo-mobile`. Unauthenticated users see a login gate instead of synthetic data. Authorized users may read, subject to Odoo ACLs and record rules:
 
-## HTTPS reverse proxy blocker (operator action required)
-The live host Caddyfile is currently at
-`/opt/indexes-waha/apps/shopify-admin/indexes-waha/deploy/Caddyfile`
-and is owned by `root:root` with permissions `0644`. The connected `chatgpt-admin` user cannot write it. **No Caddyfile or existing Odoo service was changed.**
+- `res.partner`: id, name, phone (up to 100)
+- `stock.warehouse`: id, name, company_id (up to 100)
+- `account.move`: id, name, partner_id, move_type, invoice_date, amount_total, state; sale/purchase invoices only (up to 100)
 
-The separate `nasqo-pro-mobile-web` container has been attached to `indexes-waha_default` and is resolvable from `indexes-waha-caddy-1` as `http://nasqo-pro-mobile-web:8080/`.
+Counts do not represent full accounting totals. Financial posting, mutations, exports and messaging are NOT connected. An authenticated low-privilege login test and company-isolation test are still required.
 
-An authorized Caddy operator must review and add a narrow HTTPS site route under `erp.indexesstore.com`, without replacing existing Odoo handling:
+## Build: separate paths, no global /assets proxy
+
+Run from project checkout:
+
+```sh
+npm ci --no-audit --no-fund
+npm run build
+npm run build:erp
+npm run test:sites
+npm run test:erp
+```
+
+`build:erp` outputs `dist/erp-client` with JavaScript and CSS under `/nasqo-mobile/assets/`, while the existing `dist/client` preview retains root `/assets/`. This avoids diverting Odoo's general assets.
+
+The protected mobile runtime still references these exact fixed public paths; the domain proxy must forward ONLY these additional prefixes to the mobile static container:
+
+- `/assets/iphone/*`
+- `/assets/android/*`
+- `/assets/status/*`
+
+Do **not** proxy all of `/assets/*`.
+
+## Prebuilt Caddy change (root permission required)
+
+- Root-owned live file: `/opt/indexes-waha/apps/shopify-admin/indexes-waha/deploy/Caddyfile`
+- Prepared **non-active** copy: `/home/chatgpt-admin/nasqo-mobile-ops/Caddyfile.candidate` (mode 0600)
+- Local smoke proxy config: `/home/chatgpt-admin/nasqo-mobile-ops/Caddyfile.staging`
+- The candidate contains the existing complete Caddyfile with only the ERP site block changed.
+- Existing root-owned file and Odoo production services were not modified.
+
+The ERP site should contain the following directives *inside the existing host block*, retaining its `encode zstd gzip` setting:
 
 ```caddyfile
-redir /nasqo-mobile /nasqo-mobile/ 308
-handle_path /nasqo-mobile/* {
-    reverse_proxy nasqo-pro-mobile-web:8080
-}
-handle /assets/* {
-    reverse_proxy nasqo-pro-mobile-web:8080
-}
-handle {
-    reverse_proxy nasqo-odoo19:8069
+erp.indexesstore.com {
+    encode zstd gzip
+
+    redir /nasqo-mobile /nasqo-mobile/ 308
+
+    handle_path /nasqo-mobile/* {
+        reverse_proxy nasqo-pro-mobile-erp:8080
+    }
+
+    @nasqoMobileRuntimeAssets path /assets/iphone/* /assets/android/* /assets/status/*
+    handle @nasqoMobileRuntimeAssets {
+        reverse_proxy nasqo-pro-mobile-erp:8080
+    }
+
+    handle {
+        reverse_proxy nasqo-odoo19:8069
+    }
 }
 ```
 
-**Important:** These are directives *inside* the existing `erp.indexesstore.com` site, not a second site block. Review the `/assets/*` matcher for possible collision with any other Odoo/storefront content, and verify the static bundle's `/assets` paths. Keep the existing `encode zstd gzip` and other security directives. Back up the entire Caddyfile, run `caddy validate` before reloading, and verify the existing ERP homepage, authenticated login, static assets, and mobile route, with immediate rollback if any fails.
+### Authorized operator cutover procedure
 
-Until this HTTPS route is active, **do not enter genuine business data into the public-IP HTTP prototype**. Production Odoo business records were not accessed or modified.
+1. Confirm authorized administrative access to the root-owned Caddyfile. Do not use Docker as an alternative route to bypass filesystem ownership. Do not disclose credentials in chat.
+2. Compare the current production Caddyfile with the staged candidate and **abort if the original has changed**. Make a timestamped backup of the original on the host.
+3. Install the candidate using the authorized administrator's normal change workflow, preserving owner/group and mode.
+4. Run Caddy config validation under the real container environment; only reload `indexes-waha-caddy-1` after successful validation. Keep backup and rollback accessible.
+5. Verify `https://erp.indexesstore.com/`, `/web/login`, `/nasqo`, `/nasqo-mobile/`, its compiled JS/CSS, its iOS/Android/status images, and that other `/assets/` paths still go to Odoo.
+6. Verify anonymous Odoo JSON-RPC is rejected and real Odoo users can log in, read only authorized companies/records, and receive proper permission errors.
+7. Only after HTTPS and access-control tests succeed, remove the public HTTP 18175 host binding from the **old preview container only**. Avoid altering the Odoo, WAHA, PostgreSQL, or Shopify services. Decide whether to merge PR 1 after review.
 
-## Follow-up
-- Obtain authorized change access for the Caddy route; explicitly confirm the final desired NASQO hostname if distinct from `erp.indexesstore.com`.
-- Validate Odoo's logged-in session and model permissions using a real low-privilege user; check unauthenticated access is denied.
-- Test the mobile UI on a real browser and verify company isolation / permitted record visibility.
-- Consider narrowing the model queries and adding paginated navigation before broad deployment.
-- Remove the old publicly bound HTTP port `18175` after HTTPS is tested, by recreating only `nasqo-pro-mobile-web` on the internal network with no host-port publishing.
+### Tested before production activation
+
+- Original source runtime check: 28 protected files PASS.
+- `npm run build:erp`: PASS (TypeScript and Vite).
+- `npm run test:erp`: 3/3 PASS.
+- `npm run test:sites`: 4/4 PASS.
+- Candidate Caddyfile validation with non-production placeholder hosts: PASS.
+- Local-only Caddy route simulation (127.0.0.1:18176): `/nasqo-mobile/` HTTP 200, JS/CSS HTTP 200, iPhone/Android/status public assets HTTP 200, legacy Odoo `/web/login`, `/nasqo` and `/` HTTP 200, absent mobile API HTTP 404.
+- Anonymous Odoo session-info through the local proxy returned JSON-RPC error code 100; no records were read.
+- Full production hostname activation, authenticated user permissions, and real browser QA: NOT YET VERIFIED.
+
+## Rollback
+
+Restore the backed-up original Caddyfile and validate/reload only Caddy using the authorized change procedure; leave existing Odoo and WAHA containers and databases untouched. The additional internal mobile container can be stopped independently if needed. Rollback must not overwrite any Odoo data.
