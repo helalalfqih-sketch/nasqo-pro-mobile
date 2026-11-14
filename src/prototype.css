@@ -1226,3 +1226,23 @@ button[aria-pressed="true"] > .period-radio-mark { border-color: var(--nasqo-ora
 .cash-preview-note { padding: 8px; background: #fff8e8; }
 .cash-statement-row.expanded .cash-statement-detail { line-height: 18px; }
 .cash-statement-row.expanded .cash-statement-row-bottom { margin-top: 13px; }
+
+/* NASQO ERP read-only integration. Original Codex demo styles remain unchanged. */
+.live-odoo-gate { direction: rtl; padding: 36px 20px; color: #213b43; text-align: center; font: 16px/1.7 system-ui, sans-serif; }
+.live-odoo-gate h2 { color: #c46a24; font-size: 24px; }
+.live-odoo-gate a, .live-odoo-gate button { display: inline-block; border: 0; border-radius: 9px; background: #ce7129; color: white; padding: 10px 20px; font: inherit; text-decoration: none; cursor: pointer; }
+.live-odoo-gate small { display: block; margin-top: 20px; color: #697984; }
+.live-data-notice { padding: 9px 12px; margin: 6px 4px 12px; border-radius: 8px; background: #fff4e9; color: #70451f; font-size: 12px; line-height: 1.55; }
+.live-data-error { padding: 12px; color: #a12920; }
+.live-data-empty { padding: 18px; text-align: center; color: #63717e; }
+.live-invoice-page { padding: 12px 10px 80px; }
+.live-invoice-card { padding: 12px; border: 1px solid #e3e9eb; border-radius: 10px; margin-bottom: 8px; background: #fff; font-size: 13px; display: grid; gap: 8px; }
+.live-invoice-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.live-invoice-top strong { color: #2c4651; }
+.live-invoice-top b { color: #b35e18; }
+.live-invoice-card small { color: #58616d; }
+.live-connected .purchases-periods, .live-connected .purchases-currency-row, .live-connected .purchases-filter-panel .reference-date-strip { display: none; }
+.live-connected .vendor-actions > button:not(.vendor-count), .live-connected .warehouse-card-actions, .live-connected .warehouse-fab { display: none; }
+.live-connected .vendor-actions .vendor-count { width: auto; min-width: 32px; }
+
+.live-readonly-footer { height: 100%; padding: 6px; text-align: center; font-size: 11px; background: #fff4e9; color: #70451f; }
