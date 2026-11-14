@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { classifyOdooFailure } from "./odooErrors";
 
 export type LivePartner = { id: number; name: string; phone: string | false };
 export type LiveWarehouse = { id: number; name: string; company_id?: [number, string] | false };
@@ -10,12 +11,12 @@ export type LiveInvoice = {
 type LiveState = {
   enabled: boolean; status: "demo" | "loading" | "login" | "ready" | "error";
   userId: number | null; partners: LivePartner[]; warehouses: LiveWarehouse[];
-  invoices: LiveInvoice[]; problems: string[]; refresh: () => void;
+  invoices: LiveInvoice[]; problems: string[]; deniedSections: string[]; refresh: () => void;
 };
 
 const empty = { partners: [] as LivePartner[], warehouses: [] as LiveWarehouse[], invoices: [] as LiveInvoice[] };
 const Context = createContext<LiveState>({
-  enabled: false, status: "demo", userId: null, ...empty, problems: [], refresh: () => {},
+  enabled: false, status: "demo", userId: null, ...empty, problems: [], deniedSections: [], refresh: () => {},
 });
 export const useLiveOdoo = () => useContext(Context);
 
@@ -26,9 +27,13 @@ async function rpc<T>(path: string, params: Record<string, unknown>, signal: Abo
     body: JSON.stringify({ jsonrpc: "2.0", method: "call", params, id: 1 }), signal,
   });
   if (!response.ok) throw new Error("HTTP " + response.status);
-  const payload = await response.json() as { result?: T; error?: { code?: number } };
+  const payload = await response.json() as {
+    result?: T; error?: { code?: number; data?: { name?: string } };
+  };
   if (payload.error) {
-    if (payload.error.code === 100) throw new Error("LOGIN_REQUIRED");
+    const kind = classifyOdooFailure(payload.error);
+    if (kind === "login") throw new Error("LOGIN_REQUIRED");
+    if (kind === "permission") throw new Error("ODOO_ACCESS_DENIED");
     throw new Error("ODOO_RPC_FAILED");
   }
   if (!Object.prototype.hasOwnProperty.call(payload, "result")) throw new Error("INVALID_RESPONSE");
@@ -50,13 +55,13 @@ export function LiveOdooProvider({ children }: { children: ReactNode }) {
   const enabled = window.location.protocol === "https:" && window.location.hostname === "erp.indexesstore.com" && window.location.pathname.startsWith("/nasqo-mobile");
   const [revision, setRevision] = useState(0);
   const [state, setState] = useState<Omit<LiveState, "enabled" | "refresh">>({
-    status: enabled ? "loading" : "demo", userId: null, ...empty, problems: [],
+    status: enabled ? "loading" : "demo", userId: null, ...empty, problems: [], deniedSections: [],
   });
 
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();
-    setState({ status: "loading", userId: null, ...empty, problems: [] });
+    setState({ status: "loading", userId: null, ...empty, problems: [], deniedSections: [] });
     const run = async () => {
       try {
         const session = await rpc<{ uid?: number | false }>(
@@ -73,20 +78,26 @@ export function LiveOdooProvider({ children }: { children: ReactNode }) {
           ),
         ] as const);
         if (controller.signal.aborted) return;
-        const failed = tasks.map((t, i) => t.status === "rejected" ? ["جهات الاتصال", "المخازن", "الفواتير"][i] : null).filter((v): v is string => !!v);
+        const sections = ["جهات الاتصال", "المخازن", "الفواتير"];
+        const failed = tasks.map((t, i) => t.status === "rejected" ? sections[i] : null)
+          .filter((v): v is string => !!v);
+        const deniedSections = tasks.map((t, i) =>
+          t.status === "rejected" &&
+          t.reason instanceof Error && t.reason.message === "ODOO_ACCESS_DENIED" ? sections[i] : null,
+        ).filter((v): v is string => !!v);
         if (failed.length === tasks.length) throw new Error("ALL_MODELS_UNAVAILABLE");
         setState({
           status: "ready", userId: session.uid,
           partners: tasks[0].status === "fulfilled" ? tasks[0].value : [],
           warehouses: tasks[1].status === "fulfilled" ? tasks[1].value : [],
           invoices: tasks[2].status === "fulfilled" ? tasks[2].value : [],
-          problems: failed,
+          problems: failed, deniedSections,
         });
       } catch (error) {
         if (controller.signal.aborted) return;
         setState({
           status: error instanceof Error && error.message === "LOGIN_REQUIRED" ? "login" : "error",
-          userId: null, ...empty, problems: [],
+          userId: null, ...empty, problems: [], deniedSections: [],
         });
       }
     };
