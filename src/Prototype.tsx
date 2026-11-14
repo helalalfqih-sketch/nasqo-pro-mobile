@@ -74,6 +74,17 @@ const transactions = [
 ] as const;
 
 export default function Prototype() {
+  // On the real ERP domain, show NASQO as a responsive browser application.
+  // Keep the simulator intact for isolated preview and protected runtime tests.
+  useEffect(() => {
+    const isERP = window.location.protocol === "https:"
+      && window.location.hostname === "erp.indexesstore.com"
+      && window.location.pathname.startsWith("/nasqo-mobile");
+    if (!isERP) return;
+    document.body.classList.add("nasqo-browser-mode");
+    return () => document.body.classList.remove("nasqo-browser-mode");
+  }, []);
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [overlay, setOverlay] = useState<OverlayKind>(null);
