@@ -93,3 +93,12 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - Fixed phone chrome should not animate with pushed screens. Screen content can animate; the status bar, camera cutout, and preview chrome should stay put.
 - Keep the keyboard below the home indicator/safe area layer in z-index, and above ordinary app UI while visible.
 - Keep the home indicator as the topmost safe-area layer in the z-index above everything else in the prototype.
+
+## NASQO ERP browser mode — user design decision (2026-11-15)
+
+- The user explicitly requested: "اخرج التصميم من وضع الهاتف" (remove the phone simulation frame).
+- On the actual production HTTPS route `https://erp.indexesstore.com/nasqo-mobile/`, NASQO must render as a responsive, edge-to-edge browser application: **no Pixel 10/iPhone selector, no hardware bezel/camera, no simulated device status/navigation bars or keyboard overlay, and no large white simulator margins**.
+- Preserve the original NASQO screen contents, Arabic RTL, color palette, routes, buttons, and Odoo integrations. Adapt the existing layout to the available browser width without rebuilding the design.
+- The standalone development/demo preview must retain its iPhone/Pixel simulator and its protected runtime. Production browser mode is a scoped, reversible app-owned override: `src/Prototype.tsx` toggles `body.nasqo-browser-mode`; app-owned `src/prototype.css` overrides simulator presentation only under that class.
+- Do not change `src/mobile/`, `src/styles.css`, `src/App.tsx`, `src/main.tsx`, or protected runtime hash locks for this design decision. If the browser mode needs further work, change its scoped app-owned CSS only. Run `node --test tests/browser-mode.test.mjs`, `npm run check:runtime`, `tsc`, and the existing Odoo/Sites test suites.
+- This intentional production-specific behavior supersedes the earlier requirement to show calibrated device chrome **on the production ERP route only**. All original simulator reference states remain available in the standalone preview.
