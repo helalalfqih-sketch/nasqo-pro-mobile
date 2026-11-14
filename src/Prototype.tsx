@@ -10,6 +10,8 @@ import {
   RulerHorizontalIcon, RulerSquareIcon, StarIcon, SwitchIcon, TableIcon, TrashIcon, TriangleUpIcon, VideoIcon,
 } from "@radix-ui/react-icons";
 import { BottomSheet, FlowStack, KeyboardInput, MobileScroll, useKeyboard, useScreenPortal, type FlowControls, type FlowScreen } from "./mobile";
+import { LiveOdooProvider, LiveOdooGate, useLiveOdoo } from "./liveOdoo";
+import { LiveInvoicesPage } from "./LiveInvoices";
 
 type IconComponent = typeof HomeIcon;
 type SheetKind = "add-operation" | "filters" | "export" | null;
@@ -50,7 +52,7 @@ const vendors = [
   { name: "مشتريات حسين", phone: "", limit: "1,000,000", balance: "0", tone: "neutral", code: "ح" },
 ] as const;
 
-type Vendor = (typeof vendors)[number];
+type Vendor = { id?: number; name: string; phone: string; limit: string; balance: string; tone: "credit" | "debit" | "neutral"; code: string };
 
 const vendorListMetadata = new Map<Vendor, { count: number; id: number }>(vendors.map((vendor, index) => [vendor, {
   count: [47, 44, 6, 3, 65, 46, 17, 3, 1, 2, 4, 7, 5][index],
@@ -152,6 +154,13 @@ export default function Prototype() {
 
   const navigateFromDrawer = (target: DrawerTarget) => {
     setDrawerOpen(false);
+    if (window.location.protocol === "https:" && window.location.hostname === "erp.indexesstore.com" && window.location.pathname.startsWith("/nasqo-mobile")) {
+      if (target === "dashboard") flowRef.current?.replace(dashboardScreen(ctx));
+      else if (target === "purchases" || target === "accounts" || target === "shop") flowRef.current?.push(purchasesScreen(ctx));
+      else if (target === "warehouses") flowRef.current?.push(warehousesScreen(ctx));
+      else showToast("هذه الواجهة لا تعرض بيانات ERP الحقيقية بعد");
+      return;
+    }
     if (target === "accounts") {
       openAccountPicker();
       return;
@@ -185,7 +194,8 @@ export default function Prototype() {
   };
 
   return (
-    <div className="nasqo-app" dir="rtl">
+    <LiveOdooProvider><LiveOdooGate>
+    <div className={window.location.protocol === "https:" && window.location.hostname === "erp.indexesstore.com" && window.location.pathname.startsWith("/nasqo-mobile") ? "nasqo-app live-connected" : "nasqo-app"} dir="rtl">
       <FlowStack initial={initial} />
       <AppDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onNavigate={navigateFromDrawer} onNotify={showToast} />
       <DashboardAddMenu open={dashboardMenuOpen} onClose={() => setDashboardMenuOpen(false)} ctx={ctx} />
@@ -215,21 +225,23 @@ export default function Prototype() {
       </BottomSheet>
       {toast ? <div className="app-toast" role="status" aria-live="polite"><CheckCircledIcon /><span>{toast}</span></div> : null}
     </div>
+    </LiveOdooGate></LiveOdooProvider>
   );
 }
 
 function dashboardScreen(ctx: AppContext): FlowScreen {
+  const liveMode = window.location.protocol === "https:" && window.location.hostname === "erp.indexesstore.com" && window.location.pathname.startsWith("/nasqo-mobile");
   return {
     id: "dashboard",
     headerHeight: 50,
-    header: () => <AppHeader className="dashboard-header" title="نسقو برو" subtitle="" onMenu={ctx.openDrawer} actions={[
+    header: () => <AppHeader className="dashboard-header" title="نسقو برو" subtitle="" onMenu={ctx.openDrawer} actions={liveMode ? [] : [
       { label: "بحث", icon: MagnifyingGlassIcon, onClick: () => ctx.showToast("البحث السريع جاهز") },
       { label: "التنبيهات", icon: BellIcon, onClick: () => ctx.showToast("لديك 3 تنبيهات جديدة") },
       { label: "مزامنة", icon: ReloadIcon, onClick: () => ctx.showToast("تم تحديث بيانات النموذج") },
       { label: "إضافة", icon: PlusIcon, onClick: ctx.openDashboardMenu },
     ]} />,
     footerHeight: 28,
-    footer: () => <BottomNav ctx={ctx} />,
+    footer: () => liveMode ? <div className="live-readonly-footer">متصل بنسقو ERP · قراءة فقط</div> : <BottomNav ctx={ctx} />,
     render: (flow) => {
       ctx.flowRef.current = flow;
       return <DashboardPage flow={flow} ctx={ctx} />;
@@ -238,16 +250,17 @@ function dashboardScreen(ctx: AppContext): FlowScreen {
 }
 
 function purchasesScreen(ctx: AppContext): FlowScreen {
+  const liveMode = window.location.protocol === "https:" && window.location.hostname === "erp.indexesstore.com" && window.location.pathname.startsWith("/nasqo-mobile");
   return {
     id: "purchases",
     headerHeight: 58,
-    header: (flow) => <AppHeader title="المشتريات" subtitle="" onBack={flow.pop} actions={[
+    header: (flow) => <AppHeader title={liveMode ? "جهات الاتصال" : "المشتريات"} subtitle="" onBack={flow.pop} actions={liveMode ? [] : [
       { label: "تصفية", icon: MixerHorizontalIcon, onClick: () => ctx.openSheet("filters") },
       { label: "تصدير المشتريات", icon: DownloadIcon, onClick: () => ctx.openExportMenu("purchases") },
       { label: "بحث", icon: MagnifyingGlassIcon, onClick: () => ctx.showToast("اكتب اسم المورد للبحث") },
     ]} />,
     footerHeight: 54,
-    footer: () => <FinancialFooter debit="8,542,650" credit="11,084,211" balance="2,541,561" />,
+    footer: () => liveMode ? <div className="live-readonly-footer">جهات الاتصال من Odoo · لا توجد أرصدة افتراضية</div> : <FinancialFooter debit="8,542,650" credit="11,084,211" balance="2,541,561" />,
     render: (flow) => {
       ctx.flowRef.current = flow;
       return <PurchasesPage flow={flow} ctx={ctx} />;
@@ -318,6 +331,7 @@ function warehousesScreen(ctx: AppContext): FlowScreen {
 }
 
 function WarehousesPage({ ctx, searchControl }: { ctx: AppContext; searchControl: MutableRefObject<(() => void) | null> }) {
+  const live = useLiveOdoo();
   const [warehouses, setWarehouses] = useState<Warehouse[]>(initialWarehouses);
   const [editing, setEditing] = useState<Warehouse | "new" | null>(null);
   const keyboard = useKeyboard();
@@ -326,9 +340,13 @@ function WarehousesPage({ ctx, searchControl }: { ctx: AppContext; searchControl
   searchControl.current = () => { keyboard.hide(); setSearchOpen(value => !value); setSearch(""); };
   const open = (warehouse: Warehouse | "new") => { keyboard.hide(); setEditing(warehouse); };
   const close = () => { keyboard.hide(); setEditing(null); };
+  const availableWarehouses: Warehouse[] = live.enabled ? live.warehouses.map(w => ({
+    id: w.id, name: w.name, details: "", isDefault: false,
+  })) : warehouses;
   return <><MobileScroll className="warehouse-scroll"><main className="warehouse-page page-with-footer" data-testid="warehouses-screen">
+    {live.enabled ? <p className="live-data-notice">مخازن نسقو ERP الفعلية · قراءة فقط</p> : null}
     {searchOpen ? <KeyboardInput className="warehouse-search" aria-label="اسم المخزن للبحث" placeholder="ابحث عن المخزن" value={search} onChange={event => setSearch(event.target.value)} /> : null}
-    {warehouses.filter(warehouse => warehouse.name.includes(search)).map(warehouse => <article className="warehouse-card" key={warehouse.id}>
+    {availableWarehouses.filter(warehouse => warehouse.name.includes(search)).map(warehouse => <article className="warehouse-card" key={warehouse.id}>
       <button className="warehouse-icon" aria-label={`فتح ${warehouse.name}`} onClick={() => ctx.flowRef.current?.push(inventoryReportScreen(ctx, warehouse.name))}><CubeIcon /></button>
       <strong>{warehouse.name}</strong><b>{warehouse.id}</b>
       <div className="warehouse-card-actions"><button aria-label={`تعديل ${warehouse.name}`} onClick={() => open(warehouse)}><Pencil1Icon /></button><button aria-label={`تقرير حركة ${warehouse.name}`} onClick={() => ctx.flowRef.current?.push(inventoryReportScreen(ctx, warehouse.name))}><ReaderIcon /></button></div>
@@ -471,6 +489,7 @@ function TransferArrowsIcon() {
 }
 
 function DashboardPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
+  const live = useLiveOdoo();
   const quickActions: { label: string; icon: IconComponent; action: () => void; accent?: boolean }[] = [
     { label: "سند جديد", icon: FilePlusIcon, action: () => ctx.openTransaction() },
     { label: "حوالة جديدة", icon: PaperPlaneIcon, action: () => ctx.openSheet("add-operation") },
@@ -493,15 +512,46 @@ function DashboardPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
     { label: "مقاس جديد", icon: RulerSquareIcon },
   ];
 
+  const displayActions = live.enabled ? [
+    { label: "جهات الاتصال", icon: PersonIcon, action: () => flow.push(purchasesScreen(ctx)) },
+    { label: "الفواتير", icon: FileTextIcon, action: () => flow.push(liveInvoicesScreen(ctx)) },
+    { label: "المخازن", icon: CubeIcon, action: () => flow.push(warehousesScreen(ctx)) },
+  ] : quickActions;
+  const displayMetrics = live.enabled ? [
+    { label: "جهات الاتصال (حتى 100)", value: String(live.partners.length), icon: PersonIcon },
+    { label: "الفواتير الحديثة (حتى 100)", value: String(live.invoices.length), icon: FileTextIcon },
+    { label: "المخازن", value: String(live.warehouses.length), icon: CubeIcon },
+  ] : metrics;
   return <><MobileScroll className="app-screen dashboard-scroll">
     <main className="dashboard-page page-with-footer" data-testid="dashboard-screen">
-      <section className="section-block quick-section"><div className="quick-grid">{quickActions.map((item) => <button key={item.label} className={item.accent ? "quick-action accent" : "quick-action"} onClick={item.action}><item.icon /><span>{item.label}</span></button>)}</div></section>
-      <section className="section-block metrics-section"><div className="metrics-grid">{metrics.map((metric) => <button key={metric.label} className={`metric-card ${metric.tone ?? "measurement"}`} onClick={metric.action ?? (() => ctx.showToast(`${metric.label} متاح للمعاينة فقط`))}><span className="metric-icon"><metric.icon /></span><span className="metric-copy"><small>{metric.label}</small>{metric.value ? <strong>{metric.value}</strong> : null}</span></button>)}</div></section>
+      {live.enabled ? <p className="live-data-notice">متصل بنسقو ERP · قراءة فقط · بيانات حسابك الفعلية {live.problems.length ? "· تعذر تحميل: " + live.problems.join("، ") : ""}</p> : null}
+      <section className="section-block quick-section"><div className="quick-grid">{displayActions.map((item) => <button key={item.label} className={item.accent ? "quick-action accent" : "quick-action"} onClick={item.action}><item.icon /><span>{item.label}</span></button>)}</div></section>
+      <section className="section-block metrics-section"><div className="metrics-grid">{displayMetrics.map((metric) => <button key={metric.label} className={`metric-card ${metric.tone ?? "measurement"}`} onClick={metric.action ?? (() => ctx.showToast(`${metric.label} متاح للمعاينة فقط`))}><span className="metric-icon"><metric.icon /></span><span className="metric-copy"><small>{metric.label}</small>{metric.value ? <strong>{metric.value}</strong> : null}</span></button>)}</div></section>
     </main>
-  </MobileScroll><button className="fab dashboard-fab" onClick={() => ctx.openSheet("add-operation")} aria-label="إضافة عملية"><PlusIcon /></button></>;
+  </MobileScroll>{!live.enabled ? <button className="fab dashboard-fab" onClick={() => ctx.openSheet("add-operation")} aria-label="إضافة عملية"><PlusIcon /></button> : null}</>;
+}
+
+function liveInvoicesScreen(ctx: AppContext, partner?: Vendor): FlowScreen {
+  return {
+    id: partner ? "real-partner-" + partner.id : "real-invoices",
+    headerHeight: 50,
+    header: (flow) => <AppHeader
+      title={partner ? "فواتير " + partner.name : "الفواتير الحقيقية"} subtitle=""
+      onBack={flow.pop} actions={[]}
+    />,
+    render: (flow) => {
+      ctx.flowRef.current = flow;
+      return <LiveInvoicesPage partnerId={partner?.id} />;
+    },
+  };
+}
+
+function livePartnerScreen(ctx: AppContext, partner: Vendor): FlowScreen {
+  return liveInvoicesScreen(ctx, partner);
 }
 
 function PurchasesPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
+  const live = useLiveOdoo();
   const [period, setPeriod] = useState("الكل");
   const [sortDirection, setSortDirection] = useState("تنازلي");
   const [sortBy, setSortBy] = useState("date");
@@ -540,11 +590,18 @@ function PurchasesPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
     { label: "طلبية جديدة", action: () => ctx.openVendorInvoice(operationVendor, "order") },
   ] : [];
   const portal = screenRef.current?.querySelector(".nasqo-app");
-  const orderedVendors = sortBy === "name" ? [...vendors].sort((a, b) => a.name.localeCompare(b.name, "ar")) : [...vendors];
+  const availableVendors: Vendor[] = live.enabled ? live.partners.map(partner => ({
+    id: partner.id, name: partner.name, phone: partner.phone || "", limit: "—",
+    balance: "—", tone: "neutral", code: partner.name[0] || "؟",
+  })) : [...vendors];
+  const orderedVendors = sortBy === "name"
+    ? [...availableVendors].sort((a, b) => a.name.localeCompare(b.name, "ar"))
+    : [...availableVendors];
   const visibleVendors = sortDirection === "تنازلي" ? orderedVendors : orderedVendors.reverse();
 
   return <div className="purchases-layout">
     <section className="purchases-filter-panel" data-testid="purchases-filter-panel">
+      {live.enabled ? <p className="live-data-notice">جهات الاتصال من نسقو ERP · قراءة فقط · الأرصدة ليست معروضة</p> : null}
       <div className="purchases-periods" role="group" aria-label="الفترة">{periods.map(item => <button key={item} aria-pressed={period === item} onClick={() => setPeriod(item)}><span className="period-radio-mark" />{item}</button>)}</div>
       <div className="purchases-sort-row"><select aria-label="ترتيب المشتريات" value={sortBy} onChange={event => setSortBy(event.target.value)}><option value="date">ترتيب حسب التاريخ</option><option value="name">ترتيب حسب الاسم</option></select><div>{["تصاعدي", "تنازلي"].map(item => <button key={item} aria-pressed={sortDirection === item} onClick={() => setSortDirection(item)}><span className="period-radio-mark" />{item}</button>)}</div></div>
       <div className="purchases-currency-row"><span>العملة</span><select aria-label="عملة المشتريات"><option>ريال</option><option>دولار</option></select><label><input type="checkbox" checked={byCurrency} onChange={event => setByCurrency(event.target.checked)} />حسب العملة</label></div>
@@ -552,24 +609,24 @@ function PurchasesPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
     </section>
     <MobileScroll className="app-screen purchases-list-scroll">
       <main className="purchases-page page-with-footer" data-testid="purchases-screen">
-        <section className="vendor-list">{visibleVendors.map(vendor => <article key={vendor.name} className="vendor-card" data-vendor-id={vendorListMetadata.get(vendor)?.id}>
+        <section className="vendor-list">{visibleVendors.map(vendor => <article key={vendor.name} className="vendor-card" data-vendor-id={vendor.id ?? vendorListMetadata.get(vendor)?.id}>
           <button className="vendor-call" aria-label={`اتصال بـ ${vendor.name}`} onClick={() => ctx.showToast("معاينة اتصال فقط — لم يتم إجراء مكالمة")}><MobileIcon /></button>
-          <button className="vendor-open" onClick={() => flow.push(supplierScreen(ctx, vendor))} aria-label={`فتح كشف ${vendor.name}`}>
-            <span className="vendor-main"><strong>{vendor.name}</strong><small>سقف المديونية: {vendor.limit}</small>{vendor.phone ? <em className={vendor === vendors[1] ? "cash-vendor-phone" : undefined}>{vendor.phone}</em> : null}</span>
-            <span className={`vendor-balance ${vendor.tone}`}><strong>{vendor.balance}{vendor.tone === "credit" ? "-" : ""}</strong></span>
+          <button className="vendor-open" onClick={() => flow.push(live.enabled ? livePartnerScreen(ctx, vendor) : supplierScreen(ctx, vendor))} aria-label={`فتح كشف ${vendor.name}`}>
+            <span className="vendor-main"><strong>{vendor.name}</strong><small>{live.enabled ? "جهة اتصال فعلية" : "سقف المديونية: " + vendor.limit}</small>{vendor.phone ? <em className={vendor === vendors[1] ? "cash-vendor-phone" : undefined}>{vendor.phone}</em> : null}</span>
+            <span className={`vendor-balance ${vendor.tone}`}><strong>{vendor.balance}{!live.enabled && vendor.tone === "credit" ? "-" : ""}</strong></span>
           </button>
           <span className="vendor-actions" role="group" aria-label={`إجراءات ${vendor.name}`}>
             <button aria-label={`تعديل ${vendor.name}`} onClick={() => ctx.openAccountCreate("compact")}><Pencil1Icon /></button>
             <button aria-label={`رسالة إلى ${vendor.name}`} onClick={() => ctx.showToast("معاينة فقط — لم يتم إرسال أي رسالة")}><ChatBubbleIcon /></button>
             <button className="vendor-operation-add" aria-label={`عمليات ${vendor.name}`} onClick={() => openVendorMenu(vendor)}><PlusIcon /></button>
-            <button className="vendor-count" aria-label={`عرض حركات ${vendor.name}`} onClick={() => flow.push(supplierScreen(ctx, vendor))}>{vendorListMetadata.get(vendor)?.count}</button>
-            <span className="vendor-code">{vendorListMetadata.get(vendor)?.id}</span>
+            <button className="vendor-count" aria-label={`عرض حركات ${vendor.name}`} onClick={() => flow.push(live.enabled ? livePartnerScreen(ctx, vendor) : supplierScreen(ctx, vendor))}>{live.enabled ? live.problems.includes("الفواتير") ? "—" : live.invoices.filter(i => Array.isArray(i.partner_id) && i.partner_id[0] === vendor.id).length : vendorListMetadata.get(vendor)?.count}</button>
+            <span className="vendor-code">{vendor.id ?? vendorListMetadata.get(vendor)?.id}</span>
           </span>
         </article>)}</section>
       </main>
     </MobileScroll>
     {createMenuOpen ? <div className="purchase-create-menu" data-testid="purchase-create-menu" role="menu" aria-label="قائمة إنشاء عملية">{createActions.map((item) => <button key={item.label} role="menuitem" onClick={() => runCreateAction(item.action)}>{item.label}</button>)}</div> : null}
-    <button className="fab fixed-fab" onClick={() => { keyboard.hide(); setCreateMenuOpen((open) => !open); }} aria-label="إضافة مورد أو عملية" aria-expanded={createMenuOpen}><PlusIcon /></button>
+    {!live.enabled ? <button className="fab fixed-fab" onClick={() => { keyboard.hide(); setCreateMenuOpen((open) => !open); }} aria-label="إضافة مورد أو عملية" aria-expanded={createMenuOpen}><PlusIcon /></button> : null}
     {operationVendor && portal ? createPortal(<div className="vendor-menu-layer" data-testid="vendor-operations-menu"><button className="context-menu-backdrop" aria-label="إغلاق عمليات المورد" onClick={() => setOperationVendor(null)} /><aside className="vendor-operations-menu" role="menu" aria-label={`عمليات ${operationVendor.name}`}>{contextActions.map(item => <button role="menuitem" key={item.label} onClick={() => { setOperationVendor(null); item.action(); }}>{item.label}</button>)}</aside></div>, portal) : null}
   </div>;
 }
