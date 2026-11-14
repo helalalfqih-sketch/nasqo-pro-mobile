@@ -102,3 +102,14 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - The standalone development/demo preview must retain its iPhone/Pixel simulator and its protected runtime. Production browser mode is a scoped, reversible app-owned override: `src/Prototype.tsx` toggles `body.nasqo-browser-mode`; app-owned `src/prototype.css` overrides simulator presentation only under that class.
 - Do not change `src/mobile/`, `src/styles.css`, `src/App.tsx`, `src/main.tsx`, or protected runtime hash locks for this design decision. If the browser mode needs further work, change its scoped app-owned CSS only. Run `node --test tests/browser-mode.test.mjs`, `npm run check:runtime`, `tsc`, and the existing Odoo/Sites test suites.
 - This intentional production-specific behavior supersedes the earlier requirement to show calibrated device chrome **on the production ERP route only**. All original simulator reference states remain available in the standalone preview.
+
+## NASQO ERP Dashboard 2026-11-15 — user-requested live features
+
+- Preserve the existing Arabic RTL blue/orange NASQO visual language and the dedicated responsive, edge-to-edge production browser mode on `https://erp.indexesstore.com/nasqo-mobile/`.
+- Production dashboard shows actual high-level sales (last seven calendar days, posted invoices minus refunds **per currency**), recent invoices, and stock-low reorder alerts. The chart **must use D3.js**; values must derive only from authorized Odoo sessions, never mock/fabricated amounts.
+- Low-stock thresholds are sourced from Odoo `stock.warehouse.orderpoint.product_min_qty`, compared to `qty_on_hand` at each configured location; missing rules or missing permission must never appear as a clean inventory total.
+- Include a quick-action section for new sales invoice, purchase order, and contact. Financial writes continue through Odoo native forms; do not auto-create business records from dashboard renders.
+- Users may download/share a locally generated PDF containing their authorized sales summary and low-stock rows. Do not send data to a third-party PDF service or inject Odoo strings as HTML.
+- Keep the standalone prototype's original 9 quick actions, 8 metric cards, iPhone/Pixel frame, and protected runtime. Make these dashboard enhancements only in the live ERP branch of `DashboardPage`.
+- Source of truth: `docs/NASQO_DASHBOARD_20261115.md`; component in `src/NasqoDashboard.tsx`, aggregation logic in `src/dashboardMath.ts` / `src/dashboardData.ts`, and local PDF in `src/dashboardPdf.ts`.
+- Before promoting, run `npm run check:runtime`, `npm run test:dashboard`, `npm run test:odoo`, `npm run test:warehouse`, `npm run test:erp`, `npm run test:sites`, `tsc`, and the ERP Vite build. Check authenticated permission and actual browser PDF rendering separately; unavailable tools must not be represented as passed tests.
