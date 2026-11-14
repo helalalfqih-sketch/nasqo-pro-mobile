@@ -6,6 +6,7 @@ export type LiveWarehouse = { id: number; name: string; company_id?: [number, st
 export type LiveInvoice = {
   id: number; name: string | false; partner_id: [number, string] | false;
   move_type: string; invoice_date: string | false; amount_total: number; state: string;
+  currency_id?: [number, string] | false;
 };
 
 type LiveState = {
@@ -20,7 +21,7 @@ const Context = createContext<LiveState>({
 });
 export const useLiveOdoo = () => useContext(Context);
 
-async function rpc<T>(path: string, params: Record<string, unknown>, signal: AbortSignal): Promise<T> {
+export async function rpc<T>(path: string, params: Record<string, unknown>, signal: AbortSignal): Promise<T> {
   const response = await fetch(path, {
     method: "POST", credentials: "same-origin", cache: "no-store",
     headers: { "Content-Type": "application/json" },
@@ -73,7 +74,7 @@ export function LiveOdooProvider({ children }: { children: ReactNode }) {
           readModel<LiveWarehouse>("stock.warehouse", ["id", "name", "company_id"], controller.signal),
           readModel<LiveInvoice>(
             "account.move",
-            ["id", "name", "partner_id", "move_type", "invoice_date", "amount_total", "state"],
+            ["id", "name", "partner_id", "move_type", "invoice_date", "amount_total", "state", "currency_id"],
             controller.signal, [["move_type", "in", ["in_invoice", "out_invoice"]]],
           ),
         ] as const);
