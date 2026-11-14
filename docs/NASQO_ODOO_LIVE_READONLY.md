@@ -1,5 +1,21 @@
 # NASQO Pro Mobile — Odoo 19 read-only integration and HTTPS cutover
 
+## Current deployment status — after 2026-11-15 action integration
+
+**LIVE HTTPS: `https://erp.indexesstore.com/nasqo-mobile/` is active and returned HTTP 200.** The following historical pre-cutover notes are retained for incident traceability but the root-owned Caddyfile blocker has been resolved by the authorized host operator.
+
+- App now includes both read-only browsing and **explicitly confirmed contact create/update**, using the authenticated Odoo browser session. These contact mutations call `res.partner.create/write` and enforce Odoo ACLs; no accounting write occurs from the mobile frontend.
+- Financial / warehouse transaction buttons open Odoo 19 native authorized forms. React does not post invoices, payments, journal entries or stock transfers directly.
+- The original nine dashboard actions, eight cards and visual design are preserved. See `docs/NASQO_ACTION_AUDIT.md` for the per-action matrix.
+- A total of 31 Odoo native action IDs were checked against installed `ir.actions.act_window` records.
+- `npm run test:sites` 4/4, `npm run test:erp` 3/3, `npm run test:odoo` 5/5 PASS. Public HTTPS, new JS/CSS, original Odoo home, login and store all returned HTTP 200.
+- **Not yet verified:** authenticated multi-company/ACL end-to-end browser test; native action navigation after login; real contact create/write integration. Those tests require user-approved nonproduction test records.
+- Previous UI index backup: `/home/chatgpt-admin/nasqo-mobile-ops/backups/erp-ui-20261114T225030Z/index.html`.
+- Public HTTP demo port 18175 remains active; it is separate and should be retired only after approved cutover.
+- Source changes saved in GitHub Draft PR #1; not merged to main.
+
+---
+
 ## Verified status (2026-11-15)
 
 **Not live on the production hostname yet.** The actual production Caddyfile is root-owned, and the current Remote Desktop Commander account cannot write it. This is a staging and operator handoff, not evidence of authenticated business-data access.
