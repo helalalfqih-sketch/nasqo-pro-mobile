@@ -12,6 +12,8 @@ import {
 import { BottomSheet, FlowStack, KeyboardInput, MobileScroll, useKeyboard, useScreenPortal, type FlowControls, type FlowScreen } from "./mobile";
 import { LiveOdooProvider, LiveOdooGate, useLiveOdoo } from "./liveOdoo";
 import { LiveInvoicesPage } from "./LiveInvoices";
+import { openNativeOdoo, openOdooWhatsAppStatus, type NativeOdooAction } from "./odooNavigation";
+import { ContactSaveError, saveOdooContact } from "./odooContacts";
 
 type IconComponent = typeof HomeIcon;
 type SheetKind = "add-operation" | "filters" | "export" | null;
@@ -34,6 +36,7 @@ type AppContext = {
   openDashboardMenu: () => void;
   openExportMenu: (kind?: ExportKind) => void;
   showToast: (message: string) => void;
+  nativeAction: (action: NativeOdooAction) => void;
 };
 
 const vendors = [
@@ -147,7 +150,7 @@ export default function Prototype() {
   }, [dismissKeyboard]);
 
   const ctx = useMemo<AppContext>(
-    () => ({ flowRef, openDrawer, openSheet, openAccountPicker, openAccountEdit, openTransaction, openAccountCreate, openInvoice, openVendorInvoice, openDashboardMenu, openExportMenu, showToast }),
+    () => ({ flowRef, openDrawer, openSheet, openAccountPicker, openAccountEdit, openTransaction, openAccountCreate, openInvoice, openVendorInvoice, openDashboardMenu, openExportMenu, showToast, nativeAction: openNativeOdoo }),
     [openAccountCreate, openAccountPicker, openAccountEdit, openDrawer, openExportMenu, openInvoice, openVendorInvoice, openDashboardMenu, openSheet, openTransaction, showToast],
   );
   const initial = useMemo(() => dashboardScreen(ctx), [ctx]);
@@ -156,9 +159,16 @@ export default function Prototype() {
     setDrawerOpen(false);
     if (window.location.protocol === "https:" && window.location.hostname === "erp.indexesstore.com" && window.location.pathname.startsWith("/nasqo-mobile")) {
       if (target === "dashboard") flowRef.current?.replace(dashboardScreen(ctx));
-      else if (target === "purchases" || target === "accounts" || target === "shop") flowRef.current?.push(purchasesScreen(ctx));
+      else if (target === "purchases" || target === "shop") flowRef.current?.push(purchasesScreen(ctx));
       else if (target === "warehouses") flowRef.current?.push(warehousesScreen(ctx));
-      else showToast("هذه الواجهة لا تعرض بيانات ERP الحقيقية بعد");
+      else if (target === "accounts") openNativeOdoo("chartOfAccounts");
+      else if (target === "currency") openNativeOdoo("currencies");
+      else if (target === "quotes") openNativeOdoo("quotations");
+      else if (target === "orders") openNativeOdoo("salesOrders");
+      else if (target === "inventory-report") openNativeOdoo("stockMoves");
+      else if (target === "whatsapp") openOdooWhatsAppStatus();
+      else if (target === "settings") window.location.assign("/odoo");
+      else showToast("هذه الوظيفة غير متصلة بنظام Odoo؛ لم تُنفّذ أي عملية");
       return;
     }
     if (target === "accounts") {
@@ -202,7 +212,7 @@ export default function Prototype() {
       <ExportSideMenu open={exportMenuOpen} kind={exportKind} onClose={() => setExportMenuOpen(false)} onAction={(message) => { setExportMenuOpen(false); showToast(message); }} />
       <InvoiceModal key={invoiceSeed.revision} vendor={invoiceSeed.vendor} intent={invoiceSeed.intent} open={overlay === "invoice"} onClose={closeOverlay} onNotify={showToast} onAddAccount={() => { returnOverlay.current = "invoice"; openAccountCreate("extended"); }} onDone={(message) => { closeOverlay(); showToast(message); }} />
       <ActivationModal open={overlay === "activation"} onClose={() => setOverlay(null)} onDone={(message) => { setOverlay(null); showToast(message); }} />
-      <AccountPickerModal open={overlay === "account-picker"} title={pickerMode === "edit" ? "تعديل بيانات حساب" : "كشف حساب"} onClose={() => setOverlay(null)} onAddAccount={() => openAccountCreate("compact")} onConfirm={(vendor) => { if (pickerMode === "edit") { setEditingAccount(vendor); setOverlay("account-create-compact"); } else { setOverlay(null); flowRef.current?.push(supplierScreen(ctx, vendor)); } }} />
+      <AccountPickerModal open={overlay === "account-picker"} title={pickerMode === "edit" ? "تعديل بيانات حساب" : "كشف حساب"} onClose={() => setOverlay(null)} onAddAccount={() => openAccountCreate("compact")} onConfirm={(vendor) => { if (pickerMode === "edit") { setEditingAccount(vendor); setOverlay("account-create-compact"); } else { setOverlay(null); flowRef.current?.push(window.location.protocol === "https:" && window.location.hostname === "erp.indexesstore.com" && window.location.pathname.startsWith("/nasqo-mobile/") ? livePartnerScreen(ctx, vendor) : supplierScreen(ctx, vendor)); } }} />
       <TransactionModal open={overlay === "transaction"} vendor={transactionVendor} onClose={() => setOverlay(null)} onNotify={showToast} onDone={(message) => { setOverlay(null); showToast(message); }} />
       <AccountCreateModal key={editingAccount?.name ?? "new-compact"} initialVendor={editingAccount} mode="compact" open={overlay === "account-create-compact"} onClose={() => setOverlay(null)} onNotify={showToast} onDone={(message) => { setOverlay(null); showToast(message); }} />
       <AccountCreateModal mode="extended" open={overlay === "account-create-extended"} onClose={closeOverlay} onNotify={showToast} onDone={(message) => { closeOverlay(); showToast(message); }} />
@@ -234,14 +244,14 @@ function dashboardScreen(ctx: AppContext): FlowScreen {
   return {
     id: "dashboard",
     headerHeight: 50,
-    header: () => <AppHeader className="dashboard-header" title="نسقو برو" subtitle="" onMenu={ctx.openDrawer} actions={liveMode ? [] : [
-      { label: "بحث", icon: MagnifyingGlassIcon, onClick: () => ctx.showToast("البحث السريع جاهز") },
-      { label: "التنبيهات", icon: BellIcon, onClick: () => ctx.showToast("لديك 3 تنبيهات جديدة") },
-      { label: "مزامنة", icon: ReloadIcon, onClick: () => ctx.showToast("تم تحديث بيانات النموذج") },
+    header: () => <AppHeader className="dashboard-header" title="نسقو برو" subtitle="" onMenu={ctx.openDrawer} actions={[
+      { label: "بحث", icon: MagnifyingGlassIcon, onClick: () => liveMode ? ctx.nativeAction("contacts") : ctx.showToast("البحث السريع جاهز") },
+      { label: "التنبيهات", icon: BellIcon, onClick: () => liveMode ? ctx.nativeAction("activities") : ctx.showToast("لديك 3 تنبيهات جديدة") },
+      { label: "مزامنة", icon: ReloadIcon, onClick: () => liveMode ? window.location.reload() : ctx.showToast("تم تحديث بيانات النموذج") },
       { label: "إضافة", icon: PlusIcon, onClick: ctx.openDashboardMenu },
     ]} />,
     footerHeight: 28,
-    footer: () => liveMode ? <div className="live-readonly-footer">متصل بنسقو ERP · قراءة فقط</div> : <BottomNav ctx={ctx} />,
+    footer: () => <BottomNav ctx={ctx} />,
     render: (flow) => {
       ctx.flowRef.current = flow;
       return <DashboardPage flow={flow} ctx={ctx} />;
@@ -254,10 +264,10 @@ function purchasesScreen(ctx: AppContext): FlowScreen {
   return {
     id: "purchases",
     headerHeight: 58,
-    header: (flow) => <AppHeader title={liveMode ? "جهات الاتصال" : "المشتريات"} subtitle="" onBack={flow.pop} actions={liveMode ? [] : [
-      { label: "تصفية", icon: MixerHorizontalIcon, onClick: () => ctx.openSheet("filters") },
+    header: (flow) => <AppHeader title={liveMode ? "جهات الاتصال" : "المشتريات"} subtitle="" onBack={flow.pop} actions={[
+      { label: "تصفية", icon: MixerHorizontalIcon, onClick: () => liveMode ? ctx.nativeAction("suppliers") : ctx.openSheet("filters") },
       { label: "تصدير المشتريات", icon: DownloadIcon, onClick: () => ctx.openExportMenu("purchases") },
-      { label: "بحث", icon: MagnifyingGlassIcon, onClick: () => ctx.showToast("اكتب اسم المورد للبحث") },
+      { label: "بحث", icon: MagnifyingGlassIcon, onClick: () => liveMode ? ctx.nativeAction("contacts") : ctx.showToast("اكتب اسم المورد للبحث") },
     ]} />,
     footerHeight: 54,
     footer: () => liveMode ? <div className="live-readonly-footer">جهات الاتصال من Odoo · لا توجد أرصدة افتراضية</div> : <FinancialFooter debit="8,542,650" credit="11,084,211" balance="2,541,561" />,
@@ -347,11 +357,11 @@ function WarehousesPage({ ctx, searchControl }: { ctx: AppContext; searchControl
     {live.enabled ? <p className="live-data-notice">مخازن نسقو ERP الفعلية · قراءة فقط</p> : null}
     {searchOpen ? <KeyboardInput className="warehouse-search" aria-label="اسم المخزن للبحث" placeholder="ابحث عن المخزن" value={search} onChange={event => setSearch(event.target.value)} /> : null}
     {availableWarehouses.filter(warehouse => warehouse.name.includes(search)).map(warehouse => <article className="warehouse-card" key={warehouse.id}>
-      <button className="warehouse-icon" aria-label={`فتح ${warehouse.name}`} onClick={() => ctx.flowRef.current?.push(inventoryReportScreen(ctx, warehouse.name))}><CubeIcon /></button>
+      <button className="warehouse-icon" aria-label={`فتح ${warehouse.name}`} onClick={() => live.enabled ? ctx.nativeAction("stockMoves") : ctx.flowRef.current?.push(inventoryReportScreen(ctx, warehouse.name))}><CubeIcon /></button>
       <strong>{warehouse.name}</strong><b>{warehouse.id}</b>
-      <div className="warehouse-card-actions"><button aria-label={`تعديل ${warehouse.name}`} onClick={() => open(warehouse)}><Pencil1Icon /></button><button aria-label={`تقرير حركة ${warehouse.name}`} onClick={() => ctx.flowRef.current?.push(inventoryReportScreen(ctx, warehouse.name))}><ReaderIcon /></button></div>
+      <div className="warehouse-card-actions"><button aria-label={`تعديل ${warehouse.name}`} onClick={() => live.enabled ? ctx.nativeAction("warehouses") : open(warehouse)}><Pencil1Icon /></button><button aria-label={`تقرير حركة ${warehouse.name}`} onClick={() => live.enabled ? ctx.nativeAction("stockMoves") : ctx.flowRef.current?.push(inventoryReportScreen(ctx, warehouse.name))}><ReaderIcon /></button></div>
     </article>)}
-  </main></MobileScroll><button className="fab warehouse-fab" aria-label="إضافة مخزن" onClick={() => open("new")}><PlusIcon /></button>
+  </main></MobileScroll><button className="fab warehouse-fab" aria-label="إضافة مخزن" onClick={() => live.enabled ? ctx.nativeAction("warehouses") : open("new")}><PlusIcon /></button>
     {editing !== null ? <WarehouseModal key={editing === "new" ? "new" : editing.id} warehouse={editing === "new" ? undefined : editing} onClose={close} onNotify={ctx.showToast} onSave={(value) => {
       setWarehouses(current => {
         const saved = { ...value, id: editing === "new" ? Math.max(...current.map(w => w.id)) + 1 : editing.id };
@@ -406,6 +416,7 @@ function InventoryReportPage({ warehouse }: { warehouse: string }) {
 }
 
 function InvoiceModal({ open, vendor, intent, onClose, onAddAccount, onDone, onNotify }: { open: boolean; vendor: Vendor; intent: InvoiceIntent; onClose: () => void; onAddAccount: () => void; onDone: (message: string) => void; onNotify: (message: string) => void }) {
+  const live = useLiveOdoo();
   const [content, setContent] = useState("items");
   const [payment, setPayment] = useState(vendor === vendors[1] ? "cash" : "credit");
   const [kind, setKind] = useState(vendor === vendors[1] ? "purchase" : "sale");
@@ -422,11 +433,21 @@ function InvoiceModal({ open, vendor, intent, onClose, onAddAccount, onDone, onN
     <div className="invoice-radio-bar invoice-kind-bar"><label className="green"><input type="radio" name="invoice-kind" checked={kind === "purchase"} onChange={() => setKind("purchase")} />فاتورة شراء</label><label className="red"><input type="radio" name="invoice-kind" checked={kind === "sale"} onChange={() => setKind("sale")} />فاتورة بيع</label><button aria-pressed={isReturn} onClick={() => setReturn(value => !value)}>{isReturn ? "فاتورة جديدة" : "مردود جديد"}</button></div>
     <div className="invoice-search"><KeyboardInput aria-label="البحث عن حساب الفاتورة" placeholder="ابحث عن الاسم هنا" value={search} onChange={event => setSearch(event.target.value)} /><button aria-label="مسح بحث الفاتورة" onClick={() => setSearch("")}><Cross2Icon /></button></div>
     <span className="invoice-helper">أو حدد الحساب من هنا</span>
-    <div className="invoice-account"><button aria-label="إضافة حساب للفاتورة" onClick={onAddAccount}><PlusIcon /></button><select aria-label="حساب الفاتورة" value={account} onChange={event => setAccount(event.target.value)}>{vendors.filter(v => !search || v.name.includes(search) || v.name === account).map(v => <option key={v.name}>{v.name}</option>)}</select></div>
+    <div className="invoice-account"><button aria-label="إضافة حساب للفاتورة" onClick={onAddAccount}><PlusIcon /></button><select aria-label="حساب الفاتورة" value={live.enabled && !live.partners.some(p => p.name === account) ? live.partners[0]?.name ?? "" : account} onChange={event => setAccount(event.target.value)}>{live.enabled ? live.partners.filter(p => !search || p.name.includes(search) || p.name === account).map(p => <option key={p.id} value={p.name}>{p.name}</option>) : vendors.filter(v => !search || v.name.includes(search) || v.name === account).map(v => <option key={v.name}>{v.name}</option>)}</select></div>
     <div className="invoice-currency"><label><span>العملة</span><select aria-label="عملة الفاتورة"><option>ريال</option><option>دولار</option></select></label><label><span>سعر الصرف</span><KeyboardInput aria-label="سعر صرف الفاتورة" inputMode="decimal" defaultValue="1" /></label></div>
-    <label className="invoice-warehouse"><span>المخزن</span><select aria-label="مخزن الفاتورة">{initialWarehouses.map(w => <option key={w.id}>{w.name}</option>)}</select></label>
+    <label className="invoice-warehouse"><span>المخزن</span><select aria-label="مخزن الفاتورة">{(live.enabled ? live.warehouses : initialWarehouses).map(w => <option key={w.id}>{w.name}</option>)}</select></label>
     <div className="invoice-note"><button aria-label="صورة بيان الفاتورة" onClick={() => onNotify("إرفاق الصور متاح في النسخة المتصلة")}><CameraIcon /></button><KeyboardInput aria-label="بيان الفاتورة" placeholder="اكتب البيان" value={note} onChange={event => setNote(event.target.value)} /><button aria-label="بيان الفاتورة صوتيًا" onClick={() => onNotify("الإدخال الصوتي للمعاينة فقط")}><SpeakerLoudIcon /></button></div>
-    <div className="form-modal-actions"><button className="cancel" onClick={onClose}>إلغاء</button><button className="form-help" onClick={() => onNotify("اختر الحساب والمخزن ثم اضغط عمل فاتورة")}><VideoIcon />شرح</button><button className="save" onClick={() => onDone("تم تجهيز فاتورة تجريبية")}>عمل فاتورة</button></div>
+    <div className="form-modal-actions"><button className="cancel" onClick={onClose}>إلغاء</button><button className="form-help" onClick={() => onNotify("اختر الحساب والمخزن ثم اضغط عمل فاتورة")}><VideoIcon />شرح</button><button className="save" onClick={() => {
+    if (live.enabled) {
+      const target: NativeOdooAction = intent === "quote" ? "quotations" :
+        intent === "order" ? (kind === "purchase" ? "purchaseOrders" : "salesOrders") :
+        isReturn ? (kind === "purchase" ? "vendorRefunds" : "customerRefunds") :
+        (kind === "purchase" ? "vendorBills" : "customerInvoices");
+      if (window.confirm("سيُفتح النموذج الأصلي في Odoo لإكمال الأصناف والضرائب والصلاحيات. لم تُنشأ أي فاتورة بعد.")) openNativeOdoo(target);
+      return;
+    }
+    onDone("تم تجهيز فاتورة تجريبية");
+  }}>عمل فاتورة</button></div>
   </section></div>;
 }
 
@@ -512,23 +533,31 @@ function DashboardPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
     { label: "مقاس جديد", icon: RulerSquareIcon },
   ];
 
-  const displayActions = live.enabled ? [
-    { label: "جهات الاتصال", icon: PersonIcon, action: () => flow.push(purchasesScreen(ctx)) },
-    { label: "الفواتير", icon: FileTextIcon, action: () => flow.push(liveInvoicesScreen(ctx)) },
-    { label: "المخازن", icon: CubeIcon, action: () => flow.push(warehousesScreen(ctx)) },
-  ] : quickActions;
-  const displayMetrics = live.enabled ? [
-    { label: "جهات الاتصال (حتى 100)", value: String(live.partners.length), icon: PersonIcon },
-    { label: "الفواتير الحديثة (حتى 100)", value: String(live.invoices.length), icon: FileTextIcon },
-    { label: "المخازن", value: String(live.warehouses.length), icon: CubeIcon },
-  ] : metrics;
+  // The nine quick actions and eight metric cards keep their original labels,
+  // order, and styling. Live finance actions open Odoo's own ACL-protected forms.
+  const liveQuickTargets: NativeOdooAction[] = [
+    "payments", "internalPayments", "partnerLedger", "journalEntries", "journalEntries",
+    "cashRegisters", "customerInvoices", "currencies", "contacts",
+  ];
+  const displayActions = live.enabled ? quickActions.map((item, index) => ({
+    ...item, action: () => index === 6 ? ctx.openInvoice() :
+      index === 8 ? flow.push(purchasesScreen(ctx)) : ctx.nativeAction(liveQuickTargets[index]),
+  })) : quickActions;
+  const liveMetricTargets: NativeOdooAction[] = [
+    "customerInvoices", "vendorBills", "customers", "employees",
+    "internalPayments", "pos", "productVariants", "productVariants",
+  ];
+  const displayMetrics = live.enabled ? metrics.map((metric, index) => ({
+    ...metric, value: metric.value === undefined ? undefined : "—",
+    action: () => ctx.nativeAction(liveMetricTargets[index]),
+  })) : metrics;
   return <><MobileScroll className="app-screen dashboard-scroll">
     <main className="dashboard-page page-with-footer" data-testid="dashboard-screen">
-      {live.enabled ? <p className="live-data-notice">متصل بنسقو ERP · قراءة فقط · بيانات حسابك الفعلية {live.problems.length ? "· تعذر تحميل: " + live.problems.join("، ") : ""}</p> : null}
+      {live.enabled ? <p className="live-data-notice">متصل بنسقو ERP · بيانات حقيقية وصلاحيات Odoo {live.problems.length ? "· تعذر تحميل: " + live.problems.join("، ") : ""}</p> : null}
       <section className="section-block quick-section"><div className="quick-grid">{displayActions.map((item) => <button key={item.label} className={item.accent ? "quick-action accent" : "quick-action"} onClick={item.action}><item.icon /><span>{item.label}</span></button>)}</div></section>
       <section className="section-block metrics-section"><div className="metrics-grid">{displayMetrics.map((metric) => <button key={metric.label} className={`metric-card ${metric.tone ?? "measurement"}`} onClick={metric.action ?? (() => ctx.showToast(`${metric.label} متاح للمعاينة فقط`))}><span className="metric-icon"><metric.icon /></span><span className="metric-copy"><small>{metric.label}</small>{metric.value ? <strong>{metric.value}</strong> : null}</span></button>)}</div></section>
     </main>
-  </MobileScroll>{!live.enabled ? <button className="fab dashboard-fab" onClick={() => ctx.openSheet("add-operation")} aria-label="إضافة عملية"><PlusIcon /></button> : null}</>;
+  </MobileScroll><button className="fab dashboard-fab" onClick={() => ctx.openSheet("add-operation")} aria-label="إضافة عملية"><PlusIcon /></button></>;
 }
 
 function liveInvoicesScreen(ctx: AppContext, partner?: Vendor): FlowScreen {
@@ -571,10 +600,15 @@ function PurchasesPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
     { label: "طلبية جديدة", action: () => ctx.showToast("تم تجهيز طلبية تجريبية") },
     { label: "إضافة تنبيه سداد", action: () => ctx.showToast("تمت إضافة تنبيه تجريبي") },
   ];
-  const runCreateAction = (action: () => void) => {
+  const createTargets: NativeOdooAction[] = [
+    "payments", "customerInvoices", "customerRefunds", "internalPayments",
+    "currencies", "quotations", "salesOrders", "payments",
+  ];
+  const runCreateAction = (action: () => void, index: number) => {
     keyboard.hide();
     setCreateMenuOpen(false);
-    action();
+    if (live.enabled) ctx.nativeAction(createTargets[index]);
+    else action();
   };
   const openVendorMenu = (vendor: Vendor) => {
     keyboard.hide();
@@ -590,6 +624,9 @@ function PurchasesPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
     { label: "طلبية جديدة", action: () => ctx.openVendorInvoice(operationVendor, "order") },
   ] : [];
   const portal = screenRef.current?.querySelector(".nasqo-app");
+  const vendorOperationTargets: NativeOdooAction[] = [
+    "vendorBills", "vendorRefunds", "payments", "currencies", "purchaseRFQs", "purchaseOrders",
+  ];
   const availableVendors: Vendor[] = live.enabled ? live.partners.map(partner => ({
     id: partner.id, name: partner.name, phone: partner.phone || "", limit: "—",
     balance: "—", tone: "neutral", code: partner.name[0] || "؟",
@@ -610,14 +647,17 @@ function PurchasesPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
     <MobileScroll className="app-screen purchases-list-scroll">
       <main className="purchases-page page-with-footer" data-testid="purchases-screen">
         <section className="vendor-list">{visibleVendors.map(vendor => <article key={vendor.name} className="vendor-card" data-vendor-id={vendor.id ?? vendorListMetadata.get(vendor)?.id}>
-          <button className="vendor-call" aria-label={`اتصال بـ ${vendor.name}`} onClick={() => ctx.showToast("معاينة اتصال فقط — لم يتم إجراء مكالمة")}><MobileIcon /></button>
+          <button className="vendor-call" aria-label={`اتصال بـ ${vendor.name}`} onClick={() => {
+      if (live.enabled && vendor.phone && /^\+?[0-9 ()-]{5,25}$/.test(vendor.phone)) window.location.href = "tel:" + vendor.phone.replace(/[^\d+]/g, "");
+      else ctx.showToast(live.enabled ? "رقم الهاتف غير متاح لهذا الحساب" : "معاينة اتصال فقط — لم يتم إجراء مكالمة");
+    }}><MobileIcon /></button>
           <button className="vendor-open" onClick={() => flow.push(live.enabled ? livePartnerScreen(ctx, vendor) : supplierScreen(ctx, vendor))} aria-label={`فتح كشف ${vendor.name}`}>
             <span className="vendor-main"><strong>{vendor.name}</strong><small>{live.enabled ? "جهة اتصال فعلية" : "سقف المديونية: " + vendor.limit}</small>{vendor.phone ? <em className={vendor === vendors[1] ? "cash-vendor-phone" : undefined}>{vendor.phone}</em> : null}</span>
             <span className={`vendor-balance ${vendor.tone}`}><strong>{vendor.balance}{!live.enabled && vendor.tone === "credit" ? "-" : ""}</strong></span>
           </button>
           <span className="vendor-actions" role="group" aria-label={`إجراءات ${vendor.name}`}>
-            <button aria-label={`تعديل ${vendor.name}`} onClick={() => ctx.openAccountCreate("compact")}><Pencil1Icon /></button>
-            <button aria-label={`رسالة إلى ${vendor.name}`} onClick={() => ctx.showToast("معاينة فقط — لم يتم إرسال أي رسالة")}><ChatBubbleIcon /></button>
+            <button aria-label={`تعديل ${vendor.name}`} onClick={() => live.enabled ? ctx.nativeAction("contacts") : ctx.openAccountCreate("compact")}><Pencil1Icon /></button>
+            <button aria-label={`رسالة إلى ${vendor.name}`} onClick={() => live.enabled ? ctx.showToast("الإرسال المباشر يتطلب خدمة مراسلة موثقة؛ لم تُرسل رسالة") : ctx.showToast("معاينة فقط — لم يتم إرسال أي رسالة")}><ChatBubbleIcon /></button>
             <button className="vendor-operation-add" aria-label={`عمليات ${vendor.name}`} onClick={() => openVendorMenu(vendor)}><PlusIcon /></button>
             <button className="vendor-count" aria-label={`عرض حركات ${vendor.name}`} onClick={() => flow.push(live.enabled ? livePartnerScreen(ctx, vendor) : supplierScreen(ctx, vendor))}>{live.enabled ? live.problems.includes("الفواتير") ? "—" : live.invoices.filter(i => Array.isArray(i.partner_id) && i.partner_id[0] === vendor.id).length : vendorListMetadata.get(vendor)?.count}</button>
             <span className="vendor-code">{vendor.id ?? vendorListMetadata.get(vendor)?.id}</span>
@@ -625,9 +665,13 @@ function PurchasesPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
         </article>)}</section>
       </main>
     </MobileScroll>
-    {createMenuOpen ? <div className="purchase-create-menu" data-testid="purchase-create-menu" role="menu" aria-label="قائمة إنشاء عملية">{createActions.map((item) => <button key={item.label} role="menuitem" onClick={() => runCreateAction(item.action)}>{item.label}</button>)}</div> : null}
-    {!live.enabled ? <button className="fab fixed-fab" onClick={() => { keyboard.hide(); setCreateMenuOpen((open) => !open); }} aria-label="إضافة مورد أو عملية" aria-expanded={createMenuOpen}><PlusIcon /></button> : null}
-    {operationVendor && portal ? createPortal(<div className="vendor-menu-layer" data-testid="vendor-operations-menu"><button className="context-menu-backdrop" aria-label="إغلاق عمليات المورد" onClick={() => setOperationVendor(null)} /><aside className="vendor-operations-menu" role="menu" aria-label={`عمليات ${operationVendor.name}`}>{contextActions.map(item => <button role="menuitem" key={item.label} onClick={() => { setOperationVendor(null); item.action(); }}>{item.label}</button>)}</aside></div>, portal) : null}
+    {createMenuOpen ? <div className="purchase-create-menu" data-testid="purchase-create-menu" role="menu" aria-label="قائمة إنشاء عملية">{createActions.map((item) => <button key={item.label} role="menuitem" onClick={() => runCreateAction(item.action, createActions.indexOf(item))}>{item.label}</button>)}</div> : null}
+    <button className="fab fixed-fab" onClick={() => { keyboard.hide(); setCreateMenuOpen((open) => !open); }} aria-label="إضافة مورد أو عملية" aria-expanded={createMenuOpen}><PlusIcon /></button>
+    {operationVendor && portal ? createPortal(<div className="vendor-menu-layer" data-testid="vendor-operations-menu"><button className="context-menu-backdrop" aria-label="إغلاق عمليات المورد" onClick={() => setOperationVendor(null)} /><aside className="vendor-operations-menu" role="menu" aria-label={`عمليات ${operationVendor.name}`}>{contextActions.map((item, index) => <button role="menuitem" key={item.label} onClick={() => {
+      setOperationVendor(null);
+      if (live.enabled) ctx.nativeAction(vendorOperationTargets[index]);
+      else item.action();
+    }}>{item.label}</button>)}</aside></div>, portal) : null}
   </div>;
 }
 
@@ -906,14 +950,30 @@ function WhatsAppSettingsPage({ ctx, flow }: { ctx: AppContext; flow: FlowContro
 }
 
 function BottomNav({ ctx }: { ctx: AppContext }) {
-  return <nav className="dashboard-footer" aria-label="روابط نسقو"><div><button aria-label="موقع نسقو" onClick={() => ctx.showToast("رابط نسقو في المعاينة")}><GlobeIcon /></button><button aria-label="واتساب" onClick={() => ctx.flowRef.current?.push(whatsappSettingsScreen(ctx))}><ChatBubbleIcon /></button></div><span>رقم الإصدار: <bdi>0.1.0</bdi></span><div><button aria-label="شرح الاستخدام" onClick={() => ctx.showToast("شرح الاستخدام متاح للمعاينة فقط")}><VideoIcon /></button><button aria-label="قناة نسقو" onClick={() => ctx.showToast("قناة نسقو في المعاينة")}><PaperPlaneIcon /></button></div></nav>;
+  const live = useLiveOdoo();
+  return <nav className="dashboard-footer" aria-label="روابط نسقو"><div><button aria-label="موقع نسقو" onClick={() => live.enabled ? window.location.assign("/nasqo") : ctx.showToast("رابط نسقو في المعاينة")}><GlobeIcon /></button><button aria-label="واتساب" onClick={() => live.enabled ? openOdooWhatsAppStatus() : ctx.flowRef.current?.push(whatsappSettingsScreen(ctx))}><ChatBubbleIcon /></button></div><span>رقم الإصدار: <bdi>0.1.0</bdi></span><div><button aria-label="شرح الاستخدام" onClick={() => live.enabled ? window.location.assign("/odoo") : ctx.showToast("شرح الاستخدام متاح للمعاينة فقط")}><VideoIcon /></button><button aria-label="قناة نسقو" onClick={() => live.enabled ? window.location.assign("/nasqo") : ctx.showToast("قناة نسقو في المعاينة")}><PaperPlaneIcon /></button></div></nav>;
 }
 
 function FinancialFooter({ debit, credit, balance, compact = false }: { debit: string; credit: string; balance: string; compact?: boolean }) {
-  return <div className={compact ? "financial-footer compact with-balance" : "financial-footer with-balance"}><button className="footer-primary-action" aria-label={compact ? "تحويل الرصيد" : "إضافة عملية"}>{compact ? <SwitchIcon /> : <PlusIcon />}</button><div><span>عليه</span><strong>{debit}</strong></div><div><span>له</span><strong>{credit}</strong></div><div><span>الرصيد له</span><strong>{balance}</strong></div><button className="footer-menu" aria-label="خيارات الرصيد"><HamburgerMenuIcon /></button></div>;
+  return <div className={compact ? "financial-footer compact with-balance" : "financial-footer with-balance"}><button className="footer-primary-action" aria-label={compact ? "تحويل الرصيد" : "إضافة عملية"} onClick={() => {
+  if (window.location.pathname.startsWith("/nasqo-mobile/")) openNativeOdoo(compact ? "internalPayments" : "payments");
+  else window.alert("هذه الوظيفة للمعاينة فقط");
+}}>{compact ? <SwitchIcon /> : <PlusIcon />}</button><div><span>عليه</span><strong>{debit}</strong></div><div><span>له</span><strong>{credit}</strong></div><div><span>الرصيد له</span><strong>{balance}</strong></div><button className="footer-menu" aria-label="خيارات الرصيد" onClick={() => {
+  if (window.location.pathname.startsWith("/nasqo-mobile/")) openNativeOdoo("partnerLedger");
+  else window.alert("خيارات الرصيد للمعاينة فقط");
+}}><HamburgerMenuIcon /></button></div>;
 }
 
 function AppDrawer({ open, onClose, onNavigate, onNotify }: { open: boolean; onClose: () => void; onNavigate: (target: DrawerTarget) => void; onNotify: (message: string) => void }) {
+  const live = useLiveOdoo();
+  const liveMenuTargets: Record<string, NativeOdooAction> = {
+    "التحويلات المخزنية": "internalStockTransfers",
+    "الأصناف": "products",
+    "استيراد الأصناف من إكسل": "products",
+    "دليل الحسابات": "chartOfAccounts",
+    "العملات": "currencies",
+    "استيراد الحسابات من ملف إكسل": "chartOfAccounts",
+  };
   const filesPreviewNotice = "معاينة فقط — لم تُنسخ أو تُرفع أو تُستعد أي ملفات";
   const sections: { title?: string; notice?: string; items: { label: string; ariaLabel?: string; icon: IconComponent; target?: DrawerTarget }[] }[] = [
     { items: [
@@ -953,10 +1013,16 @@ function AppDrawer({ open, onClose, onNavigate, onNotify }: { open: boolean; onC
       { label: "عن التطبيق", icon: InfoCircledIcon }, { label: "قيم التطبيق", icon: StarIcon },
     ] },
   ];
-  return <div className={open ? "drawer-layer open" : "drawer-layer"} aria-hidden={!open}><button className="drawer-backdrop" onClick={onClose} aria-label="إغلاق القائمة" /><button className="drawer-toolbar-close" onClick={onClose} aria-label="إغلاق"><ArrowRightIcon /></button><aside className="app-drawer" aria-label="قائمة نسقو">{open ? <MobileScroll className="drawer-scroll"><div className="drawer-brand-hero"><span className="drawer-hero-mark"><CubeIcon /></span><strong>نسقو برو</strong><small>نظام إدارة الأعمال الذكي</small></div><div className="drawer-sections">{sections.map((section, index) => <section key={section.title ?? index}>{section.title ? <h3>{section.title}</h3> : null}{section.items.map((item) => <button key={item.label} aria-label={item.ariaLabel} onClick={() => { if (item.target) onNavigate(item.target); else { onClose(); onNotify(section.notice ?? `${item.label} متاح للمعاينة فقط`); } }}><item.icon /><span>{item.label}</span></button>)}</section>)}</div></MobileScroll> : null}</aside></div>;
+  return <div className={open ? "drawer-layer open" : "drawer-layer"} aria-hidden={!open}><button className="drawer-backdrop" onClick={onClose} aria-label="إغلاق القائمة" /><button className="drawer-toolbar-close" onClick={onClose} aria-label="إغلاق"><ArrowRightIcon /></button><aside className="app-drawer" aria-label="قائمة نسقو">{open ? <MobileScroll className="drawer-scroll"><div className="drawer-brand-hero"><span className="drawer-hero-mark"><CubeIcon /></span><strong>نسقو برو</strong><small>نظام إدارة الأعمال الذكي</small></div><div className="drawer-sections">{sections.map((section, index) => <section key={section.title ?? index}>{section.title ? <h3>{section.title}</h3> : null}{section.items.map((item) => <button key={item.label} aria-label={item.ariaLabel} onClick={() => { if (item.target) onNavigate(item.target); else {
+    onClose();
+    if (live.enabled && liveMenuTargets[item.label]) openNativeOdoo(liveMenuTargets[item.label]);
+    else if (live.enabled) onNotify("هذه الوظيفة غير متصلة بعد بـ Odoo؛ لم يتم حفظ أو إرسال أي شيء");
+    else onNotify(section.notice ?? `${item.label} متاح للمعاينة فقط`);
+  } }}><item.icon /><span>{item.label}</span></button>)}</section>)}</div></MobileScroll> : null}</aside></div>;
 }
 
 function DashboardAddMenu({ open, onClose, ctx }: { open: boolean; onClose: () => void; ctx: AppContext }) {
+  const live = useLiveOdoo();
   if (!open) return null;
   const actions = [
     { label: "إضافة حساب جديد", action: () => ctx.openAccountCreate("compact") },
@@ -969,10 +1035,19 @@ function DashboardAddMenu({ open, onClose, ctx }: { open: boolean; onClose: () =
     { label: "توريد مخزني", action: () => ctx.showToast("التوريد المخزني متاح للمعاينة فقط") },
     { label: "صرف مخزني", action: () => ctx.showToast("الصرف المخزني متاح للمعاينة فقط") },
   ];
-  return <div className="dashboard-add-layer" data-testid="dashboard-add-menu"><button className="context-menu-backdrop" aria-label="إغلاق قائمة الإضافة" onClick={onClose} /><aside className="dashboard-add-menu" role="menu" aria-label="إضافة وإدارة الحسابات">{actions.map(item => <button role="menuitem" key={item.label} onClick={() => { onClose(); item.action(); }}>{item.label}</button>)}</aside></div>;
+  const targets: NativeOdooAction[] = [
+    "contacts", "contacts", "customerRefunds", "quotations", "salesOrders",
+    "internalPayments", "internalStockTransfers", "stockReceipts", "stockDeliveries",
+  ];
+  return <div className="dashboard-add-layer" data-testid="dashboard-add-menu"><button className="context-menu-backdrop" aria-label="إغلاق قائمة الإضافة" onClick={onClose} /><aside className="dashboard-add-menu" role="menu" aria-label="إضافة وإدارة الحسابات">{actions.map((item, index) => <button role="menuitem" key={item.label} onClick={() => {
+    onClose();
+    if (live.enabled) ctx.nativeAction(targets[index]);
+    else item.action();
+  }}>{item.label}</button>)}</aside></div>;
 }
 
 function ExportSideMenu({ open, kind = "statement", onClose, onAction }: { open: boolean; kind?: ExportKind; onClose: () => void; onAction: (message: string) => void }) {
+  const live = useLiveOdoo();
   const items: { label: string; icon: IconComponent; tone: string }[] = [
     { label: "طباعة كملف PDF", icon: FileTextIcon, tone: "pdf" },
     { label: "مشاركة كملف PDF", icon: Share1Icon, tone: "share" },
@@ -983,7 +1058,14 @@ function ExportSideMenu({ open, kind = "statement", onClose, onAction }: { open:
   ];
   if (!open) return null;
   const visibleItems = kind === "purchases" ? [...items.slice(0, 4), { label: "استيراد الحسابات من ملف إكسل", icon: TableIcon, tone: "excel" }] : kind === "inventory" ? items.slice(0, 4) : items;
-  return <div className="export-menu-layer" data-testid="export-menu"><button className="export-menu-backdrop" onClick={onClose} aria-label="إغلاق قائمة التصدير" /><aside className={`export-side-menu ${kind === "inventory" ? "inventory-export-menu" : kind === "purchases" ? "purchases-export-menu" : ""}`} aria-label="خيارات التصدير">{visibleItems.map((item) => <button key={item.label} onClick={() => onAction(item.label.startsWith("استيراد") ? "معاينة الاستيراد — لم يُقرأ أي ملف أو تُغيّر الحسابات" : `معاينة ${item.label} — لم يُنشأ أو يُرسل ملف`)}><item.icon className={item.tone} /><span>{item.label}</span></button>)}</aside></div>;
+  return <div className="export-menu-layer" data-testid="export-menu"><button className="export-menu-backdrop" onClick={onClose} aria-label="إغلاق قائمة التصدير" /><aside className={`export-side-menu ${kind === "inventory" ? "inventory-export-menu" : kind === "purchases" ? "purchases-export-menu" : ""}`} aria-label="خيارات التصدير">{visibleItems.map((item) => <button key={item.label} onClick={() => {
+      if (live.enabled) {
+        onClose();
+        openNativeOdoo(kind === "inventory" ? "stockMoves" : kind === "purchases" ? "vendorBills" : "partnerLedger");
+      } else {
+        onAction(item.label.startsWith("استيراد") ? "معاينة الاستيراد — لم يُقرأ أي ملف أو تُغيّر الحسابات" : `معاينة ${item.label} — لم يُنشأ أو يُرسل ملف`);
+      }
+    }}><item.icon className={item.tone} /><span>{item.label}</span></button>)}</aside></div>;
 }
 
 function ActivationModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (message: string) => void }) {
@@ -992,24 +1074,31 @@ function ActivationModal({ open, onClose, onDone }: { open: boolean; onClose: ()
 }
 
 function AccountPickerModal({ open, title = "كشف حساب", onClose, onAddAccount, onConfirm }: { open: boolean; title?: string; onClose: () => void; onAddAccount: () => void; onConfirm: (vendor: Vendor) => void }) {
+  const live = useLiveOdoo();
   const [selected, setSelected] = useState<Vendor>(vendors[0]);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const keyboard = useKeyboard();
   const close = () => { keyboard.hide(); setOptionsOpen(false); setSearch(""); onClose(); };
-  const filteredAccounts = vendors.filter(vendor => vendor.name.includes(search.trim()));
+  const options: Vendor[] = live.enabled ? live.partners.map(partner => ({
+    id: partner.id, name: partner.name, phone: partner.phone || "", limit: "—",
+    balance: "—", tone: "neutral", code: partner.name[0] || "؟",
+  })) : [...vendors];
+  const selectedAccount = options.find(v => v.id === selected.id && v.name === selected.name) ?? options[0];
+  const filteredAccounts = options.filter(vendor => vendor.name.includes(search.trim()));
   if (!open) return null;
   return <div className="center-modal-layer" data-testid="account-picker-modal"><button className="center-modal-backdrop" onClick={close} aria-label="إغلاق اختيار الحساب" /><section className="account-picker-modal" role="dialog" aria-modal="true" aria-labelledby="account-picker-title">
     <h2 id="account-picker-title">{title}</h2>
     <label className="account-picker-search reference-search" htmlFor="account-picker-search"><span>ابحث عن الاسم هنا</span><KeyboardInput id="account-picker-search" aria-label="البحث عن الحساب" data-testid="account-picker-search-input" value={search} onChange={event => { setSearch(event.target.value); setOptionsOpen(true); }} /></label>
     <p>أو حدد الحساب من هنا</p>
-    <div className="account-select-row"><button className="account-add" onClick={() => { keyboard.hide(); setOptionsOpen(false); onAddAccount(); }} aria-label="إضافة حساب"><PlusIcon /></button><button className="account-select" onClick={() => { keyboard.hide(); setOptionsOpen(value => !value); }} aria-label="اختيار حساب لكشف الحساب" aria-expanded={optionsOpen}><span>{selected.name}</span><ChevronDownIcon /></button></div>
+    <div className="account-select-row"><button className="account-add" onClick={() => { keyboard.hide(); setOptionsOpen(false); onAddAccount(); }} aria-label="إضافة حساب"><PlusIcon /></button><button className="account-select" onClick={() => { keyboard.hide(); setOptionsOpen(value => !value); }} aria-label="اختيار حساب لكشف الحساب" aria-expanded={optionsOpen}><span>{selectedAccount?.name ?? "لا توجد حسابات متاحة"}</span><ChevronDownIcon /></button></div>
     {optionsOpen ? <div className="account-options" role="listbox" aria-label="الحسابات">{filteredAccounts.length ? filteredAccounts.map(vendor => <button key={vendor.name} role="option" aria-selected={vendor.name === selected.name} onClick={() => { keyboard.hide(); setSelected(vendor); setSearch(""); setOptionsOpen(false); }}>{vendor.name}</button>) : <p className="account-search-empty" role="status">لا توجد حسابات بهذا الاسم</p>}</div> : null}
-    <div className="account-picker-actions"><button className="cancel" onClick={close}>إلغاء</button><button className="confirm" onClick={() => { keyboard.hide(); setOptionsOpen(false); setSearch(""); onConfirm(selected); }}>موافق</button></div>
+    <div className="account-picker-actions"><button className="cancel" onClick={close}>إلغاء</button><button className="confirm" onClick={() => { keyboard.hide(); setOptionsOpen(false); setSearch(""); if (selectedAccount) onConfirm(selectedAccount); }}>موافق</button></div>
   </section></div>;
 }
 
 function TransactionModal({ open, vendor, onClose, onNotify, onDone }: { open: boolean; vendor: Vendor; onClose: () => void; onNotify: (message: string) => void; onDone: (message: string) => void }) {
+  const live = useLiveOdoo();
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [payment, setPayment] = useState<"cash" | "balance">("cash");
@@ -1025,14 +1114,22 @@ function TransactionModal({ open, vendor, onClose, onNotify, onDone }: { open: b
     <div className="transaction-input"><CameraIcon /><label htmlFor="new-transaction-note"><KeyboardInput id="new-transaction-note" value={note} onChange={(event) => setNote(event.target.value)} placeholder="اكتب البيان" /></label><button aria-label="إدخال البيان صوتيًا" onClick={() => onNotify("الإدخال الصوتي للمعاينة فقط")}><SpeakerLoudIcon /></button></div>
     <div className="transaction-radio-row" aria-label="طريقة السداد"><label><input type="radio" name="transaction-payment" checked={payment === "cash"} onChange={() => setPayment("cash")} /> نقدية</label><label><input type="radio" name="transaction-payment" checked={payment === "balance"} onChange={() => setPayment("balance")} /> أرصدة</label></div>
     <div className="transaction-radio-row direction-row" aria-label="اتجاه السند"><label className="credit"><input type="radio" name="transaction-direction" checked={direction === "credit"} onChange={() => setDirection("credit")} /> له</label><label className="debit"><input type="radio" name="transaction-direction" checked={direction === "debit"} onChange={() => setDirection("debit")} /> عليه</label></div>
-    <div className="form-modal-actions"><button className="cancel" onClick={onClose}>إلغاء</button><button className="form-help" onClick={() => onNotify("شرح السند للمعاينة فقط")}><VideoIcon /> شرح</button><button className="save" onClick={() => onDone("تم حفظ السند التجريبي")}>حفظ</button></div>
+    <div className="form-modal-actions"><button className="cancel" onClick={onClose}>إلغاء</button><button className="form-help" onClick={() => onNotify("شرح السند للمعاينة فقط")}><VideoIcon /> شرح</button><button className="save" onClick={() => {
+    if (live.enabled) {
+      if (window.confirm("سيُفتح سند الدفع الأصلي في Odoo. أدخل البيانات وأكمل الحفظ هناك؛ لم يُنشأ أي سند بعد.")) openNativeOdoo("payments");
+      return;
+    }
+    onDone("تم حفظ السند التجريبي");
+  }}>حفظ</button></div>
   </section></div>;
 }
 
 function AccountCreateModal({ mode, open, initialVendor, onClose, onNotify, onDone }: { mode: AccountCreateMode; open: boolean; initialVendor?: Vendor; onClose: () => void; onNotify: (message: string) => void; onDone: (message: string) => void }) {
+  const live = useLiveOdoo();
   const [name, setName] = useState(initialVendor?.name ?? "");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(initialVendor?.phone ?? "");
   const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
   const [debtLimit, setDebtLimit] = useState(false);
   const [openingBalance, setOpeningBalance] = useState(false);
   const [openingAmount, setOpeningAmount] = useState("");
@@ -1048,7 +1145,35 @@ function AccountCreateModal({ mode, open, initialVendor, onClose, onNotify, onDo
   const [messageMethod, setMessageMethod] = useState<"sms" | "whatsapp">("sms");
   const [sendMode, setSendMode] = useState<"auto" | "confirm" | "never">("never");
   const keyboard = useKeyboard();
-  const close = () => { keyboard.hide(); onClose(); };
+  const close = () => { keyboard.hide(); if (!saving) onClose(); };
+  const saveContact = async () => {
+    if (saving) return;
+    keyboard.hide();
+    if (!name.trim()) { onNotify("أدخل اسم الحساب أولًا."); return; }
+    if (openingBalance || debtLimit || settlement || documentNumber) {
+      onNotify("الرصيد الافتتاحي والقيود وحدود الائتمان تحتاج نموذج Odoo المحاسبي؛ لم يُحفَظ أي حساب");
+      return;
+    }
+    if (!window.confirm("هل تؤكد حفظ جهة الاتصال في Odoo الحقيقي؟ لن تُرسل رسائل أو تُنشأ قيود مالية.")) return;
+    setSaving(true);
+    try {
+      await saveOdooContact({
+        id: initialVendor?.id, name: name.trim(),
+        phone: mode === "extended" ? phone : initialVendor?.phone,
+        note: note.trim() || undefined,
+      });
+      live.refresh();
+      onDone("تم حفظ جهة الاتصال في Odoo بنجاح");
+    } catch (error) {
+      const reason = error instanceof ContactSaveError ? error.reason : "network";
+      onNotify(reason === "login" ? "انتهت الجلسة؛ سجّل الدخول إلى Odoo" :
+        reason === "permission" ? "ليس لديك صلاحية حفظ جهات الاتصال في Odoo" :
+        reason === "validation" ? "تعذّر الحفظ: تحقق من حقول جهة الاتصال في Odoo" :
+        "تعذّر الاتصال بـ Odoo. لم يتأكد حفظ البيانات؛ تحقق قبل إعادة المحاولة");
+    } finally {
+      setSaving(false);
+    }
+  };
   if (!open) return null;
   const testId = mode === "compact" ? "account-form-compact" : "account-form-extended";
 
@@ -1076,11 +1201,18 @@ function AccountCreateModal({ mode, open, initialVendor, onClose, onNotify, onDo
         <div className="transaction-radio-row direction-row" role="group" aria-label="اتجاه الرصيد الافتتاحي"><label className="credit"><input type="radio" name="opening-balance-direction" checked={openingDirection === "credit"} onChange={() => setOpeningDirection("credit")} /> له</label><label className="debit"><input type="radio" name="opening-balance-direction" checked={openingDirection === "debit"} onChange={() => setOpeningDirection("debit")} /> عليه</label></div>
       </div> : null}
     </>}
-    <div className="form-modal-actions"><button className="cancel" onClick={close}>إلغاء</button><button className="form-help" onClick={() => onNotify("شرح إضافة الحساب للمعاينة فقط")}><VideoIcon /> شرح</button><button className="save" onClick={() => { keyboard.hide(); onDone("تم حفظ حساب تجريبي — لم تُرسل أي رسائل"); }}>حفظ</button></div>
+    <div className="form-modal-actions"><button className="cancel" onClick={close}>إلغاء</button><button className="form-help" onClick={() => onNotify("شرح إضافة الحساب للمعاينة فقط")}><VideoIcon /> شرح</button><button className="save" onClick={() => {
+    keyboard.hide();
+    if (live.enabled) { void saveContact(); return; }
+    onDone("تم حفظ حساب تجريبي — لم تُرسل أي رسائل");
+  }}>حفظ</button></div>
   </section></div>;
 }
 
 function SheetContent({ kind, setKind, ctx, onDone }: { kind: SheetKind; setKind: (kind: SheetKind) => void; ctx: AppContext; onDone: (message: string) => void }) {
+  const live = useLiveOdoo();
+  const [filterPeriod, setFilterPeriod] = useState("الكل");
+  const [filterSort, setFilterSort] = useState("الأحدث");
   if (kind === "add-operation") {
     const actions: { label: string; caption: string; icon: IconComponent; action: () => void }[] = [
       { label: "فاتورة جديدة", caption: "مبيعات أو مشتريات", icon: FilePlusIcon, action: ctx.openInvoice },
@@ -1088,12 +1220,16 @@ function SheetContent({ kind, setKind, ctx, onDone }: { kind: SheetKind; setKind
       { label: "سند جديد", caption: "قبض أو صرف", icon: ReaderIcon, action: () => ctx.openTransaction() },
       { label: "صرف عملات", caption: "شراء أو بيع", icon: ReloadIcon, action: () => ctx.flowRef.current?.push(currencyScreen(ctx)) },
     ];
-    return <div className="sheet-action-list">{actions.map((action) => <button key={action.label} onClick={() => { setKind(null); action.action(); }}><span><action.icon /></span><div><strong>{action.label}</strong><small>{action.caption}</small></div><ChevronLeftIcon /></button>)}</div>;
+    return <div className="sheet-action-list">{actions.map((action, index) => <button key={action.label} onClick={() => {
+      setKind(null);
+      if (live.enabled) ctx.nativeAction((["customerInvoices", "contacts", "payments", "currencies"] as NativeOdooAction[])[index]);
+      else action.action();
+    }}><span><action.icon /></span><div><strong>{action.label}</strong><small>{action.caption}</small></div><ChevronLeftIcon /></button>)}</div>;
   }
-  if (kind === "filters") return <div className="filter-sheet"><span className="sheet-label">الفترة</span><div className="choice-row"><button>يومي</button><button>شهري</button><button className="selected">الكل</button><button>سنوي</button></div><span className="sheet-label">الترتيب</span><div className="choice-row"><button className="selected">الأحدث</button><button>الأقدم</button></div><button className="primary full" onClick={() => onDone("تم تطبيق عوامل التصفية")}>تطبيق التصفية</button></div>;
+  if (kind === "filters") return <div className="filter-sheet"><span className="sheet-label">الفترة</span><div className="choice-row">{["يومي", "شهري", "الكل", "سنوي"].map(period => <button key={period} className={filterPeriod === period ? "selected" : ""} onClick={() => setFilterPeriod(period)}>{period}</button>)}</div><span className="sheet-label">الترتيب</span><div className="choice-row">{["الأحدث", "الأقدم"].map(sort => <button key={sort} className={filterSort === sort ? "selected" : ""} onClick={() => setFilterSort(sort)}>{sort}</button>)}</div><button className="primary full" onClick={() => live.enabled ? ctx.nativeAction("contacts") : onDone("تم تطبيق عوامل التصفية")}>تطبيق التصفية</button></div>;
   if (kind === "export") {
     const exports = [{ label: "تنزيل PDF", icon: FileTextIcon }, { label: "مشاركة PDF", icon: Share1Icon }, { label: "تنزيل Excel", icon: TableIcon }, { label: "إرسال للمدير", icon: PaperPlaneIcon }];
-    return <div className="sheet-action-list">{exports.map((item) => <button key={item.label} onClick={() => onDone(`تم تجهيز ${item.label}`)}><span><item.icon /></span><div><strong>{item.label}</strong><small>كشف الحساب الحالي</small></div><ChevronLeftIcon /></button>)}</div>;
+    return <div className="sheet-action-list">{exports.map((item) => <button key={item.label} onClick={() => live.enabled ? ctx.nativeAction("partnerLedger") : onDone(`تم تجهيز ${item.label}`)}><span><item.icon /></span><div><strong>{item.label}</strong><small>كشف الحساب الحالي</small></div><ChevronLeftIcon /></button>)}</div>;
   }
   return null;
 }
