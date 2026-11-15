@@ -107,3 +107,18 @@ test("mobile drag handles do not compete with MobileScroll gesture capture", () 
   assert.match(source, /useSensor\(TouchSensor/);
   assert.match(source, /useSensor\(KeyboardSensor/);
 });
+
+test("production mobile tap bridge rescues only canceled trusted taps; never sort handles or drags", () => {
+  const source=readFileSync("src/dashboardMobileTap.ts","utf8");
+  assert.match(source, /event\.isTrusted/);
+  assert.match(source, /"\(pointer: coarse\)"/);
+  assert.match(source, /event\.defaultPrevented/);
+  assert.match(source, /travel > 12/);
+  assert.match(source, /\.nasqo-sort-handle/);
+  assert.match(source, /el\.click\(\)/);
+  assert.match(source, /nasqo-scan-overlay/);
+  const component=readFileSync("src/NasqoDashboard.tsx","utf8");
+  assert.match(component, /useLiveDashboardTapBridge\(\)/);
+  assert.match(component, /onPointerDown/);
+  assert.match(component, /data-scroll-drag="ignore"/);
+});
