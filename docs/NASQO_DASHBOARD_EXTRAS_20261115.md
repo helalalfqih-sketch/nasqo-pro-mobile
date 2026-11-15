@@ -8,7 +8,7 @@ Date: 2026-11-15. Branch: `feat/nasqo-odoo-readonly`. Production URL: `https://e
 2. **Light / dark / system appearance**: settings on the dashboard with system preference listener. Applied only to the live NASQO browser view; protected phone simulator files remain unchanged.
 3. **Brand color**: color picker updates NASQO's primary CSS color, readable foreground contrast, and the browser `meta[name=theme-color]`. Validated hexadecimal colors only. Locally stored separately per Odoo user.
 4. **Camera QR and barcode scanner** (`src/DashboardScanner.tsx`): ZXing 0.1.5 and 0.21.3 (Node 22-compatible), dynamically loaded on a click requesting camera access. Scanned identifiers are sanitized (not treated as URLs/scripts), and looked up exactly against Odoo `product.product.barcode/default_code` with the user's same-origin Odoo session. Shows matched product; provides links to Odoo native product and stock-receipt workflows. **Does not directly create or update stock quantities** or choose warehouse for the user; inventory receipt is finalized only through Odoo, with normal ACL/business validations. Manual barcode input fallback when camera permission or browser support is unavailable. Video capture stops on completion/close.
-5. **Drag-and-drop** (`src/DashboardReorder.tsx`, `src/dashboardReorderMath.ts`): touch, mouse/pointer, and keyboard sortable handles for three summary cards and eight dashboard widgets. Source data does not change when cards move; order persists per user in local browser storage.
+5. **Drag-and-drop** (`src/DashboardReorder.tsx`, `src/dashboardReorderMath.ts`): touch, mouse/pointer, and keyboard sortable handles, with drag gestures excluded from the simulator scroll handler for three summary cards and eight dashboard widgets. Source data does not change when cards move; order persists per user in local browser storage.
 6. **Favorites**: pin up to eight approved native Odoo report shortcuts or currently readable contact accounts. Only IDs are stored; names are resolved from the currently allowed contacts. Stored under a per-user browser key with safe validation. Favorites offer opening the chosen report or the selected contact's existing in-app invoice view.
 7. **Haptic feedback**: vibrates on user button interactions, QR success, pin/unpin and drag completion when `navigator.vibrate` is available and reduced-motion is not requested. User can switch this off.
 8. **Full-database export banner and notifications**: existing server backup artifacts were observed during a read-only audit; however there is **no authenticated Odoo endpoint that reports the latest complete backup reliably in real time**. The dashboard therefore explicitly displays `not available for automatic verification` by default, and allows the user to record a date they have verified **manually** on this browser. If the entered date is more than seven calendar days ago, it shows an in-app warning and can send one generic device notification per recorded date *only after explicit user opt-in and browser permission*. A manually entered timestamp is not proof of a new backup. **Automatic trusted export-status integration remains pending**, and no new DB export, Odoo ACL change or backup job was initiated.
@@ -25,12 +25,12 @@ Date: 2026-11-15. Branch: `feat/nasqo-odoo-readonly`. Production URL: `https://e
 ## Build, QA and rollout
 
 - TypeScript and Vite Cloud/Sites + ERP production builds: PASS.
-- Automated tests: 27 source/business/authorization tests, 4 Sites tests, 3 ERP asset tests, **34/34 PASS**.
+- Automated tests: 27 source/business/authorization tests, 4 Sites tests, 3 ERP asset tests, **35/35 PASS**.
 - Protected mobile runtime: 28 files PASS. `npm ci --dry-run` PASS. `npm audit --omit=dev`: 0 reported known issues.
 - HTTPS live: `/nasqo-mobile/`, main JS, CSS, lazy QR decoder, jsPDF, html2canvas, original Odoo `/`, `/nasqo`, `/web/login`, `/shop` all HTTP 200 after deployment.
 - Live containers `nasqo-pro-mobile-erp` and `indexes-waha-caddy-1` remain up; restart count 0.
-- Deployed static bundle main JS: `/nasqo-mobile/assets/index-DN34qPBL.js`, CSS: `/nasqo-mobile/assets/index-Dhmfxm17.css`.
-- Backup for immediate rollback of static app entrypoint: `/home/chatgpt-admin/nasqo-mobile-ops/backups/dashboard-extras-20261115T000335Z/index.html`. Restore **only** this HTML to `dist/erp-client/index.html` if necessary. Prior hashed assets are preserved. No changes to Caddy/Odoo DB.
+- Deployed static bundle main JS: `/nasqo-mobile/assets/index-CwrDz2gH.js`, CSS: `/nasqo-mobile/assets/index-Dhmfxm17.css`.
+- Backup for immediate rollback of static app entrypoint: `/home/chatgpt-admin/nasqo-mobile-ops/backups/dashboard-touch-20261115T000757Z/index.html`. Restore **only** this HTML to `dist/erp-client/index.html` if necessary. Prior hashed assets are preserved. No changes to Caddy/Odoo DB.
 
 ## Verification gaps and next steps
 
