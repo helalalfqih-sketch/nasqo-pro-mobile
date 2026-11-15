@@ -23,7 +23,7 @@ function SortableTile({ id, name, children, zone }: {
   return <div ref={setNodeRef} className={"nasqo-sort-tile " + (isDragging ? "is-dragging" : "")}
     data-zone={zone} data-id={id}
     style={{ transform: CSS.Transform.toString(transform), transition }}>
-    <button type="button" className="nasqo-sort-handle" title={"اسحب لإعادة ترتيب " + (arabicNames[name] ?? name)}
+    <button type="button" className="nasqo-sort-handle" data-scroll-drag="ignore" title={"اسحب لإعادة ترتيب " + (arabicNames[name] ?? name)}
       aria-label={"إعادة ترتيب " + (arabicNames[name] ?? name)} {...attributes} {...listeners}>⠿</button>
     {children}
   </div>;
