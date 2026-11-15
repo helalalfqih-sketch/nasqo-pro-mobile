@@ -8,6 +8,7 @@ import { useDashboardAlerts } from "./dashboardAlerts";
 import { recentStockAlerts } from "./dashboardAlertMath";
 import { backupAgeDays, useDashboardPreferences, vibrateFeedback, type WidgetId } from "./dashboardPreferences";
 
+import { useLiveDashboardTapBridge } from "./dashboardMobileTap";
 import { useNasqoDashboardData, type DataStatus, type DailySales } from "./dashboardData";
 import { createDashboardPdf, numberAr, type ExportMode } from "./dashboardPdf";
 import { FileTextIcon, PersonIcon, PlusIcon, ReloadIcon, BackpackIcon, Share1Icon, DownloadIcon } from "@radix-ui/react-icons";
@@ -57,6 +58,7 @@ function Sparkline({ points, currency }: { points: DailySales[]; currency: strin
 
 export function NasqoDashboard({ newInvoice, newPurchase, newContact, openInvoices, openStock, openContact }: Actions) {
   const live = useLiveOdoo();
+  useLiveDashboardTapBridge();
   const data = useNasqoDashboardData();
   const preferences = useDashboardPreferences(live.userId ?? 0);
   const prefs = preferences.value;
@@ -227,7 +229,14 @@ export function NasqoDashboard({ newInvoice, newPurchase, newContact, openInvoic
     settings: <DashboardSettings prefs={prefs} update={preferences.update} />,
   };
   return <>
-    <section className="nasqo-insights" data-testid="nasqo-dashboard-insights" aria-label="لوحة التحكم المالية">
+    <section className="nasqo-insights" data-scroll-drag="ignore"
+      data-testid="nasqo-dashboard-insights" aria-label="لوحة التحكم المالية"
+      onPointerDown={event => {
+        // Real phone taps on controls must not activate the protected FlowStack
+        // edge-swipe sensor, which otherwise cancels touch clicks.
+        if (event.target instanceof Element &&
+          event.target.closest("button, input, select, textarea, a, label")) event.stopPropagation();
+      }}>
     <div className="insights-heading">
       <div>
         <h2>لوحة التحكم</h2>
