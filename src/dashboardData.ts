@@ -68,7 +68,7 @@ export function useNasqoDashboardData(): DashboardSnapshot & { refresh: () => vo
     });
     const orderpoints = readAll<OrderPoint>(
       "stock.warehouse.orderpoint", [["product_min_qty", ">", 0]],
-      ["id", "product_id", "product_min_qty", "qty_on_hand", "location_id", "product_uom"],
+      ["id", "product_id", "product_min_qty", "qty_on_hand", "location_id", "product_uom", "write_date"],
       3000, abort.signal,
     ).then(result => {
       if (abort.signal.aborted) return;
