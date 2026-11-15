@@ -565,8 +565,7 @@ function DashboardPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
     ...metric, value: metric.value === undefined ? undefined : "—",
     action: () => ctx.nativeAction(liveMetricTargets[index]),
   })) : metrics;
-  return <><MobileScroll className="app-screen dashboard-scroll">
-    <main className="dashboard-page page-with-footer" data-testid="dashboard-screen">
+  const dashboardContent = <main className="dashboard-page page-with-footer" data-testid="dashboard-screen">
       {live.enabled ? <p className="live-data-notice">متصل بنسقو ERP · بيانات حقيقية وصلاحيات Odoo {live.problems.length ? "· " + live.problems.map(section => live.deniedSections.includes(section) ? section + ": لا تملك صلاحية القراءة في Odoo" : "تعذر تحميل: " + section).join("، ") : ""}</p> : null}
       {live.enabled ? <NasqoDashboard
         newInvoice={ctx.openInvoice}
@@ -582,8 +581,18 @@ function DashboardPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
       /> : null}
       <section className="section-block quick-section"><div className="quick-grid">{displayActions.map((item) => <button key={item.label} className={item.accent ? "quick-action accent" : "quick-action"} onClick={item.action}><item.icon /><span>{item.label}</span></button>)}</div></section>
       {!live.enabled ? <section className="section-block metrics-section"><div className="metrics-grid">{displayMetrics.map((metric) => <button key={metric.label} className={`metric-card ${metric.tone ?? "measurement"}`} onClick={metric.action ?? (() => ctx.showToast(`${metric.label} متاح للمعاينة فقط`))}><span className="metric-icon"><metric.icon /></span><span className="metric-copy"><small>{metric.label}</small>{metric.value ? <strong>{metric.value}</strong> : null}</span></button>)}</div></section> : null}
-    </main>
-  </MobileScroll><button className="fab dashboard-fab" onClick={() => ctx.openSheet("add-operation")} aria-label="إضافة عملية"><PlusIcon /></button></>;
+    </main>;
+  // Live NASQO runs in a real browser and must use native touch scrolling.
+  // The protected MobileScroll gesture simulator suppresses genuine mobile taps;
+  // it remains untouched for the standalone iPhone/Pixel prototype.
+  return <>{live.enabled ?
+    <section className="mobile-page app-screen dashboard-scroll nasqo-native-scroll" data-testid="nasqo-native-scroll">
+      <div className="mobile-scroll" data-testid="mobile-scroll">
+        <div className="mobile-scroll-content">{dashboardContent}</div>
+      </div>
+    </section> :
+    <MobileScroll className="app-screen dashboard-scroll">{dashboardContent}</MobileScroll>}
+    <button className="fab dashboard-fab" onClick={() => ctx.openSheet("add-operation")} aria-label="إضافة عملية"><PlusIcon /></button></>;
 }
 
 function liveInvoicesScreen(ctx: AppContext, partner?: Pick<Vendor, "id" | "name">): FlowScreen {
