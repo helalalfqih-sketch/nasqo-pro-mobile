@@ -100,7 +100,8 @@ export function DashboardScanner({ onClose, haptics }: { onClose: () => void; ha
       if (!signal.signal.aborted) setSearching(false);
     }
   };
-  return createPortal(<div className="nasqo-scan-overlay" role="dialog" aria-modal="true" aria-label="مسح رمز المنتج">
+  return createPortal(<div className="nasqo-scan-overlay" role="dialog" aria-modal="true"
+    aria-label="مسح رمز المنتج" onPointerDown={event => event.stopPropagation()}>
     <div className="nasqo-scan-modal">
       <header><h3>مسح رمز المنتج</h3><button type="button" onClick={handleClose} aria-label="إغلاق الماسح">✕</button></header>
       <p>مسح QR أو باركود للبحث في منتجات Odoo. لا يتم تعديل المخزون تلقائيًا.</p>
