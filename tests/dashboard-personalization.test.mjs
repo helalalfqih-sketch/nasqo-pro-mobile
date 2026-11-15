@@ -100,3 +100,10 @@ test("production dashboard includes QR, DnD, user-scoped preferences and notific
   assert.match(settings, /data-nasqo-color-mode/);
   assert.match(settings, /Notification.requestPermission/);
 });
+
+test("mobile drag handles do not compete with MobileScroll gesture capture", () => {
+  const source = readFileSync("src/DashboardReorder.tsx", "utf8");
+  assert.match(source, /data-scroll-drag="ignore"/);
+  assert.match(source, /useSensor\(TouchSensor/);
+  assert.match(source, /useSensor\(KeyboardSensor/);
+});
