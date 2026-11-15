@@ -190,10 +190,14 @@ export function DashboardSettings({ prefs, update }: {
         onChange={event => update({ primary: event.target.value })} />
       <button type="button" onClick={() => update({ primary: "#0b5ca8" })}>الافتراضي</button>
     </div>
-    <label className="nasqo-setting-line">
+    <div className="nasqo-setting-line">
       <span>اهتزاز اللمس عند التفاعل (إذا دعمه الجهاز)</span>
-      <input type="checkbox" checked={prefs.haptics} onChange={event => update({ haptics: event.target.checked })} />
-    </label>
+      <button type="button" role="switch" aria-label="اهتزاز اللمس"
+        aria-checked={prefs.haptics} className="nasqo-haptic-toggle"
+        onClick={() => update({ haptics: !prefs.haptics })}>
+        <span aria-hidden="true">{prefs.haptics ? "✓" : ""}</span>
+      </button>
+    </div>
     <div className={"nasqo-backup-status " + (stale ? "stale" : "")}>
       <strong>آخر تصدير كامل لقاعدة البيانات</strong>
       <p>{prefs.lastBackupDate ?
