@@ -258,7 +258,9 @@ function dashboardScreen(ctx: AppContext): FlowScreen {
     headerHeight: 50,
     header: () => <AppHeader className="dashboard-header" title="نسقو برو" subtitle="" onMenu={ctx.openDrawer} actions={[
       { label: "بحث", icon: MagnifyingGlassIcon, onClick: () => liveMode ? ctx.nativeAction("contacts") : ctx.showToast("البحث السريع جاهز") },
-      { label: "التنبيهات", icon: BellIcon, onClick: () => liveMode ? ctx.nativeAction("activities") : ctx.showToast("لديك 3 تنبيهات جديدة") },
+      { label: "التنبيهات", icon: BellIcon, onClick: () => liveMode ?
+        document.getElementById("nasqo-notification-center")?.scrollIntoView({ behavior: "smooth", block: "start" }) :
+        ctx.showToast("لديك 3 تنبيهات جديدة") },
       { label: "مزامنة", icon: ReloadIcon, onClick: () => liveMode ? window.location.reload() : ctx.showToast("تم تحديث بيانات النموذج") },
       { label: "إضافة", icon: PlusIcon, onClick: ctx.openDashboardMenu },
     ]} />,
@@ -572,6 +574,11 @@ function DashboardPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
         newContact={() => ctx.openAccountCreate("compact")}
         openInvoices={() => flow.push(liveInvoicesScreen(ctx))}
         openStock={() => ctx.nativeAction("stockMoves")}
+        openContact={id => {
+          const partner = live.partners.find(item => item.id === id);
+          if (partner) flow.push(liveInvoicesScreen(ctx, { id: partner.id, name: partner.name }));
+          else ctx.showToast("هذه الجهة غير متاحة ضمن صلاحياتك الحالية.");
+        }}
       /> : null}
       <section className="section-block quick-section"><div className="quick-grid">{displayActions.map((item) => <button key={item.label} className={item.accent ? "quick-action accent" : "quick-action"} onClick={item.action}><item.icon /><span>{item.label}</span></button>)}</div></section>
       {!live.enabled ? <section className="section-block metrics-section"><div className="metrics-grid">{displayMetrics.map((metric) => <button key={metric.label} className={`metric-card ${metric.tone ?? "measurement"}`} onClick={metric.action ?? (() => ctx.showToast(`${metric.label} متاح للمعاينة فقط`))}><span className="metric-icon"><metric.icon /></span><span className="metric-copy"><small>{metric.label}</small>{metric.value ? <strong>{metric.value}</strong> : null}</span></button>)}</div></section> : null}
@@ -579,7 +586,7 @@ function DashboardPage({ flow, ctx }: { flow: FlowControls; ctx: AppContext }) {
   </MobileScroll><button className="fab dashboard-fab" onClick={() => ctx.openSheet("add-operation")} aria-label="إضافة عملية"><PlusIcon /></button></>;
 }
 
-function liveInvoicesScreen(ctx: AppContext, partner?: Vendor): FlowScreen {
+function liveInvoicesScreen(ctx: AppContext, partner?: Pick<Vendor, "id" | "name">): FlowScreen {
   return {
     id: partner ? "real-partner-" + partner.id : "real-invoices",
     headerHeight: 50,
