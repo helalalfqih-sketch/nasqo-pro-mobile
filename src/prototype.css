@@ -1579,3 +1579,44 @@ body[data-nasqo-color-mode="dark"] .nasqo-scan-result small { color: #bcd0e1; }
 body[data-nasqo-color-mode="dark"] .nasqo-scan-modal input {
   background: #203a52; border-color: #4a6781; color: #f5fbff;
 }
+
+/* On the real mobile browser, allow native page scrolling and native taps.
+   The original simulator's drag-scroll physics stay protected and unchanged.
+   dnd-kit handles own touch-action:none for deliberate card reordering. */
+body.nasqo-browser-mode .dashboard-scroll .mobile-scroll {
+  touch-action: pan-y !important;
+  overscroll-behavior-y: contain;
+}
+
+/* Production dashboard: native phone-browser scrolling, without the simulator's
+   touch click suppression. iPhone/Pixel demonstration still uses MobileScroll. */
+body.nasqo-browser-mode .nasqo-native-scroll .mobile-scroll {
+  touch-action: pan-y !important;
+  user-select: auto;
+  -webkit-user-select: auto;
+  overscroll-behavior-y: contain;
+}
+
+/* A native button-style switch avoids canceled touch-click default behavior
+   of controlled checkboxes inside the protected legacy FlowStack. */
+.nasqo-setting-line .nasqo-haptic-toggle {
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  padding: 0;
+  border: 2px solid var(--nasqo-blue);
+  border-radius: 5px;
+  background: #ffffff;
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 1;
+}
+.nasqo-setting-line .nasqo-haptic-toggle[aria-checked="true"] {
+  background: var(--nasqo-blue);
+  color: var(--nasqo-on-primary, #ffffff);
+}
+.nasqo-setting-line .nasqo-haptic-toggle:focus-visible {
+  outline: 2px solid var(--nasqo-orange);
+  outline-offset: 3px;
+}
