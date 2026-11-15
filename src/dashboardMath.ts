@@ -1,6 +1,6 @@
 export type DailySales = { date: string; amount: number };
 export type SalesCurrency = { id: number; currency: string; total: number; count: number; daily: DailySales[] };
-export type LowStockItem = { id: number; name: string; location: string; unit: string; available: number; minimum: number };
+export type LowStockItem = { id: number; name: string; location: string; unit: string; available: number; minimum: number; updatedAt?: string };
 export type InvoiceRow = {
   id: number; invoice_date: string | false; move_type: string;
   amount_total: number; currency_id: [number, string] | false;
@@ -9,6 +9,7 @@ export type OrderPoint = {
   id: number; product_id: [number, string] | false;
   product_min_qty: number; qty_on_hand: number | false;
   location_id: [number, string] | false; product_uom: [number, string] | false;
+  write_date?: string | false;
 };
 function isoDay(day: Date): string {
   return [day.getFullYear(), String(day.getMonth() + 1).padStart(2, "0"), String(day.getDate()).padStart(2, "0")].join("-");
@@ -51,5 +52,6 @@ export function lowStockRows(rows: OrderPoint[]): LowStockItem[] {
     location: Array.isArray(row.location_id) ? row.location_id[1] : "الموقع غير محدد",
     unit: Array.isArray(row.product_uom) ? row.product_uom[1] : "",
     available: row.qty_on_hand as number, minimum: row.product_min_qty,
+    updatedAt: typeof row.write_date === "string" ? row.write_date : undefined,
   })).sort((a, b) => b.minimum - b.available - (a.minimum - a.available));
 }
