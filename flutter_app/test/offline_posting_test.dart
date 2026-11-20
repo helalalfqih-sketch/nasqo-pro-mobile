@@ -1,3 +1,4 @@
+import 'package:nasqo_pro_erp/services/account_csv.dart';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nasqo_pro_erp/services/customer_measurement_repository.dart';
@@ -7,6 +8,45 @@ import 'package:nasqo_pro_erp/state/erp_controller.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  test('catalog, imported accounts, message settings and purchases survive a cold reopen', () async {
+    sqfliteFfiInit(); databaseFactory=databaseFactoryFfi;
+    final dir=await Directory.systemTemp.createTemp('nasqo-account-import');
+    final store=LocalDatabase.withFactory(databaseFactoryFfi,'${dir.path}/data.db');
+    final c=ErpController(autoInitDb:false,localDatabase:store);
+    addTearDown(() async {c.dispose();await store.close();await dir.delete(recursive:true);});
+    await c.initDatabase();
+    final input=readAccountCsv('\uFEFFالاسم,الهاتف,الرصيد\r\n"مورد, اختباري",0123,١٢٫٥');
+    await c.importAccountRows(input);
+    final supplier=c.accounts.singleWhere((a)=>a.name=='مورد, اختباري');
+    expect(supplier.openingBalance,12.5);
+    expect(supplier.phone,'0123');
+    final item=c.inventory.first;
+    await c.updateCatalogItem(item.id,name:'صنف محرر',sku:item.sku,unit:item.unit,threshold:8);
+    final before=c.ledger.length;
+    InvoiceItemRow line(double qty)=>InvoiceItemRow(id:'l',itemId:item.id,productName:'صنف محرر',quantity:qty,unitPrice:12);
+    await expectLater(c.postPurchaseInvoice(accountId:supplier.id,warehouseId:item.warehouseId,payment:PaymentMethod.credit,
+      rows:[line(3),line(-1)]),throwsFormatException);
+    expect(c.ledger.length,before);
+    expect(c.inventory.first.quantity,item.quantity);
+    final number=await c.postPurchaseInvoice(accountId:supplier.id,warehouseId:item.warehouseId,payment:PaymentMethod.credit,rows:[line(3)]);
+    await c.saveMessagePreferences('external','770000000',true);
+    await store.close();
+    final reopened=ErpController(autoInitDb:false,localDatabase:store);
+    addTearDown(reopened.dispose);
+    await reopened.initDatabase();
+    final purchase=reopened.ledger.singleWhere((e)=>e.entryNumber==number);
+    expect(purchase.amount,36);
+    expect(purchase.accountId,supplier.id);
+    expect(purchase.direction,EntryDirection.credit);
+    expect(reopened.saleLines.singleWhere((l)=>l.entryId==purchase.id).quantity,3);
+    final stock=reopened.inventory.singleWhere((i)=>i.id==item.id);
+    expect(stock.quantity,item.quantity+3);
+    expect(stock.name,'صنف محرر');
+    expect(stock.avgCost,(item.quantity*item.avgCost+36)/(item.quantity+3));
+    expect(reopened.messageProvider,'external');
+    expect(reopened.messagePhone,'770000000');
+    expect(reopened.instantMessages,isTrue);
+  });
   test('stock, vouchers and exchanges survive closing and reopening SQLite', () async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
