@@ -62,6 +62,8 @@ class HomeAccountsView extends StatefulWidget {
 class _HomeAccountsViewState extends State<HomeAccountsView> {
   String _query = '';
   CurrencyCode? _selectedCurrency;
+  String _period='الكل',_sort='ترتيب الدليل';
+  bool _byCurrency=false;
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -69,16 +71,21 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
         builder: (context, _) {
           final currency =
               _selectedCurrency ?? widget.controller.defaultCurrency;
+          final today=DateTime.now().toIso8601String().substring(0,10);
+          final from=switch(_period){'يومي'=>today,'شهري'=>'${today.substring(0,7)}-01','سنوي'=>'${today.substring(0,4)}-01-01',_=>''};
+          final periodLedger=from.isEmpty?widget.controller.ledger:widget.controller.ledger.where((e)=>
+              e.entryDate.compareTo(from)>=0 && e.entryDate.compareTo(today)<=0).toList();
           final accounts = widget.controller.accounts
               .where((a) =>
                   (widget.cashOnly
                       ? a.isCashAccount
                       : widget.category == null ||
                           a.category == widget.category) &&
-                  '${a.name} ${a.codeNumber} ${a.phone}'
+                  (!_byCurrency || a.currency==currency) && '${a.name} ${a.codeNumber} ${a.phone}'
                       .toLowerCase()
                       .contains(_query.toLowerCase()))
               .toList();
+          if(_sort!='ترتيب الدليل') accounts.sort((a,b)=>_sort=='الاسم تصاعديًا'?a.name.compareTo(b.name):b.name.compareTo(a.name));
           return Directionality(
             textDirection: TextDirection.rtl,
             child: Scaffold(
@@ -92,6 +99,16 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
                     : 'أرصدة الدفتر المحلي للقراءة فقط، دون تحويل بين العملات.'),
                 _currencyPicker(currency,
                     (value) => setState(() => _selectedCurrency = value)),
+                ExpansionTile(title:const Text('فلاتر الحسابات'),children:[
+                  Wrap(spacing:4,children:[for(final p in ['يومي','شهري','سنوي','الكل'])
+                    ChoiceChip(label:Text(p),selected:_period==p,onSelected:(_)=>setState(()=>_period=p))]),
+                  DropdownButtonFormField<String>(value:_sort,decoration:const InputDecoration(labelText:'ترتيب الحسابات'),
+                    items:[for(final s in ['ترتيب الدليل','الاسم تصاعديًا','الاسم تنازليًا']) DropdownMenuItem(value:s,child:Text(s))],
+                    onChanged:(v)=>setState(()=>_sort=v!)),
+                  SwitchListTile(title:const Text('الحسابات المسجلة بالعملة المحددة فقط'),value:_byCurrency,
+                    onChanged:(v)=>setState(()=>_byCurrency=v)),
+                  if(from.isNotEmpty) Text('من $from إلى $today')
+                ]),
                 TextField(
                     decoration: const InputDecoration(
                         labelText: 'بحث بالاسم أو الرقم أو الهاتف',
@@ -111,7 +128,7 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
                         Text('رقم ${account.codeNumber} • ${currency.label}'),
                     trailing: Text(_money(
                         LocalAccountStatement(
-                                account, widget.controller.ledger, currency)
+                                account, periodLedger, currency)
                             .closing,
                         currency)),
                     onTap: () {
