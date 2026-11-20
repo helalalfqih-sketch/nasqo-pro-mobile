@@ -11,12 +11,20 @@ class LegacyBackupInspection {
     required this.missingCurrencies,
     required this.orphanInvoiceLines,
     required this.orphanProducts,
+    required this.orphanAccounts,
+    required this.orphanAccountGroups,
+    required this.orphanWarehouses,
+    required this.missingProductCurrencies,
   });
   final Map<String, int> counts;
   final bool integrityOk;
   final int missingCurrencies;
   final int orphanInvoiceLines;
   final int orphanProducts;
+  final int orphanAccounts;
+  final int orphanAccountGroups;
+  final int orphanWarehouses;
+  final int missingProductCurrencies;
 
   bool get safeForAutomaticRestore => false;
 
@@ -27,7 +35,11 @@ class LegacyBackupInspection {
       'فحص SQLite: ${integrityOk ? 'سليم' : 'فشل'}. '
       'حركات بعملة غير معرفة: $missingCurrencies، '
       'بنود بفاتورة مفقودة: $orphanInvoiceLines، '
-      'بنود بصنف مفقود: $orphanProducts. '
+      'بنود بصنف مفقود: $orphanProducts، '
+      'حركات بحساب مفقود: $orphanAccounts، '
+      'حسابات بمجموعة مفقودة: $orphanAccountGroups، '
+      'بنود بمخزن مفقود: $orphanWarehouses، '
+      'أصناف بعملة غير معرفة: $missingProductCurrencies. '
       'الاستعادة المباشرة موقوفة حتى اكتمال مطابقة الحسابات والعملات والمخزون. '
       'احتفظ بالملف الأصلي.';
 }
@@ -48,7 +60,7 @@ Future<LegacyBackupInspection?> inspectLegacyBackup(Uint8List bytes) async {
           .map((row) => row['name']).toSet();
       const required = {
         'currencies', 'customers', 'products', 'stores',
-        'cboxes', 'input_move', 'bill_details', 'trans_details'
+        'cboxes', 'boxes', 'input_move', 'bill_details', 'trans_details'
       };
       if (!tables.containsAll(required)) return null;
       final check = await db.rawQuery('PRAGMA quick_check(1)');
@@ -71,12 +83,29 @@ Future<LegacyBackupInspection?> inspectLegacyBackup(Uint8List bytes) async {
       final orphanProducts = await count(
         'SELECT COUNT(*) FROM bill_details d WHERE NOT EXISTS '
         '(SELECT 1 FROM products p WHERE p.id = d.prod_id)');
+      final orphanAccounts = await count(
+        'SELECT COUNT(*) FROM input_move m WHERE NOT EXISTS '
+        '(SELECT 1 FROM customers c WHERE c.id = m.per_id)');
+      final orphanAccountGroups = await count(
+        'SELECT COUNT(*) FROM customers c WHERE NOT EXISTS '
+        '(SELECT 1 FROM boxes b WHERE b.id = c.type)');
+      final orphanWarehouses = await count(
+        'SELECT COUNT(*) FROM bill_details d WHERE NOT EXISTS '
+        '(SELECT 1 FROM stores s WHERE s.id = d.store_id)');
+      final missingProductCurrencies = await count(
+        'SELECT COUNT(*) FROM products p WHERE p.cur IS NOT NULL '
+        'AND p.cur != 0 AND NOT EXISTS '
+        '(SELECT 1 FROM currencies c WHERE c.id = p.cur)');
       return LegacyBackupInspection(
         counts: counts,
         integrityOk: integrityOk,
         missingCurrencies: missingCurrencies,
         orphanInvoiceLines: orphanInvoices,
         orphanProducts: orphanProducts,
+        orphanAccounts: orphanAccounts,
+        orphanAccountGroups: orphanAccountGroups,
+        orphanWarehouses: orphanWarehouses,
+        missingProductCurrencies: missingProductCurrencies,
       );
     } finally {
       await db.close();
