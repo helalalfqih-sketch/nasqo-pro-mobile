@@ -1126,6 +1126,27 @@ class LocalDatabase {
     };
   }
 
+  Future<LedgerEntryRecord?> resolveDeletedEntry(String id,{required bool purge}) async {
+    final db=await database;
+    return db.transaction((txn) async {
+      final rows=await txn.query('ledger_entries',where:'id = ? AND deleted = 1',whereArgs:[id]);
+      if(rows.length!=1) throw StateError('تغيّرت حالة القيد. أعد فتح المحذوفات.');
+      if(!purge) {
+        await txn.update('ledger_entries',{'deleted':0},where:'id = ?',whereArgs:[id]);
+        return _ledgerFromMap({...rows.single,'deleted':0});
+      }
+      final drafts=await txn.query('sales_return_drafts',columns:['id'],where:'sourceEntryId = ?',whereArgs:[id],limit:1);
+      final posted=await txn.query('erp_state',columns:['stateKey'],
+        where:'stateKey IN (?,?)',whereArgs:['sale_returns/$id','return_detail/$id'],limit:1);
+      if(drafts.isNotEmpty || posted.isNotEmpty) throw StateError('القيد مرتبط بمرتجع محفوظ.');
+      for(final table in ['sale_line_cost_facts','sale_facts','sale_lines']) {
+        await txn.delete(table,where:'entryId = ?',whereArgs:[id]);
+      }
+      await txn.delete('ledger_entries',where:'id = ? AND deleted = 1',whereArgs:[id]);
+      return null;
+    });
+  }
+
   Future<void> clearAll() async {
     final db = await database;
     await db.transaction(_clearTables);
