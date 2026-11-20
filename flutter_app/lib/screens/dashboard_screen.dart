@@ -33,7 +33,6 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 9 Compact Quick Actions according to mobile reference specification
     final quickActions = [
       _Tile('سند جديد', Icons.receipt_outlined,
           id: 'vouchers', action: () => onOpenModule('post-voucher')),
@@ -61,6 +60,8 @@ class DashboardScreen extends StatelessWidget {
           id: 'fx-drafts', action: () => onOpenModule('post-exchange')),
       _Tile('البحث السريع', Icons.search,
           id: 'quick-search', action: () => onOpenModule('quick-search')),
+      _Tile('مسح رمز QR', Icons.qr_code_scanner,
+          id: 'qr-scanner', action: () => onOpenModule('qr-scanner')),
     ];
 
     // Additional administration and advanced tools (for mobile administration list)
