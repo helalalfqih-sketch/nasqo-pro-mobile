@@ -554,10 +554,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
               PopupMenuDivider(),
               PopupMenuItem(value: 'theme', child: Text('تبديل المظهر')),
             ],
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 12),
-              child: Text('خيارات', style: TextStyle(fontSize: 14)),
-            ),
+            child: const Icon(Icons.more_vert, size: 20),
           ),
           const SizedBox(width: 5),
           const NasqoBrandMark(size: 26),
