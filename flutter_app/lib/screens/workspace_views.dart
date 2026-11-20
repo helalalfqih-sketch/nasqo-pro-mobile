@@ -124,6 +124,27 @@ class WorkspaceSettingsScreen extends StatelessWidget {
   final ErpController controller;
   final VoidCallback? openLocalBackups;
 
+  Future<void> _editAppearance(BuildContext context) async {
+    var primary=controller.primaryTint,secondary=controller.secondaryTint,radius=controller.homeRadius;
+    const colors={0xff4338ca:'بنفسجي',0xff095a99:'أزرق',0xff0891b2:'فيروزي',0xff137652:'أخضر',0xffa85c00:'برتقالي'};
+    final ok=await showDialog<bool>(context:context,builder:(dialog)=>StatefulBuilder(builder:(ctx,update)=>
+      AlertDialog(title:const Text('تخصيص الواجهة الرئيسية'),content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
+        for(final first in [true,false]) DropdownButtonFormField<int>(
+          value:first?primary:secondary,decoration:InputDecoration(labelText:first?'لون الأزرار الأساسية':'لون الأزرار الثانوية'),
+          items:[for(final color in {...colors,if(!colors.containsKey(first?primary:secondary)) (first?primary:secondary):'مخصص'}.entries)
+            DropdownMenuItem(value:color.key,child:Row(children:[Icon(Icons.circle,color:Color(color.key)),const SizedBox(width:8),Text(color.value)]))],
+          onChanged:(v)=>update((){if(first){primary=v!;}else{secondary=v!;}})),
+        const Text('استدارة زوايا الأزرار'),
+        Slider(value:radius,min:0,max:24,divisions:12,label:radius.round().toString(),onChanged:(v)=>update(()=>radius=v)),
+        Wrap(spacing:4,children:[for(final label in ['سند جديد','البحث السريع']) Chip(label:Text(label,style:const TextStyle(color:Colors.white)),
+          backgroundColor:Color(label=='سند جديد'?primary:secondary),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(radius)))]),
+      ])),actions:[TextButton(onPressed:()=>Navigator.pop(dialog,false),child:const Text('إلغاء')),
+        FilledButton(onPressed:()=>Navigator.pop(dialog,true),child:const Text('حفظ المظهر'))])));
+    if(ok!=true || !context.mounted) return;
+    try{await controller.saveAppearance(primary,secondary,radius);}
+    catch(e){if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(e.toString())));}
+  }
+
   Future<void> _editName(BuildContext context) async {
     var name = controller.companyName;
     final value = await showDialog<String>(context: context, builder: (context) =>
@@ -171,6 +192,8 @@ class WorkspaceSettingsScreen extends StatelessWidget {
                 title: const Text('العملة الافتراضية'),
                 subtitle: Text(controller.defaultCurrency.label),
               ),
+              ListTile(leading:const Icon(Icons.palette_outlined),title:const Text('تخصيص الواجهة الرئيسية'),
+                subtitle:const Text('ألوان الأزرار واستدارة الزوايا'),onTap:()=>_editAppearance(context)),
               SwitchListTile(
                 value: controller.isDarkMode, onChanged: (_) => controller.toggleTheme(),
                 title: const Text('المظهر المحدد'),
