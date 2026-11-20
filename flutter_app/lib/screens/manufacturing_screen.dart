@@ -23,24 +23,30 @@ class ManufacturingScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text('${order.orderNumber} · ${order.finishedItemName}',
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
                         Chip(label: Text(order.status.label)),
                       ],
                     ),
-                    Text('الكمية المطلوبة: ${order.quantityToProduce.toInt()} · الخلطة: ${order.bomName}'),
+                    Text(
+                        'الكمية المطلوبة: ${order.quantityToProduce.toInt()} · الخلطة: ${order.bomName}'),
                     if (order.status != ProductionOrderStatus.completed) ...[
                       const SizedBox(height: 8),
                       FilledButton(
                         onPressed: () {
-                          final err = controller.completeProductionOrder(order.id);
+                          final err =
+                              controller.completeProductionOrder(order.id);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                err ?? 'تم تصنيع ${order.orderNumber} وتحديث مخزون الخامات والمنتج التام',
+                                err ??
+                                    'تم تصنيع ${order.orderNumber} وتحديث مخزون الخامات والمنتج التام',
                               ),
                             ),
                           );
@@ -66,10 +72,12 @@ class ManufacturingScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('الموازنة: ${AccountingEngine.formatAmount(cc.budget)} $cur'),
+                    Text(
+                        'الموازنة: ${AccountingEngine.formatAmount(cc.budget)} $cur'),
                     Text(
                       'المنصرف: ${AccountingEngine.formatAmount(cc.extraPostedSpend)} $cur',
-                      style: const TextStyle(color: Color(0xFFF39A16), fontSize: 12),
+                      style: const TextStyle(
+                          color: Color(0xFFF39A16), fontSize: 12),
                     ),
                   ],
                 ),

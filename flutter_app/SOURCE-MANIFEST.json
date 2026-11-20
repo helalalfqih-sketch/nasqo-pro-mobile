@@ -1,0 +1,758 @@
+{
+  "version": "1.0.17+18",
+  "package": "com.indexesstore.nasqo_qa",
+  "schemaVersion": 9,
+  "scope": "source-only QA; no production data or credentials",
+  "files": [
+    {
+      "path": "README-QA.md",
+      "bytes": 2433,
+      "sha256": "864948a2c3cf8449b1d05d787cd2bdc20be6fdbd129658e421569f85eefe7830"
+    },
+    {
+      "path": "analysis_options.yaml",
+      "bytes": 173,
+      "sha256": "29dbfc048ca41ec759889cdaaea143d208d0d4eb61987cdbac17bcc6889b396a"
+    },
+    {
+      "path": "android/app/build.gradle.kts",
+      "bytes": 1005,
+      "sha256": "958abf74c92eeb2edf9ebcd3c0b1878731ad2fa9d8c8b3bb8c5083f2d2f503ce"
+    },
+    {
+      "path": "android/app/src/debug/AndroidManifest.xml",
+      "bytes": 378,
+      "sha256": "30b0832ed8b92dfbd6ae2abfa939ccf26333d37600056b1572bd4a397a18a74b"
+    },
+    {
+      "path": "android/app/src/main/AndroidManifest.xml",
+      "bytes": 2294,
+      "sha256": "172000d7cc667aa1ceff356d2262fdbdc6d2d858e873f607c17e43aae3e84466"
+    },
+    {
+      "path": "android/app/src/main/kotlin/com/indexesstore/nasqo_qa/InvoicePdfPrintBridge.kt",
+      "bytes": 8255,
+      "sha256": "b6f2f702d53e81643b341b055b6e845584208cb6204b4440533ea751cb8a91b7"
+    },
+    {
+      "path": "android/app/src/main/kotlin/com/indexesstore/nasqo_qa/MainActivity.kt",
+      "bytes": 4883,
+      "sha256": "adf3f956d96d78e7e431d3ce195184d8c3899cf2cf1af791b2bd88bf9e0048dd"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-v21/launch_background.xml",
+      "bytes": 438,
+      "sha256": "7ca6d5cec2169c5a98661a119db23a6f3399c8fef2256ff04f3a642831282478"
+    },
+    {
+      "path": "android/app/src/main/res/drawable/launch_background.xml",
+      "bytes": 434,
+      "sha256": "94433756fe10005ddd6fc55cc5c0b1e9f3c10b66a08ceac795ece6713d34e28a"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "bytes": 544,
+      "sha256": "6a7c8f0d703e3682108f9662f813302236240d3f8f638bb391e32bfb96055fef"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "bytes": 442,
+      "sha256": "c7c0c0189145e4e32a401c61c9bdc615754b0264e7afae24e834bb81049eaf81"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "bytes": 721,
+      "sha256": "e14aa40904929bf313fded22cf7e7ffcbf1d1aac4263b5ef1be8bfce650397aa"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "bytes": 1031,
+      "sha256": "4d470bf22d5c17d84edc5f82516d1ba8a1c09559cd761cefb792f86d9f52b540"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "bytes": 1443,
+      "sha256": "3c34e1f298d0c9ea3455d46db6b7759c8211a49e9ec6e44b635fc5c87dfb4180"
+    },
+    {
+      "path": "android/app/src/main/res/values-night/styles.xml",
+      "bytes": 995,
+      "sha256": "8c5bad5152f217e837519f9c15211d19f39bd45f5f67faf6dd81cb4b299e518f"
+    },
+    {
+      "path": "android/app/src/main/res/values/styles.xml",
+      "bytes": 996,
+      "sha256": "937d7c82f539c72eb94fd3a3773f29b3d3fef1997213c92cb632298cedf4bda9"
+    },
+    {
+      "path": "android/app/src/profile/AndroidManifest.xml",
+      "bytes": 378,
+      "sha256": "30b0832ed8b92dfbd6ae2abfa939ccf26333d37600056b1572bd4a397a18a74b"
+    },
+    {
+      "path": "android/build.gradle.kts",
+      "bytes": 515,
+      "sha256": "e704c38144ab59a5b51375447918d81d386d9ff49afd6c648b233bca8d759ed2"
+    },
+    {
+      "path": "android/gradle.properties",
+      "bytes": 166,
+      "sha256": "20c411ebbe5162992d16d170656ee19a9ffe0571e6c4d4c5a5314bb06da0a672"
+    },
+    {
+      "path": "android/gradle/wrapper/gradle-wrapper.jar",
+      "bytes": 53636,
+      "sha256": "16caeaf66d57a0d1d2087fef6a97efa62de8da69afa5b908f40db35afc4342da"
+    },
+    {
+      "path": "android/gradle/wrapper/gradle-wrapper.properties",
+      "bytes": 203,
+      "sha256": "b00bce270ab40aa29758d7fe51c356a1bf8dc9a9a0d15e2a5d9a8a6609a749be"
+    },
+    {
+      "path": "android/gradlew",
+      "bytes": 4971,
+      "sha256": "ec56c02543666d92d9ac5ae7fcc48f88ce4de0deb8b7f9b39928ca46f68c1b2b"
+    },
+    {
+      "path": "android/gradlew.bat",
+      "bytes": 2404,
+      "sha256": "c13c6e91b9a517783976de213d46398c661ea9e17651376d7301e839eaedcc62"
+    },
+    {
+      "path": "android/settings.gradle.kts",
+      "bytes": 739,
+      "sha256": "0ba12de2a146d476539fd2fa3dbbcfd6bd88e690d342fa4caf05888bb630dede"
+    },
+    {
+      "path": "assets/fonts/NotoSans-Regular.ttf",
+      "bytes": 512672,
+      "sha256": "89c3c497f618fdaa0b2d1e98fef93582f28c71debd2c4a8cdf41f190ced2909d"
+    },
+    {
+      "path": "assets/fonts/NotoSansArabic-Regular.ttf",
+      "bytes": 244072,
+      "sha256": "504d7407d86875acf7d04dfaa0fd7524d0b8797723bc4aa18022f29db25b0b6e"
+    },
+    {
+      "path": "assets/fonts/OFL-Noto.txt",
+      "bytes": 4029,
+      "sha256": "639bb7c80ae3c331d174c2a145d06ae54c0adefc517167e98f61708ecee308de"
+    },
+    {
+      "path": "assets/nasqo_logo.png",
+      "bytes": 511636,
+      "sha256": "022d325fa84df3f97d5573ea1d13cef1f128c610a4994a721da4f2d0c556ac90"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-11-19-ledger-posting-gates.md",
+      "bytes": 2100,
+      "sha256": "3456ff3f86ee103334830015640e3e2054ad37a0096687cd308293a4f556ce12"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-11-19-native-parity.md",
+      "bytes": 962,
+      "sha256": "f888a7584e14bad7df52d2740800dfe6b88753d93576a57f6ce3e43bb98bbdbf"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-11-19-nonposting-documents.md",
+      "bytes": 865,
+      "sha256": "e591f1bdb950f8e6d354d654eb2adc9895a2492cbfa491bce8eec291f010dd51"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-11-19-posted-sale-commit-next.md",
+      "bytes": 1645,
+      "sha256": "5c6eba2bca5abac9c51bcd2f1e4b14528a4d0ee38cd150202966e375a2af39e4"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-11-19-return-posting-prerequisites.md",
+      "bytes": 1399,
+      "sha256": "8f209bcfeb7b7ea194feca4b1c2214de31828faf5f8520044c6df678bd8c355b"
+    },
+    {
+      "path": "lib/main.dart",
+      "bytes": 18589,
+      "sha256": "309e8c1df7b1ab457b5a6bed96ecb45346812fe10188f222fdcab64281ab435e"
+    },
+    {
+      "path": "lib/models/cash_transfer_draft.dart",
+      "bytes": 1090,
+      "sha256": "ce4e32c2eb468f8fabf837183e64a345a36d85498fb5c9a061b4add9789bce39"
+    },
+    {
+      "path": "lib/models/draft_amount_text.dart",
+      "bytes": 994,
+      "sha256": "701d4b9079203fea17dfd03f1866154db28d7f85c830f6be97b022f4dcf09957"
+    },
+    {
+      "path": "lib/models/erp_models.dart",
+      "bytes": 13185,
+      "sha256": "f0f35efed02621125c59174770f361ff3c23c399c9acbd0804a163e15df6e310"
+    },
+    {
+      "path": "lib/models/fx_draft.dart",
+      "bytes": 1416,
+      "sha256": "425cfa6ed1f8b2e7c87de500731fce3f4ad4786c0c2efe98104c552000df17fa"
+    },
+    {
+      "path": "lib/models/invoice_print_snapshot.dart",
+      "bytes": 1281,
+      "sha256": "5415b8b3d8c327e603cba4946e264c6089f984a6e81105f3697bbd526837fc50"
+    },
+    {
+      "path": "lib/models/nonposting_document.dart",
+      "bytes": 2085,
+      "sha256": "4ac782f0b4390bee213db2c70a967b085dc1d457b2188a7da05187789baa1fdf"
+    },
+    {
+      "path": "lib/models/sale_facts.dart",
+      "bytes": 1026,
+      "sha256": "a19057774b0e1e7eee1fa8b653bb04994b30ad7c50ca8c81c945695901cecb8f"
+    },
+    {
+      "path": "lib/models/sale_tax_register.dart",
+      "bytes": 1967,
+      "sha256": "334df335fa7d5c529c64a4d55af871fcc332f5cec2679046bba1e0efda7e0912"
+    },
+    {
+      "path": "lib/models/sales_return_draft.dart",
+      "bytes": 1774,
+      "sha256": "84e6a56ec9ea97c94c1ee082c1a7f37e5d15a32b77e771864c90948b7652c4fe"
+    },
+    {
+      "path": "lib/models/sales_return_estimate.dart",
+      "bytes": 5450,
+      "sha256": "954516323a35d3049c50c9688a8ead758aedce5d0a33be905fcaa5e95c2d13fc"
+    },
+    {
+      "path": "lib/models/simple_journal_draft.dart",
+      "bytes": 1097,
+      "sha256": "82fe565ce8ff3c3ea855f543a1d740c979583143ad3b914861ff6dd63071599c"
+    },
+    {
+      "path": "lib/models/voucher_draft.dart",
+      "bytes": 1163,
+      "sha256": "588f284bd6be5bef92b35b66dba6d68418fbcc87b8f9ec815a192518a7ba1008"
+    },
+    {
+      "path": "lib/screens/cash_transfer_draft_views.dart",
+      "bytes": 17000,
+      "sha256": "676f66bb8389a8f212d3d6329b1e247256e05239411adecb749a63cecb863d13"
+    },
+    {
+      "path": "lib/screens/customer_list_sheet.dart",
+      "bytes": 6949,
+      "sha256": "438b55689c5d894d897deed111c9649a50bfc54f126d0c3b78aaf3f01498f933"
+    },
+    {
+      "path": "lib/screens/dashboard_screen.dart",
+      "bytes": 16543,
+      "sha256": "029bfbd02a515d92a6554652055af179bbeeeb872b8ace7ff148dd59781db8d2"
+    },
+    {
+      "path": "lib/screens/erp_hub_screen.dart",
+      "bytes": 7995,
+      "sha256": "82c48d47ed2fd80fc62d8d7369faba13cb6c8cba320fba24cbb2d66b8c1a6d74"
+    },
+    {
+      "path": "lib/screens/finance_screen.dart",
+      "bytes": 6157,
+      "sha256": "530c1138e4a8794ef551e1713cced6d247c3a68d83e4afec52ceda250ab5d790"
+    },
+    {
+      "path": "lib/screens/fx_draft_views.dart",
+      "bytes": 18267,
+      "sha256": "f4d776aa1eb46fe11104fce73683f8ee850b183cf09c3811f9a8e847c16211d8"
+    },
+    {
+      "path": "lib/screens/home_account_views.dart",
+      "bytes": 9907,
+      "sha256": "bf9747eb5f413e2c4fee8e4c4ae110141f7826f4e00fd35b9f1945618128c9cc"
+    },
+    {
+      "path": "lib/screens/home_directory_views.dart",
+      "bytes": 6078,
+      "sha256": "8dcc4b3fdf4e14450f7e956fe9da10752aaf8c6c5532321b6b3e287ec8f7fa1b"
+    },
+    {
+      "path": "lib/screens/home_lookup_views.dart",
+      "bytes": 11115,
+      "sha256": "bfdb1bd3d64ac132b9de7a2d4e02ff399cc00c1edc4095517be9f4a4455dd7c5"
+    },
+    {
+      "path": "lib/screens/home_sales_register_view.dart",
+      "bytes": 9025,
+      "sha256": "ab88c806088b87420dfc541aa6e59e28a88a35c88a728787fbfb760689a245e8"
+    },
+    {
+      "path": "lib/screens/home_summary_views.dart",
+      "bytes": 4220,
+      "sha256": "1d9a728bfd27fe3fd8b63d06902b0daa2891c2adcd6b2260bd21ddf090cb84f2"
+    },
+    {
+      "path": "lib/screens/home_warehouse_view.dart",
+      "bytes": 5429,
+      "sha256": "cca676fd3febcada0b31d05169a9cfad3668af8cea38dfcb001532debeedf18a"
+    },
+    {
+      "path": "lib/screens/hr_screen.dart",
+      "bytes": 4335,
+      "sha256": "5dc2faca0d9d6caff4794b08b251efb654d30283c8205dc9f7e365ea59f0265a"
+    },
+    {
+      "path": "lib/screens/invoice_form_sheet.dart",
+      "bytes": 24437,
+      "sha256": "952c92fb55770a987c4075747e5ef5e7aac765643aab5953d92c2b6153473020"
+    },
+    {
+      "path": "lib/screens/invoice_pdf_preview_view.dart",
+      "bytes": 5752,
+      "sha256": "d07392e19a1a3e06596820941a92ebf665342a65bff3cef7c26d48e8b1ff3c50"
+    },
+    {
+      "path": "lib/screens/local_backup_workspace_view.dart",
+      "bytes": 8648,
+      "sha256": "8adae962b04a5ba994a7964e58eab2079d056cc963f38238165295a1401295c5"
+    },
+    {
+      "path": "lib/screens/local_db_startup_view.dart",
+      "bytes": 4704,
+      "sha256": "e48a9ae75aff71e713fd0533b3113a091e7332335482baf0b2c14afbf81d5ddd"
+    },
+    {
+      "path": "lib/screens/manufacturing_screen.dart",
+      "bytes": 3849,
+      "sha256": "d957d38b56578aa72ea93f7f92d0db5ba76e4aa0dbd7ba3c27fecc4302b212d6"
+    },
+    {
+      "path": "lib/screens/nasqo_brand_mark.dart",
+      "bytes": 609,
+      "sha256": "e372fd9774210f84fcf6491e2a2d6110d889645e4e39bd34dd1ae9561bb9fc11"
+    },
+    {
+      "path": "lib/screens/nasqo_web_drawer.dart",
+      "bytes": 7807,
+      "sha256": "ebe30510babae06d1479535c5a0853b56cbd456c43e376841e8f1fcbf92bcea0"
+    },
+    {
+      "path": "lib/screens/nonposting_document_views.dart",
+      "bytes": 21127,
+      "sha256": "586252b9c1d7d4370db6ed71372bc9d1c3ae99d5494d997918bb2457fc71302f"
+    },
+    {
+      "path": "lib/screens/original_sale_facts_view.dart",
+      "bytes": 6925,
+      "sha256": "a102c08593d2c64dcc2595e2d2a43ef5c31364dd617ad5dceeef77d3bcb04c40"
+    },
+    {
+      "path": "lib/screens/pos_crm_screen.dart",
+      "bytes": 15486,
+      "sha256": "f39f7010ab1c36c039c0764157de94bb8523bdc9e13b47d2058b5b6369fd38e0"
+    },
+    {
+      "path": "lib/screens/procurement_screen.dart",
+      "bytes": 3855,
+      "sha256": "32787a8717330bb956cf73c9811649127e4a92d881cba17503b60ffa48485338"
+    },
+    {
+      "path": "lib/screens/sale_tax_register_view.dart",
+      "bytes": 7143,
+      "sha256": "f4f558ed55df5b45cffb4a84dc78830d4fdb846251b2f58e69a0d2c206ceca44"
+    },
+    {
+      "path": "lib/screens/sales_csv_export_view.dart",
+      "bytes": 9314,
+      "sha256": "f85eecf041b4924850a41c67faffe8dc6496159635c74eaf613f2895ac6260b9"
+    },
+    {
+      "path": "lib/screens/sales_return_views.dart",
+      "bytes": 25801,
+      "sha256": "3d0fb5832e5ab26e9a59c850cb487a77a670a3f97cf82d4f514d91dbd4d3a1de"
+    },
+    {
+      "path": "lib/screens/simple_journal_draft_views.dart",
+      "bytes": 17330,
+      "sha256": "56b86d89a401b688530685775d65a88b3a042f37033e79a469a1871c6ca17be2"
+    },
+    {
+      "path": "lib/screens/voucher_draft_views.dart",
+      "bytes": 17006,
+      "sha256": "24e1a18c9d31846eaf37e2f6820b366835b8b8564e2d75c40ac0af0022b9f4e5"
+    },
+    {
+      "path": "lib/screens/workspace_views.dart",
+      "bytes": 16647,
+      "sha256": "ea4e96d2fd9659ecd70f54edbbb1c11e114ce3788a290c2f59efe670b902988f"
+    },
+    {
+      "path": "lib/services/accounting_engine.dart",
+      "bytes": 9722,
+      "sha256": "57be0fb631dae5e71fd0e0518406c11810c527e3297a1b397319d4772f1936d2"
+    },
+    {
+      "path": "lib/services/android_csv_writer.dart",
+      "bytes": 1198,
+      "sha256": "7dc0e94fd4797032ad79784c40c75a70b056f5f8e77d88a4b87046e85ace43ba"
+    },
+    {
+      "path": "lib/services/android_invoice_pdf_printer.dart",
+      "bytes": 1139,
+      "sha256": "e736fb5c35fef313d9d076b3eab566f198f412494c7a0e17c0b998a038eceab0"
+    },
+    {
+      "path": "lib/services/cash_transfer_draft_repository.dart",
+      "bytes": 3696,
+      "sha256": "4d413ee67993334db3e92b787d57a7bfd6d834494b6f9b9f0ad93bc3140fc50f"
+    },
+    {
+      "path": "lib/services/fx_draft_repository.dart",
+      "bytes": 4205,
+      "sha256": "3eae1a0204d5ad08f077bc87f231be7ef10f3f754e0c8b83ffe06b4c94eb969b"
+    },
+    {
+      "path": "lib/services/home_balance_groups.dart",
+      "bytes": 3464,
+      "sha256": "a141c293aaa9e048769e295e8569f48a6a274c4b72b0b98eb1a12e71b5494468"
+    },
+    {
+      "path": "lib/services/local_backup_files.dart",
+      "bytes": 5220,
+      "sha256": "6bba9cce5a819af667bfe834a869ea0ff560674e631cf1b769228eed9e3c185d"
+    },
+    {
+      "path": "lib/services/local_backup_service.dart",
+      "bytes": 14779,
+      "sha256": "96ad41930bb42571d3db6a3def05bf580585f9bec1530529e3edda141e57538c"
+    },
+    {
+      "path": "lib/services/local_database.dart",
+      "bytes": 42379,
+      "sha256": "b9eb30b4817f86e9ad4cfda20a5701beaad004eb21401716708c8408f134470e"
+    },
+    {
+      "path": "lib/services/local_invoice_pdf.dart",
+      "bytes": 9596,
+      "sha256": "e90d29a6b7368040bdcdc8957366e3c9d816cb5ffd867619cafb1717474dd457"
+    },
+    {
+      "path": "lib/services/local_sales_csv.dart",
+      "bytes": 4514,
+      "sha256": "fbf14c55ebfbb29d520386ccac2b6546121b71c1a1eb76a7dce153832f154efd"
+    },
+    {
+      "path": "lib/services/simple_journal_draft_repository.dart",
+      "bytes": 3672,
+      "sha256": "accad8deb250b92bad48545f4928b14386609de6c6db22f6ecf908895a6ba701"
+    },
+    {
+      "path": "lib/services/voucher_draft_repository.dart",
+      "bytes": 4215,
+      "sha256": "6a882834d06d1d10b6c61e56d4d22958fb2094f6c82c13c51696377ac37e705d"
+    },
+    {
+      "path": "lib/state/erp_controller.dart",
+      "bytes": 40605,
+      "sha256": "76a48fe219754598f0b5efa3701e23291e80edb3d0c5ebb46de5b6cc18376dea"
+    },
+    {
+      "path": "pubspec.lock",
+      "bytes": 9228,
+      "sha256": "cddab7653677c4cf436e73638bd1a87e3923341e8a9e9511823f204a075deb79"
+    },
+    {
+      "path": "pubspec.yaml",
+      "bytes": 875,
+      "sha256": "b34e6b1ad1ff2cef0eb3c9b86e985164a9063952f8e6741cbe552dc1844b347f"
+    },
+    {
+      "path": "test/accounting_engine_test.dart",
+      "bytes": 1569,
+      "sha256": "0c6035978daf8928a1e214dfa724828092bcf8fb4910ceac3d3440852b0a5c4b"
+    },
+    {
+      "path": "test/android_csv_writer_test.dart",
+      "bytes": 1645,
+      "sha256": "bb002a4fd643cc34ac3f1967e37d1ce0b58b7f84041763889d2783dde6146e1c"
+    },
+    {
+      "path": "test/android_invoice_pdf_printer_test.dart",
+      "bytes": 2634,
+      "sha256": "85e33ff0cfdc16936acc8d7a6887c0cf0dd7b1a487352b5db8a76ad521542e4b"
+    },
+    {
+      "path": "test/cash_transfer_draft_storage_test.dart",
+      "bytes": 7147,
+      "sha256": "802c64db20f44f97c6862a3503e409ec66e44fef0276f74b9a66c03c7013e5fa"
+    },
+    {
+      "path": "test/cash_transfer_draft_views_test.dart",
+      "bytes": 8254,
+      "sha256": "7114e6f9ee2afd6e22cc0553422f2da710d26e7634b207aa1d6ef5bcb7202a2a"
+    },
+    {
+      "path": "test/cash_transfer_workspace_test.dart",
+      "bytes": 1455,
+      "sha256": "8ef5e9455695327707a8df90f10a0a7a9d6f41d39351a1764551ca3216ed4a19"
+    },
+    {
+      "path": "test/database_startup_protection_test.dart",
+      "bytes": 6003,
+      "sha256": "3b37f5fc5ec5f26b3eb3401a9bc6d954226e459fd4338104411431a3e28cd6a9"
+    },
+    {
+      "path": "test/document_cancel_test.dart",
+      "bytes": 7333,
+      "sha256": "2f625dedf5e84182d1bc195dd9a26d5a2859645eb7426c07e977f55413a11540"
+    },
+    {
+      "path": "test/draft_amount_text_test.dart",
+      "bytes": 576,
+      "sha256": "ec8a90a6d63b07f818cd53a632eec197f120aaad335be4707de5918a9fbce51f"
+    },
+    {
+      "path": "test/fx_draft_storage_test.dart",
+      "bytes": 7340,
+      "sha256": "2bac6ef07696f90ca810e87a489cfa6e88189cb16a3f021c94814940255f3b44"
+    },
+    {
+      "path": "test/fx_draft_views_test.dart",
+      "bytes": 8990,
+      "sha256": "823a3040a37278ce6da1183163181b8a06023dc304ab81c855d2b865ac6103ae"
+    },
+    {
+      "path": "test/fx_draft_workspace_test.dart",
+      "bytes": 1797,
+      "sha256": "01905ba6e666af16c6195c033675bfda6f457b78473ff28aa08672b56e171941"
+    },
+    {
+      "path": "test/home_account_views_test.dart",
+      "bytes": 4326,
+      "sha256": "7a4ea5090829c4023fadf02a7745a0d4a03a36b8cd085d89d7d4abe168c0b85f"
+    },
+    {
+      "path": "test/home_balance_groups_test.dart",
+      "bytes": 5102,
+      "sha256": "95b238770ce9fa00a89d848a7e791255f10bdf67a8ce804937001fe76624ce3b"
+    },
+    {
+      "path": "test/home_balance_panel_test.dart",
+      "bytes": 2741,
+      "sha256": "c4c4552a034de7771024494104a763826c042fe83f001a4507f7742fc6447858"
+    },
+    {
+      "path": "test/home_directory_views_test.dart",
+      "bytes": 4692,
+      "sha256": "a873dc218ee537a18f935084945b93ce4b37804262ceb85612f5dad3de18ce4c"
+    },
+    {
+      "path": "test/home_lookup_views_test.dart",
+      "bytes": 5019,
+      "sha256": "94db738aefaab701e2f55767a0d74f175e7e4b806982c1e70fbabc1fd5071a17"
+    },
+    {
+      "path": "test/home_sales_register_view_test.dart",
+      "bytes": 5024,
+      "sha256": "ac070ea453eb994f8117de474c169dca25648a07bcc3016aed71b6a3c55fa8b6"
+    },
+    {
+      "path": "test/home_summary_views_test.dart",
+      "bytes": 3196,
+      "sha256": "67f1d3e70d8c5dc41bb1c1e6034ce883df9748ee60a723333b0a9b4d310c01be"
+    },
+    {
+      "path": "test/home_warehouse_view_test.dart",
+      "bytes": 3459,
+      "sha256": "10160d62aaae21e287af36c3b29052f411ee109e04630eb4484fcaeb9fe88330"
+    },
+    {
+      "path": "test/invoice_pdf_preview_view_test.dart",
+      "bytes": 2264,
+      "sha256": "e3e155aa4c43550b0c8c2c9a06697670edbcb1a49e058101340fdfe0f2e9a16c"
+    },
+    {
+      "path": "test/local_backup_files_test.dart",
+      "bytes": 2709,
+      "sha256": "e3b6a1a0586fb7f1d478e5730b9fe9be57eb497c8b20788010f4b3ff00810633"
+    },
+    {
+      "path": "test/local_backup_route_test.dart",
+      "bytes": 1182,
+      "sha256": "7e04b770f17f844d5355df7f794d759753fdad5a0707b0a63caa1e015e8148a6"
+    },
+    {
+      "path": "test/local_backup_service_test.dart",
+      "bytes": 6962,
+      "sha256": "b3dff56681a140146e5ca3dfd047eed2ae08355e64d85bc259e3b06194a7d5d9"
+    },
+    {
+      "path": "test/local_backup_workspace_view_test.dart",
+      "bytes": 5145,
+      "sha256": "fc698d817ce2783d83d52b814a761aa0957caf07b2d0870976a34a37c051c94d"
+    },
+    {
+      "path": "test/local_db_startup_view_test.dart",
+      "bytes": 3054,
+      "sha256": "7db36ac483eb142c29804a3311eb314f57e2c1679cad1400e928370e79242340"
+    },
+    {
+      "path": "test/local_invoice_pdf_test.dart",
+      "bytes": 3133,
+      "sha256": "d28062828f90fd39c338cacf446d3755425794c7f784760cb93e8c1bcd10232c"
+    },
+    {
+      "path": "test/local_sales_csv_test.dart",
+      "bytes": 4740,
+      "sha256": "995f2fa0b74bd193b968a4724033956cdbf35f2a5c161cd8e8c555a01e85b2ec"
+    },
+    {
+      "path": "test/nonposting_document_views_test.dart",
+      "bytes": 7734,
+      "sha256": "143af1451d06d5223b5caf31f5af31b0a7ffaeda399761bf8af8826d7a279fbe"
+    },
+    {
+      "path": "test/nonposting_storage_test.dart",
+      "bytes": 6050,
+      "sha256": "2c9e3e9e8276df4b1cad824d2fc00751a95ab7529550d2b2443191e74ec33e22"
+    },
+    {
+      "path": "test/nonposting_workspace_integration_test.dart",
+      "bytes": 2746,
+      "sha256": "a40b7e3f2f9742db7334e97706795cbf6b43e803d324b7ee5f7f3189a1742378"
+    },
+    {
+      "path": "test/original_sale_facts_view_test.dart",
+      "bytes": 4605,
+      "sha256": "4d9aa0aaea3307da1d5ba78bc25c978dcb274f1c368fe0d7125cac65f86b8de2"
+    },
+    {
+      "path": "test/original_sale_facts_workspace_test.dart",
+      "bytes": 2022,
+      "sha256": "feb547587364f8b23708a958f8fb805339dd9e633a48b80389819a97661225ed"
+    },
+    {
+      "path": "test/sale_facts_storage_test.dart",
+      "bytes": 5617,
+      "sha256": "7a14af0af0f079e2803874c38b139af020ba6cb873051bc8f52a0b8b09575564"
+    },
+    {
+      "path": "test/sale_tax_register_storage_test.dart",
+      "bytes": 6470,
+      "sha256": "a8018c930d24ac330eda0820e76af5898133f283026373cf18b2d263844dcca7"
+    },
+    {
+      "path": "test/sale_tax_register_view_test.dart",
+      "bytes": 5151,
+      "sha256": "fa6db52f09687e2dc5f5338fc9b1c57044cf62ff596d3b43b1ff77fd4939e3ea"
+    },
+    {
+      "path": "test/sale_tax_register_workspace_test.dart",
+      "bytes": 1847,
+      "sha256": "b16aaf5d445b4fac1f6720c3140993e0a1f7f1f0f30d6b223eda14e7e2259ae6"
+    },
+    {
+      "path": "test/sales_commit_interleaving_test.dart",
+      "bytes": 5985,
+      "sha256": "30c1778e92c106dcc563d5573b47cf5a69b2e1161bc5ba562b653b3e2097b22f"
+    },
+    {
+      "path": "test/sales_commit_storage_test.dart",
+      "bytes": 7723,
+      "sha256": "5b13a2eaad3960e96fc0b1e0a5c19775682ff8c5d291273c84323d22e02a2448"
+    },
+    {
+      "path": "test/sales_commit_ui_test.dart",
+      "bytes": 4875,
+      "sha256": "4d90d4a1d93fad4b330770c815ec0fa796e8ff473bd38a92a75cc113d02c13f5"
+    },
+    {
+      "path": "test/sales_csv_export_view_test.dart",
+      "bytes": 5246,
+      "sha256": "ae982228bab486cd575223bc4b9f002ae4c886ed747dbda38aed8664d8795462"
+    },
+    {
+      "path": "test/sales_csv_route_test.dart",
+      "bytes": 1633,
+      "sha256": "048248aade6b5a82ea4be4ca9a93146893f75f257e823e952bf8976162e885e6"
+    },
+    {
+      "path": "test/sales_register_workspace_test.dart",
+      "bytes": 1119,
+      "sha256": "b91a52fdbf09b0b9096f2c6f47d2535acd0bd36998d38dcb30cc8900b550035d"
+    },
+    {
+      "path": "test/sales_return_estimate_test.dart",
+      "bytes": 6386,
+      "sha256": "bd2911726c769892c911b6cae865204e87edec96eaf12679259f1ec5ea7244d8"
+    },
+    {
+      "path": "test/sales_return_estimate_view_test.dart",
+      "bytes": 6707,
+      "sha256": "33a23ca14ed9d562b72d0bcbc7fdec7304cc2505e8089bebaa7e71cc584ebc4e"
+    },
+    {
+      "path": "test/sales_return_storage_test.dart",
+      "bytes": 6653,
+      "sha256": "5a0f2706fe0c74515d21908b762a4be15687a5d9d2c3edb7f3b7c88ad48b59ec"
+    },
+    {
+      "path": "test/sales_return_views_test.dart",
+      "bytes": 10197,
+      "sha256": "a7f68c1f19e1026b920817f6fd95a5cd134e6002628ecdd9e073d7fe7f21eb43"
+    },
+    {
+      "path": "test/sales_return_workspace_test.dart",
+      "bytes": 1512,
+      "sha256": "e5414941ebd8c7e0df70b150b81dad9804446491d33db01c3bd5b04660123f9a"
+    },
+    {
+      "path": "test/sales_stock_guard_test.dart",
+      "bytes": 2813,
+      "sha256": "5c5edcce17fae69cecc8fb5362c7c2b605b23fb2b281ce4b6d47bdbdf690a4a7"
+    },
+    {
+      "path": "test/simple_journal_draft_storage_test.dart",
+      "bytes": 7067,
+      "sha256": "0428fbf7467778e53c55ba0c501f64d3721add51c158db27ce4888bb4331276e"
+    },
+    {
+      "path": "test/simple_journal_draft_views_test.dart",
+      "bytes": 9260,
+      "sha256": "d669ad2263fb5adf3ec94af0f3e92e85a7bc224d69e4d724a5baf8148e4a1b78"
+    },
+    {
+      "path": "test/simple_journal_workspace_test.dart",
+      "bytes": 1542,
+      "sha256": "785b99de12abbf69e3b74e2e0ae1193622b62570831d485612696947949578f7"
+    },
+    {
+      "path": "test/sqlite_invoice_cancel_test.dart",
+      "bytes": 8617,
+      "sha256": "0cda0908d28df891ba5e119f046ff41c71049d1b202eef197e1494544668a341"
+    },
+    {
+      "path": "test/voucher_draft_storage_test.dart",
+      "bytes": 6988,
+      "sha256": "c3ff3d53d7d2dd7d6f4750e7cffff8a738a10678b04d12a97e9cba5a131af475"
+    },
+    {
+      "path": "test/voucher_draft_views_test.dart",
+      "bytes": 8516,
+      "sha256": "f8308109dbc1bac44ad8cb31ae160c97273c1f8187687687d251bab6fe1bd375"
+    },
+    {
+      "path": "test/voucher_workspace_test.dart",
+      "bytes": 1829,
+      "sha256": "f84f22cf8f96d1a95d31a8c92fe1e3544cf5913b2338b44c80349ffca8452a46"
+    },
+    {
+      "path": "test/workspace_navigation_test.dart",
+      "bytes": 7150,
+      "sha256": "5a87e013d2346e8344f30bd61f1e291c63829e58db0cd77a3ec6e47b60873039"
+    },
+    {
+      "path": "tools/check_android_sqlite_apk.sh",
+      "bytes": 830,
+      "sha256": "518d5e76c74ebf57ec59aaaea9e85f179e1d485ce414670c3961b7f4701969bf"
+    }
+  ]
+}

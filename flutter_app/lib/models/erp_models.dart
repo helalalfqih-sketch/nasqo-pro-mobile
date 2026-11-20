@@ -231,6 +231,34 @@ class InvoiceItemRow {
   double get lineTotal => quantity * unitPrice;
 }
 
+/// Durable sale line. Old ledger headers have no synthetic backfilled lines.
+class SavedSaleLine {
+  const SavedSaleLine({
+    required this.entryId,
+    required this.position,
+    required this.itemId,
+    required this.itemName,
+    required this.unit,
+    required this.quantity,
+    required this.unitPrice,
+  });
+
+  final String entryId;
+  final int position;
+  final String itemId;
+  final String itemName;
+  final String unit;
+  final double quantity;
+  final double unitPrice;
+}
+
+class SaleValidationException implements Exception {
+  const SaleValidationException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
 class ErpEmployeeProfile {
   const ErpEmployeeProfile({
     required this.id,

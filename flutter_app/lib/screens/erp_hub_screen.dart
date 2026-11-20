@@ -18,8 +18,10 @@ class ErpHubScreen extends StatelessWidget {
       controller.accounts,
       controller.ledger,
     );
-    final invTotal = AccountingEngine.computeInventoryValue(controller.inventory);
-    final payroll = AccountingEngine.computeTotalNetPayroll(controller.employees);
+    final invTotal =
+        AccountingEngine.computeInventoryValue(controller.inventory);
+    final payroll =
+        AccountingEngine.computeTotalNetPayroll(controller.employees);
     final vat = AccountingEngine.computeVatSummary(
       controller.accounts,
       controller.ledger,
@@ -27,11 +29,41 @@ class ErpHubScreen extends StatelessWidget {
     final cur = controller.defaultCurrency.label;
 
     final modules = [
-      ('finance', 'القوائم المالية والأستاذ العام', 'ميزان المراجعة · الدخل · VAT', Icons.bar_chart, const Color(0xFF0B5CA8)),
-      ('crm', 'المبيعات ونقطة البيع (POS / CRM)', 'نقطة بيع · صفقات · فواتير', Icons.point_of_sale, const Color(0xFF169B62)),
-      ('procurement', 'المشتريات وسلسلة التوريد', 'أوامر الشراء · الاستلام المخزني', Icons.local_shipping_outlined, const Color(0xFFF39A16)),
-      ('hr', 'الموارد البشرية والرواتب', 'الموظفون · الإجازات · الرواتب', Icons.people_alt_outlined, Colors.purple),
-      ('manufacturing', 'التصنيع (BOM) ومراكز التكلفة', 'قوائم المواد · أوامر الإنتاج', Icons.precision_manufacturing_outlined, Colors.teal),
+      (
+        'finance',
+        'القوائم المالية والأستاذ العام',
+        'ميزان المراجعة · الدخل · VAT',
+        Icons.bar_chart,
+        const Color(0xFF0B5CA8)
+      ),
+      (
+        'crm',
+        'المبيعات ونقطة البيع (POS / CRM)',
+        'نقطة بيع · صفقات · فواتير',
+        Icons.point_of_sale,
+        const Color(0xFF169B62)
+      ),
+      (
+        'procurement',
+        'المشتريات وسلسلة التوريد',
+        'أوامر الشراء · الاستلام المخزني',
+        Icons.local_shipping_outlined,
+        const Color(0xFFF39A16)
+      ),
+      (
+        'hr',
+        'الموارد البشرية والرواتب',
+        'الموظفون · الإجازات · الرواتب',
+        Icons.people_alt_outlined,
+        Colors.purple
+      ),
+      (
+        'manufacturing',
+        'التصنيع (BOM) ومراكز التكلفة',
+        'قوائم المواد · أوامر الإنتاج',
+        Icons.precision_manufacturing_outlined,
+        Colors.teal
+      ),
     ];
 
     final colorScheme = Theme.of(context).colorScheme;
@@ -67,18 +99,30 @@ class ErpHubScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        GridView.count(
-          crossAxisCount: 2,
+        GridView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          childAspectRatio: 1.9,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            mainAxisExtent: 40 + MediaQuery.textScalerOf(context).scale(68),
+          ),
           children: [
-            _kpiTile(context, 'صافي الربح التشغيلي', '${AccountingEngine.formatAmount(income.netProfit)} $cur', income.netProfit >= 0),
-            _kpiTile(context, 'قيمة المخزون الحالية', '${AccountingEngine.formatAmount(invTotal)} $cur', true),
-            _kpiTile(context, 'مسير الرواتب الشهري', '${AccountingEngine.formatAmount(payroll)} $cur', true),
-            _kpiTile(context, 'صافي ضريبة VAT 15%', '${AccountingEngine.formatAmount(vat.netVatPayable)} $cur', vat.netVatPayable <= 0),
+            _kpiTile(
+                context,
+                'صافي الربح التشغيلي',
+                '${AccountingEngine.formatAmount(income.netProfit)} $cur',
+                income.netProfit >= 0),
+            _kpiTile(context, 'قيمة المخزون الحالية',
+                '${AccountingEngine.formatAmount(invTotal)} $cur', true),
+            _kpiTile(context, 'مسير الرواتب الشهري',
+                '${AccountingEngine.formatAmount(payroll)} $cur', true),
+            _kpiTile(
+                context,
+                'صافي ضريبة VAT 15%',
+                '${AccountingEngine.formatAmount(vat.netVatPayable)} $cur',
+                vat.netVatPayable <= 0),
           ],
         ),
         const SizedBox(height: 14),
@@ -94,11 +138,12 @@ class ErpHubScreen extends StatelessWidget {
             child: ListTile(
               onTap: () => onOpenModule(id),
               leading: CircleAvatar(
-                backgroundColor: color.withOpacity(0.12),
+                backgroundColor: color.withValues(alpha: 0.12),
                 foregroundColor: color,
                 child: Icon(icon),
               ),
-              title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+              title: Text(title,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text(subtitle),
               trailing: const Icon(Icons.chevron_right),
             ),
@@ -113,7 +158,8 @@ class ErpHubScreen extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.storage_rounded, color: colorScheme.primary, size: 20),
+                    Icon(Icons.storage_rounded,
+                        color: colorScheme.primary, size: 20),
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
@@ -126,7 +172,9 @@ class ErpHubScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: controller.dbReady ? const Color(0xFF169B62) : colorScheme.secondary,
+                        color: controller.dbReady
+                            ? const Color(0xFF169B62)
+                            : colorScheme.secondary,
                       ),
                     ),
                   ],
@@ -134,7 +182,8 @@ class ErpHubScreen extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   'الحسابات: ${controller.accounts.length} · القيود: ${controller.ledger.length} · الأصناف: ${controller.inventory.length}',
-                  style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                  style: TextStyle(
+                      fontSize: 12, color: colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -144,7 +193,8 @@ class ErpHubScreen extends StatelessWidget {
     );
   }
 
-  Widget _kpiTile(BuildContext context, String title, String value, bool positive) {
+  Widget _kpiTile(
+      BuildContext context, String title, String value, bool positive) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(10),
@@ -159,6 +209,8 @@ class ErpHubScreen extends StatelessWidget {
         children: [
           Text(
             title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 4),
@@ -167,7 +219,8 @@ class ErpHubScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: positive ? const Color(0xFF169B62) : const Color(0xFFD84949),
+              color:
+                  positive ? const Color(0xFF169B62) : const Color(0xFFD84949),
             ),
           ),
         ],

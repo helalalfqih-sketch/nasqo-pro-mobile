@@ -14,13 +14,15 @@ void main() {
     expect(avg, 120);
   });
 
-  test('submitting sales invoice updates ledger and deducts inventory', () {
-    final controller = ErpController();
+  test('submitting sales invoice updates ledger and deducts inventory',
+      () async {
+    final controller = ErpController(autoInitDb: false);
+    addTearDown(controller.dispose);
     final initialLedgerCount = controller.ledger.length;
     final item = controller.inventory.first;
     final initialQty = item.quantity;
 
-    controller.submitSalesInvoice(
+    await controller.submitSalesInvoice(
       accountId: controller.accounts.first.id,
       customerName: 'عميل تجريبي',
       warehouse: controller.warehouses.first,

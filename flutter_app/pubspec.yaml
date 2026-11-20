@@ -1,7 +1,7 @@
 name: nasqo_pro_erp
 description: نظام نسقو برو ERP المتكامل لإدارة المحاسبة، نقاط البيع، العملاء، المشتريات، الموارد البشرية، والتصنيع (Flutter RTL).
 publish_to: "none"
-version: 1.0.0+1
+version: 1.0.17+18
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -19,6 +19,18 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  sqflite_common_ffi: ^2.3.6
+  sqlite3: ^2.9.4
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/nasqo_logo.png
+    - assets/fonts/OFL-Noto.txt
+  fonts:
+    - family: InvoiceArabic
+      fonts:
+        - asset: assets/fonts/NotoSansArabic-Regular.ttf
+    - family: InvoiceLatin
+      fonts:
+        - asset: assets/fonts/NotoSans-Regular.ttf

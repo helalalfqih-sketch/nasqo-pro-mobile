@@ -7,10 +7,12 @@ class CustomerListSheet extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onSelectCustomer,
+    this.allowAdd = true,
   });
 
   final ErpController controller;
   final ValueChanged<AccountRecord> onSelectCustomer;
+  final bool allowAdd;
 
   @override
   State<CustomerListSheet> createState() => _CustomerListSheetState();
@@ -31,15 +33,17 @@ class _CustomerListSheetState extends State<CustomerListSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final clients = widget.controller.accounts.where((acc) {
-      final isClientType = acc.category == AccountCategory.clients ||
-          acc.category == AccountCategory.sales ||
-          acc.category == AccountCategory.purchases;
-      if (!isClientType) return false;
-      if (_search.trim().isEmpty) return true;
-      final q = _search.trim().toLowerCase();
-      return acc.name.toLowerCase().contains(q) || acc.phone.contains(q);
-    }).toList();
+    final clients =
+        widget.controller.accounts.where((acc) {
+          final isClientType =
+              acc.category == AccountCategory.clients ||
+              acc.category == AccountCategory.sales ||
+              acc.category == AccountCategory.purchases;
+          if (!isClientType) return false;
+          if (_search.trim().isEmpty) return true;
+          final q = _search.trim().toLowerCase();
+          return acc.name.toLowerCase().contains(q) || acc.phone.contains(q);
+        }).toList();
 
     return SafeArea(
       child: Padding(
@@ -81,14 +85,18 @@ class _CustomerListSheetState extends State<CustomerListSheet> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: () => setState(() => _addingNew = !_addingNew),
-                  icon: Icon(_addingNew ? Icons.close : Icons.person_add, size: 16),
-                  label: Text(_addingNew ? 'إلغاء' : 'جديد'),
-                ),
+                if (widget.allowAdd)
+                  FilledButton.icon(
+                    onPressed: () => setState(() => _addingNew = !_addingNew),
+                    icon: Icon(
+                      _addingNew ? Icons.close : Icons.person_add,
+                      size: 16,
+                    ),
+                    label: Text(_addingNew ? 'إلغاء' : 'جديد'),
+                  ),
               ],
             ),
-            if (_addingNew) ...[
+            if (widget.allowAdd && _addingNew) ...[
               const SizedBox(height: 8),
               Card(
                 margin: EdgeInsets.zero,
@@ -160,7 +168,9 @@ class _CustomerListSheetState extends State<CustomerListSheet> {
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(
-                      client.phone.isEmpty ? client.category.label : client.phone,
+                      client.phone.isEmpty
+                          ? client.category.label
+                          : client.phone,
                     ),
                     trailing: FilledButton.tonal(
                       onPressed: () {

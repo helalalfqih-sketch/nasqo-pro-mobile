@@ -1,26 +1,97 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import '../models/erp_models.dart';
+import '../models/invoice_print_snapshot.dart';
+import '../models/nonposting_document.dart';
+import '../models/sales_return_draft.dart';
+import '../models/sale_facts.dart';
+import '../models/voucher_draft.dart';
+import '../models/cash_transfer_draft.dart';
+import '../models/simple_journal_draft.dart';
+import '../models/fx_draft.dart';
+import '../models/sale_tax_register.dart';
 import '../services/accounting_engine.dart';
 import '../services/local_database.dart';
+import '../services/local_backup_service.dart';
+import '../services/local_backup_files.dart';
+import '../services/voucher_draft_repository.dart';
+import '../services/cash_transfer_draft_repository.dart';
+import '../services/simple_journal_draft_repository.dart';
+import '../services/fx_draft_repository.dart';
 
 class ErpController extends ChangeNotifier {
-  ErpController({bool autoInitDb = true}) {
+  ErpController({bool autoInitDb = true, LocalDatabase? localDatabase})
+      : _localDatabase = localDatabase ?? LocalDatabase.instance,
+        _usesPersistentStore = autoInitDb || localDatabase != null {
     _seedInitialData();
     if (autoInitDb) {
       unawaited(initDatabase());
     }
   }
 
+  final LocalDatabase _localDatabase;
+  final bool _usesPersistentStore;
+  Future<void>? _startingDatabase;
+  Future<void> _writeTail = Future<void>.value();
+  bool _salesPosting = false;
+  bool _resetting = false;
+  bool _disposed = false;
+
+  void _requireAvailableMutation() {
+    if (_salesPosting || _resetting) {
+      throw const SaleValidationException(
+          'توجد عملية حفظ جارية؛ انتظر اكتمالها.');
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
   String companyName = 'نسقو برو ERP';
   CurrencyCode defaultCurrency = CurrencyCode.sar;
   bool isDarkMode = false;
   bool dbReady = false;
+  bool get requiresLocalDatabase => _usesPersistentStore;
+  String? _localDatabaseDiagnostic;
+  String? get localDatabaseDiagnostic => _localDatabaseDiagnostic;
+
+  // Display only stable diagnostic codes; database errors may contain paths,
+  // commands or private row data and must not be copied out of the app.
+  String _startupCode(Object error) {
+    if (error is InvalidLocalSettings) return 'DB-SETTINGS';
+    if (error is MissingPluginException) return 'DB-DRIVER';
+    final hint = error.toString().toLowerCase();
+    if (hint.contains('downgrade') ||
+        hint.contains('no such table') ||
+        hint.contains('no such column') ||
+        hint.contains('duplicate column') ||
+        hint.contains('already exists')) {
+      return 'DB-SCHEMA';
+    }
+    if (hint.contains('locked') || hint.contains('busy')) return 'DB-LOCKED';
+    if (hint.contains('database or disk is full') ||
+        hint.contains('no space') ||
+        hint.contains('sqlite_full')) {
+      return 'DB-SPACE';
+    }
+    if (hint.contains('malformed') ||
+        hint.contains('not a database') ||
+        hint.contains('sqlite_corrupt')) {
+      return 'DB-DAMAGED';
+    }
+    return 'DB-OPEN';
+  }
 
   final List<AccountRecord> accounts = [];
   final List<LedgerEntryRecord> ledger = [];
   final List<WarehouseRecord> warehouses = [];
   final List<InventoryItemRecord> inventory = [];
+  final List<SavedSaleLine> saleLines = [];
   final List<ErpEmployeeProfile> employees = [];
   final List<ErpLeaveRequest> leaveRequests = [];
   final List<ErpDealRecord> deals = [];
@@ -57,23 +128,20 @@ class ErpController extends ChangeNotifier {
       ),
       AccountRecord(
         id: 'acc_client_1',
-        name: 'شركة الرواد للتجارة',
+        name: 'عميل تجريبي ١',
         category: AccountCategory.clients,
-        phone: '0551234567',
         codeNumber: 1201,
       ),
       AccountRecord(
         id: 'acc_client_2',
-        name: 'مؤسسة أفق الإمداد',
+        name: 'عميل تجريبي ٢',
         category: AccountCategory.clients,
-        phone: '0507654321',
         codeNumber: 1202,
       ),
       AccountRecord(
         id: 'acc_sup_1',
-        name: 'مورد الأغذية والتموين',
+        name: 'مورد تجريبي ١',
         category: AccountCategory.purchases,
-        phone: '0549988776',
         codeNumber: 2101,
       ),
       AccountRecord(
@@ -138,11 +206,11 @@ class ErpController extends ChangeNotifier {
       ),
     ]);
 
-    ledger.addAll([
+    ledger.addAll(const [
       LedgerEntryRecord(
         id: 'led_1',
         accountId: 'acc_client_1',
-        accountName: 'شركة الرواد للتجارة',
+        accountName: 'عميل تجريبي ١',
         kind: LedgerKind.invoice,
         typeLabel: 'ف.مبيعات آجل',
         payment: PaymentMethod.credit,
@@ -156,7 +224,7 @@ class ErpController extends ChangeNotifier {
       LedgerEntryRecord(
         id: 'led_2',
         accountId: 'acc_sup_1',
-        accountName: 'مورد الأغذية والتموين',
+        accountName: 'مورد تجريبي ١',
         kind: LedgerKind.invoice,
         typeLabel: 'ف.مشتريات مخزنية',
         payment: PaymentMethod.credit,
@@ -186,7 +254,7 @@ class ErpController extends ChangeNotifier {
     employees.addAll(const [
       ErpEmployeeProfile(
         id: 'emp_1',
-        name: 'أحمد العتيبي',
+        name: 'موظف تجريبي ١',
         roleTitle: 'مدير العمليات والمبيعات',
         department: 'المبيعات',
         basicSalary: 7500,
@@ -196,7 +264,7 @@ class ErpController extends ChangeNotifier {
       ),
       ErpEmployeeProfile(
         id: 'emp_2',
-        name: 'سارة القحطاني',
+        name: 'موظف تجريبي ٢',
         roleTitle: 'محاسبة أولى',
         department: 'المالية',
         basicSalary: 6800,
@@ -206,7 +274,7 @@ class ErpController extends ChangeNotifier {
       ),
       ErpEmployeeProfile(
         id: 'emp_3',
-        name: 'خالد الشهري',
+        name: 'موظف تجريبي ٣',
         roleTitle: 'أمين مستودع',
         department: 'المخازن',
         basicSalary: 4800,
@@ -220,7 +288,7 @@ class ErpController extends ChangeNotifier {
       ErpLeaveRequest(
         id: 'lv_1',
         employeeId: 'emp_3',
-        employeeName: 'خالد الشهري',
+        employeeName: 'موظف تجريبي ٣',
         leaveType: 'سنوية',
         startDate: '2026-11-20',
         days: 4,
@@ -231,25 +299,25 @@ class ErpController extends ChangeNotifier {
     deals.addAll(const [
       ErpDealRecord(
         id: 'deal_1',
-        title: 'عقد تموين شهري - مطاعم السعادة',
+        title: 'صفقة تموين تجريبية ١',
         clientAccountId: 'acc_client_1',
-        clientName: 'شركة الرواد للتجارة',
+        clientName: 'عميل تجريبي ١',
         value: 24500,
         stage: ErpDealStage.negotiation,
         probability: 75,
         expectedCloseDate: '2026-11-25',
-        assignedTo: 'أحمد العتيبي',
+        assignedTo: 'موظف تجريبي ١',
       ),
       ErpDealRecord(
         id: 'deal_2',
         title: 'تجهيز سلات ضيافة للشركات',
         clientAccountId: 'acc_client_2',
-        clientName: 'مؤسسة أفق الإمداد',
+        clientName: 'عميل تجريبي ٢',
         value: 14000,
         stage: ErpDealStage.proposal,
         probability: 50,
         expectedCloseDate: '2026-11-30',
-        assignedTo: 'أحمد العتيبي',
+        assignedTo: 'موظف تجريبي ١',
       ),
     ]);
 
@@ -258,7 +326,7 @@ class ErpController extends ChangeNotifier {
         id: 'po_1',
         poNumber: 'PO-2026-101',
         supplierAccountId: 'acc_sup_1',
-        supplierName: 'مورد الأغذية والتموين',
+        supplierName: 'مورد تجريبي ١',
         warehouseId: 'wh_1',
         warehouseName: 'المخزن الرئيسي',
         orderDate: '2026-11-14',
@@ -327,7 +395,7 @@ class ErpController extends ChangeNotifier {
         id: 'cc_1',
         code: 'CC-100',
         name: 'مركز التشغيل والتوزيع',
-        managerName: 'أحمد العتيبي',
+        managerName: 'موظف تجريبي ١',
         budget: 40000,
         extraPostedSpend: 3500,
         linkedCategories: ['إيجار ومقر', 'شحن ونقل'],
@@ -336,7 +404,7 @@ class ErpController extends ChangeNotifier {
         id: 'cc_2',
         code: 'CC-200',
         name: 'مركز التصنيع والتعبئة',
-        managerName: 'خالد الشهري',
+        managerName: 'موظف تجريبي ٣',
         budget: 25000,
         extraPostedSpend: 1800,
         linkedCategories: ['مصروفات تشغيلية'],
@@ -344,11 +412,164 @@ class ErpController extends ChangeNotifier {
     ]);
   }
 
-  Future<void> initDatabase() async {
+  Future<List<NonpostingDocument>> loadNonpostingDocuments(
+    NonpostingDocumentType type,
+  ) =>
+      _localDatabase.listNonpostingDocuments(type);
+
+  Future<NonpostingDocument?> loadNonpostingDocument(
+    NonpostingDocumentType type,
+    int id,
+  ) =>
+      _localDatabase.getNonpostingDocument(type, id);
+
+  Future<NonpostingDocument> saveNonpostingDocument(
+    NonpostingDocument document,
+  ) =>
+      _localDatabase.saveNonpostingDocument(document);
+
+  Future<List<SalesReturnDraft>> loadSalesReturnDrafts() =>
+      _localDatabase.listSalesReturnDrafts();
+
+  Future<SalesReturnDraft?> loadSalesReturnDraft(int id) =>
+      _localDatabase.getSalesReturnDraft(id);
+
+  Future<SalesReturnDraft> saveSalesReturnDraft({
+    int? id,
+    int revision = 0,
+    required String sourceEntryId,
+    required String date,
+    required String reason,
+    required List<SalesReturnSelection> selections,
+  }) =>
+      _localDatabase.saveSalesReturnDraft(
+        id: id,
+        revision: revision,
+        sourceEntryId: sourceEntryId,
+        date: date,
+        reason: reason,
+        selections: selections,
+      );
+
+  Future<InvoicePrintSnapshot> loadInvoiceForPrint(String entryId) async {
+    await initDatabase();
+    if (!_usesPersistentStore) {
+      return InvoicePrintSnapshot(ledger.singleWhere((e) => e.id == entryId),
+          saleLines.where((line) => line.entryId == entryId), null);
+    }
+    if (!dbReady) {
+      throw const SaleValidationException('قاعدة البيانات المحلية غير جاهزة.');
+    }
+    return _localDatabase.loadInvoiceForPrint(entryId);
+  }
+
+  Future<SaleFacts?> loadOriginalSaleFacts(String entryId) =>
+      _localDatabase.getSaleFacts(entryId);
+
+  Future<SaleTaxRegister> loadSaleTaxRegister(
+          {String? from, String? through}) =>
+      _localDatabase.loadSaleTaxRegister(from: from, through: through);
+
+  Future<List<LedgerEntryRecord>> loadCommittedSalesForExport() async {
+    await initDatabase();
+    if (!_usesPersistentStore) return List.unmodifiable(ledger);
+    if (!dbReady) {
+      throw const SaleValidationException('قاعدة البيانات المحلية غير جاهزة.');
+    }
+    return _localDatabase.loadCommittedLedger();
+  }
+
+  VoucherDraftRepository get _voucherRepository =>
+      VoucherDraftRepository(_localDatabase);
+
+  Future<List<VoucherDraft>> loadVoucherDrafts(VoucherDraftType type) =>
+      _voucherRepository.list(type: type);
+
+  Future<VoucherDraft?> loadVoucherDraft(int id) => _voucherRepository.get(id);
+
+  Future<VoucherDraft> saveVoucherDraft(VoucherDraft draft) =>
+      _voucherRepository.save(draft);
+
+  Future<List<AccountRecord>> loadVoucherAccounts() async {
+    await initDatabase();
+    if (_usesPersistentStore && !dbReady) {
+      throw const SaleValidationException('قاعدة البيانات المحلية غير جاهزة.');
+    }
+    return List.unmodifiable(accounts);
+  }
+
+  CashTransferDraftRepository get _transferDrafts =>
+      CashTransferDraftRepository(_localDatabase);
+
+  Future<List<CashTransferDraft>> loadCashTransferDrafts() =>
+      _transferDrafts.list();
+
+  Future<CashTransferDraft?> loadCashTransferDraft(int id) =>
+      _transferDrafts.get(id);
+
+  Future<CashTransferDraft> saveCashTransferDraft(CashTransferDraft draft) =>
+      _transferDrafts.save(draft);
+
+  SimpleJournalDraftRepository get _journalDrafts =>
+      SimpleJournalDraftRepository(_localDatabase);
+
+  Future<List<SimpleJournalDraft>> loadSimpleJournalDrafts() =>
+      _journalDrafts.list();
+
+  Future<SimpleJournalDraft?> loadSimpleJournalDraft(int id) =>
+      _journalDrafts.get(id);
+
+  Future<SimpleJournalDraft> saveSimpleJournalDraft(SimpleJournalDraft draft) =>
+      _journalDrafts.save(draft);
+
+  FxDraftRepository get _fxDrafts => FxDraftRepository(_localDatabase);
+
+  Future<List<FxDraft>> loadFxDrafts() => _fxDrafts.list();
+  Future<FxDraft?> loadFxDraft(int id) => _fxDrafts.get(id);
+  Future<FxDraft> saveFxDraft(FxDraft draft) => _fxDrafts.save(draft);
+
+  Future<LocalBackupFiles> _openLocalBackupFiles() async {
+    await initDatabase();
+    if (!_usesPersistentStore || !dbReady) {
+      throw StateError('قاعدة البيانات المحلية غير جاهزة للاختبار.');
+    }
+    return LocalBackupFiles(
+      core: LocalBackupService(_localDatabase),
+      privateDatabaseDirectory: () async =>
+          p.dirname((await _localDatabase.database).path),
+    );
+  }
+
+  Future<List<LocalBackupFile>> loadLocalBackups() async =>
+      (await _openLocalBackupFiles()).loadBackups();
+
+  Future<LocalBackupFile> createLocalBackup() async =>
+      (await _openLocalBackupFiles()).createBackup();
+
+  Future<LocalBackupCheck> verifyLocalBackup(String id) async =>
+      (await _openLocalBackupFiles()).verifyBackup(id);
+
+  Future<LocalBackupCheck> testLocalBackupRestore(String id) async =>
+      (await _openLocalBackupFiles()).testRestore(id);
+
+  Future<void> initDatabase() {
+    if (dbReady || !_usesPersistentStore) return Future<void>.value();
+    final pending = _startingDatabase;
+    if (pending != null) return pending;
+    _localDatabaseDiagnostic = null;
+    final attempt = _loadOrCreateDatabase().whenComplete(() {
+      _startingDatabase = null;
+    });
+    _startingDatabase = attempt;
+    if (!_disposed) notifyListeners();
+    return attempt;
+  }
+
+  Future<void> _loadOrCreateDatabase() async {
     try {
-      final hasData = await LocalDatabase.instance.hasSeededData();
+      final hasData = await _localDatabase.hasSeededData();
       if (hasData) {
-        final snap = await LocalDatabase.instance.loadSnapshot();
+        final snap = await _localDatabase.loadSnapshot();
         accounts
           ..clear()
           ..addAll(snap.accounts);
@@ -361,64 +582,124 @@ class ErpController extends ChangeNotifier {
         inventory
           ..clear()
           ..addAll(snap.inventory);
+        saleLines
+          ..clear()
+          ..addAll(snap.saleLines);
         if (snap.companyName != null && snap.companyName!.isNotEmpty) {
           companyName = snap.companyName!;
         }
         if (snap.isDarkMode != null) {
           isDarkMode = snap.isDarkMode!;
         }
-        if (snap.nextEntryNumber != null) {
+        if (snap.nextEntryNumber != null &&
+            snap.nextEntryNumber! > _nextEntryNumber) {
           _nextEntryNumber = snap.nextEntryNumber!;
         }
+        for (final entry in snap.ledger) {
+          if (entry.entryNumber > _nextEntryNumber) {
+            _nextEntryNumber = entry.entryNumber;
+          }
+        }
       } else {
-        await _persistToDb();
+        await _saveCurrentSnapshot();
       }
       dbReady = true;
-      notifyListeners();
-    } catch (_) {
-      // Safe fallback when sqflite platform channel is unavailable in headless unit tests
+      _localDatabaseDiagnostic = null;
+      if (!_disposed) notifyListeners();
+    } catch (error) {
+      dbReady = false;
+      _localDatabaseDiagnostic = _startupCode(error);
+      if (!_disposed) notifyListeners();
     }
   }
 
-  Future<void> _persistToDb() async {
-    try {
-      await LocalDatabase.instance.saveSnapshot(
-        accounts: accounts,
-        ledger: ledger,
-        warehouses: warehouses,
-        inventory: inventory,
+  Future<void> _saveCurrentSnapshot({
+    List<LedgerEntryRecord>? nextLedger,
+    List<InventoryItemRecord>? nextInventory,
+    List<SavedSaleLine>? nextSaleLines,
+    int? nextEntryNumber,
+    SaleFacts? appendedSaleFacts,
+  }) =>
+      _localDatabase.saveSnapshot(
+        accounts: List.of(accounts),
+        ledger: List.of(nextLedger ?? ledger),
+        warehouses: List.of(warehouses),
+        inventory: List.of(nextInventory ?? inventory),
+        saleLines: List.of(nextSaleLines ?? saleLines),
         companyName: companyName,
         isDarkMode: isDarkMode,
-        nextEntryNumber: _nextEntryNumber,
+        nextEntryNumber: nextEntryNumber ?? _nextEntryNumber,
+        appendedSaleFacts: appendedSaleFacts,
       );
-      dbReady = true;
-    } catch (_) {
-      // Ignore if running outside device SQLite runtime
-    }
+
+  Future<void> _persistToDb() {
+    if (!_usesPersistentStore) return Future<void>.value();
+    // Capture at enqueue time; older snapshots finish before a new sale posts.
+    final snapshotAccounts = List<AccountRecord>.of(accounts);
+    final snapshotLedger = List<LedgerEntryRecord>.of(ledger);
+    final snapshotWarehouses = List<WarehouseRecord>.of(warehouses);
+    final snapshotInventory = List<InventoryItemRecord>.of(inventory);
+    final snapshotSaleLines = List<SavedSaleLine>.of(saleLines);
+    final snapshotCompany = companyName;
+    final snapshotTheme = isDarkMode;
+    final snapshotNumber = _nextEntryNumber;
+    _writeTail = _writeTail.then((_) async {
+      try {
+        if (!dbReady && !_resetting) return;
+        await _localDatabase.saveSnapshot(
+          accounts: snapshotAccounts,
+          ledger: snapshotLedger,
+          warehouses: snapshotWarehouses,
+          inventory: snapshotInventory,
+          saleLines: snapshotSaleLines,
+          companyName: snapshotCompany,
+          isDarkMode: snapshotTheme,
+          nextEntryNumber: snapshotNumber,
+        );
+      } catch (_) {
+        // Legacy screen behavior: it does not expose the write result.
+        // The sales path below handles SQLite errors explicitly.
+      }
+    });
+    return _writeTail;
   }
 
   Future<void> resetLocalDatabase() async {
+    _requireAvailableMutation();
+    _resetting = true;
     try {
-      await LocalDatabase.instance.clearAll();
-    } catch (_) {}
-    accounts.clear();
-    ledger.clear();
-    warehouses.clear();
-    inventory.clear();
-    employees.clear();
-    leaveRequests.clear();
-    deals.clear();
-    purchaseOrders.clear();
-    boms.clear();
-    productionOrders.clear();
-    costCenters.clear();
-    _nextEntryNumber = 1200;
-    _seedInitialData();
-    await _persistToDb();
-    notifyListeners();
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) {
+          throw const SaleValidationException(
+              'قاعدة البيانات المحلية غير جاهزة.');
+        }
+        await _writeTail;
+        await _localDatabase.clearAll();
+      }
+      accounts.clear();
+      ledger.clear();
+      warehouses.clear();
+      inventory.clear();
+      saleLines.clear();
+      employees.clear();
+      leaveRequests.clear();
+      deals.clear();
+      purchaseOrders.clear();
+      boms.clear();
+      productionOrders.clear();
+      costCenters.clear();
+      _nextEntryNumber = 1200;
+      _seedInitialData();
+      await _persistToDb();
+      if (!_disposed) notifyListeners();
+    } finally {
+      _resetting = false;
+    }
   }
 
   void toggleTheme() {
+    _requireAvailableMutation();
     isDarkMode = !isDarkMode;
     unawaited(_persistToDb());
     notifyListeners();
@@ -429,6 +710,7 @@ class ErpController extends ChangeNotifier {
     String phone = '',
     String note = '',
   }) {
+    _requireAvailableMutation();
     final acc = AccountRecord(
       id: 'acc_client_${DateTime.now().millisecondsSinceEpoch}',
       name: name.trim(),
@@ -444,57 +726,216 @@ class ErpController extends ChangeNotifier {
     return acc;
   }
 
-  void submitSalesInvoice({
+  String _invoiceReferenceKey(String value) =>
+      value.trim().toUpperCase().replaceAllMapped(RegExp('[٠-٩۰-۹]'), (match) {
+        final code = match[0]!.codeUnitAt(0);
+        return (code - (code >= 0x06f0 ? 0x06f0 : 0x0660)).toString();
+      });
+
+  Future<void> submitSalesInvoice({
     required String accountId,
     required String customerName,
     required WarehouseRecord warehouse,
     required PaymentMethod payment,
     required bool includeVat,
     required List<InvoiceItemRow> rows,
-  }) {
-    final subtotal = rows.fold<double>(0, (s, r) => s + r.lineTotal);
-    final vatAmount = includeVat ? ((subtotal * 0.15) * 100).roundToDouble() / 100 : 0.0;
-    final grandTotal = subtotal + vatAmount;
-
-    for (final row in rows) {
-      if (row.itemId == null) continue;
-      final idx = inventory.indexWhere((i) => i.id == row.itemId);
-      if (idx >= 0) {
-        final item = inventory[idx];
-        inventory[idx] = item.copyWith(
-          quantity: (item.quantity - row.quantity).clamp(0, double.infinity),
-        );
+    String documentNumber = '',
+    String memo = '',
+  }) async {
+    _requireAvailableMutation();
+    _salesPosting = true;
+    try {
+      final reference = documentNumber.trim();
+      final description = memo.trim();
+      if (reference.isNotEmpty &&
+          (!RegExp(r'^[A-Za-z0-9ء-ي٠-٩۰-۹][A-Za-z0-9ء-ي٠-٩۰-۹._/-]{0,31}$')
+                  .hasMatch(reference) ||
+              reference.toUpperCase().startsWith('INV-'))) {
+        throw const SaleValidationException(
+            'رقم الفاتورة غير صالح. استخدم حتى 32 رمزًا من الحروف أو الأرقام أو . _ / -، وتجنب INV-.');
       }
+      if (description.length > 240 ||
+          RegExp(r'[\x00-\x1f\x7f-\x9f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]')
+              .hasMatch(description)) {
+        throw const SaleValidationException(
+            'البيان يجب أن يكون سطرًا واحدًا حتى 240 حرفًا.');
+      }
+      // The draft is mutable; snapshot its fields before an async boundary.
+      final draftRows = [
+        for (final row in rows)
+          InvoiceItemRow(
+            id: row.id,
+            itemId: row.itemId,
+            productName: row.productName,
+            quantity: row.quantity,
+            unitPrice: row.unitPrice,
+          ),
+      ];
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) {
+          throw const SaleValidationException(
+              'قاعدة البيانات المحلية غير جاهزة.');
+        }
+        await _writeTail;
+      }
+      final referenceKey = _invoiceReferenceKey(reference);
+      if (referenceKey.isNotEmpty &&
+          ledger.any((entry) =>
+              _invoiceReferenceKey(entry.documentNumber) == referenceKey)) {
+        throw const SaleValidationException('رقم الفاتورة مستخدم بالفعل.');
+      }
+      if (!accounts.any((account) => account.id == accountId) ||
+          !warehouses.any((store) => store.id == warehouse.id) ||
+          customerName.trim().isEmpty) {
+        throw const SaleValidationException('اختر حسابًا ومستودعًا صالحين.');
+      }
+      if (draftRows.isEmpty) {
+        throw const SaleValidationException('أضف صنفًا واحدًا على الأقل.');
+      }
+      final indexed = {
+        for (var i = 0; i < inventory.length; i++) inventory[i].id: i
+      };
+      final demand = <String, double>{};
+      for (final row in draftRows) {
+        final idx = indexed[row.itemId];
+        if (idx == null || inventory[idx].warehouseId != warehouse.id) {
+          throw const SaleValidationException(
+              'اختر أصنافًا من المستودع المحدد.');
+        }
+        if (!row.quantity.isFinite ||
+            row.quantity <= 0 ||
+            !row.unitPrice.isFinite ||
+            row.unitPrice < 0) {
+          throw const SaleValidationException('تحقق من الكمية والسعر لكل بند.');
+        }
+        final id = inventory[idx].id;
+        demand.update(id, (qty) => qty + row.quantity,
+            ifAbsent: () => row.quantity);
+      }
+      const tolerance = 1e-9;
+      for (final entry in demand.entries) {
+        final item = inventory[indexed[entry.key]!];
+        if (!entry.value.isFinite ||
+            !item.quantity.isFinite ||
+            item.quantity < 0 ||
+            entry.value - item.quantity > tolerance) {
+          throw SaleValidationException('الكمية غير كافية للصنف: ${item.name}');
+        }
+      }
+
+      final subtotal = draftRows.fold<double>(0, (s, r) => s + r.lineTotal);
+      const existingVatPercent = 15.0;
+      final taxBeforeRound = subtotal * existingVatPercent;
+      if (!subtotal.isFinite ||
+          (includeVat &&
+              (!taxBeforeRound.isFinite ||
+                  taxBeforeRound > 9007199254740991 ||
+                  !(subtotal + subtotal * (existingVatPercent / 100))
+                      .isFinite))) {
+        throw const SaleValidationException('إجمالي الفاتورة غير صالح.');
+      }
+      final vatAmount = includeVat ? taxBeforeRound.roundToDouble() / 100 : 0.0;
+      final grandTotal = subtotal + vatAmount;
+      final stagedInventory = List<InventoryItemRecord>.of(inventory);
+      for (final entry in demand.entries) {
+        final idx = indexed[entry.key]!;
+        final item = inventory[idx];
+        final remaining = item.quantity - entry.value;
+        stagedInventory[idx] =
+            item.copyWith(quantity: remaining < 0 ? 0 : remaining);
+      }
+
+      final details = [
+        if (description.isNotEmpty) 'بيان الفاتورة: $description',
+        ...draftRows.map((r) =>
+            '${r.productName} | ${r.quantity} × ${AccountingEngine.formatAmount(r.unitPrice)}'),
+        if (includeVat)
+          'ضريبة القيمة المضافة 15%: ${AccountingEngine.formatAmount(vatAmount)}',
+      ].join('\n');
+
+      final entryNum = _nextEntryNumber + 1;
+      final entryId = 'led_${DateTime.now().microsecondsSinceEpoch}_$entryNum';
+      final postedCurrency = defaultCurrency;
+      final stagedCosts = <SaleLineCostFact>[];
+      final stagedLines = List<SavedSaleLine>.of(saleLines);
+      for (var pos = 0; pos < draftRows.length; pos++) {
+        final row = draftRows[pos];
+        final item = inventory[indexed[row.itemId]!];
+        stagedCosts.add(SaleLineCostFact(
+          position: pos,
+          stockAverageCost:
+              item.avgCost.isFinite && item.avgCost >= 0 ? item.avgCost : null,
+        ));
+        stagedLines.add(SavedSaleLine(
+          entryId: entryId,
+          position: pos,
+          itemId: item.id,
+          itemName: item.name,
+          unit: item.unit,
+          quantity: row.quantity,
+          unitPrice: row.unitPrice,
+        ));
+      }
+      final stagedLedger = List<LedgerEntryRecord>.of(ledger);
+      stagedLedger.insert(
+        0,
+        LedgerEntryRecord(
+          id: entryId,
+          accountId: accountId,
+          accountName: customerName,
+          kind: LedgerKind.invoice,
+          typeLabel:
+              payment == PaymentMethod.cash ? 'ف.مبيعات نقدية' : 'ف.مبيعات آجل',
+          payment: payment,
+          direction: EntryDirection.debit,
+          amount: grandTotal,
+          currency: postedCurrency,
+          details: details,
+          documentNumber: reference.isEmpty ? 'INV-$entryNum' : reference,
+          warehouseId: warehouse.id,
+          warehouseName: warehouse.name,
+          entryNumber: entryNum,
+          entryDate: DateTime.now().toIso8601String().substring(0, 10),
+        ),
+      );
+      if (_usesPersistentStore) {
+        try {
+          await _saveCurrentSnapshot(
+            nextLedger: stagedLedger,
+            nextInventory: stagedInventory,
+            nextSaleLines: stagedLines,
+            nextEntryNumber: entryNum,
+            appendedSaleFacts: SaleFacts(
+              entryId: entryId,
+              currency: postedCurrency,
+              preTaxTotal: subtotal,
+              taxEnabled: includeVat,
+              appliedTaxRate: includeVat ? existingVatPercent / 100 : 0,
+              taxAmount: vatAmount,
+              finalTotal: grandTotal,
+              lineCosts: stagedCosts,
+            ),
+          );
+        } catch (_) {
+          throw const SaleValidationException(
+              'تعذر تأكيد حفظ الفاتورة في SQLite. بقيت بيانات المسودة.');
+        }
+      }
+      inventory
+        ..clear()
+        ..addAll(stagedInventory);
+      saleLines
+        ..clear()
+        ..addAll(stagedLines);
+      ledger
+        ..clear()
+        ..addAll(stagedLedger);
+      _nextEntryNumber = entryNum;
+      if (!_disposed) notifyListeners();
+    } finally {
+      _salesPosting = false;
     }
-
-    final details = [
-      ...rows.map((r) => '${r.productName} | ${r.quantity} × ${AccountingEngine.formatAmount(r.unitPrice)}'),
-      if (includeVat) 'ضريبة القيمة المضافة 15%: ${AccountingEngine.formatAmount(vatAmount)}',
-    ].join('\n');
-
-    final entryNum = ++_nextEntryNumber;
-    ledger.insert(
-      0,
-      LedgerEntryRecord(
-        id: 'led_${DateTime.now().millisecondsSinceEpoch}',
-        accountId: accountId,
-        accountName: customerName,
-        kind: LedgerKind.invoice,
-        typeLabel: payment == PaymentMethod.cash ? 'ف.مبيعات نقدية' : 'ف.مبيعات آجل',
-        payment: payment,
-        direction: EntryDirection.debit,
-        amount: grandTotal,
-        currency: defaultCurrency,
-        details: details,
-        documentNumber: 'INV-$entryNum',
-        warehouseId: warehouse.id,
-        warehouseName: warehouse.name,
-        entryNumber: entryNum,
-        entryDate: DateTime.now().toIso8601String().substring(0, 10),
-      ),
-    );
-    unawaited(_persistToDb());
-    notifyListeners();
   }
 
   void createDeal({
@@ -512,7 +953,8 @@ class ErpController extends ChangeNotifier {
         value: value,
         currency: defaultCurrency,
         expectedCloseDate: DateTime.now().toIso8601String().substring(0, 10),
-        assignedTo: employees.isNotEmpty ? employees.first.name : 'فريق المبيعات',
+        assignedTo:
+            employees.isNotEmpty ? employees.first.name : 'فريق المبيعات',
       ),
     );
     notifyListeners();
@@ -534,6 +976,7 @@ class ErpController extends ChangeNotifier {
   }
 
   void convertDealToInvoice(String dealId) {
+    _requireAvailableMutation();
     final idx = deals.indexWhere((d) => d.id == dealId);
     if (idx < 0) return;
     final deal = deals[idx];
@@ -593,6 +1036,7 @@ class ErpController extends ChangeNotifier {
   }
 
   void postPayrollToGl() {
+    _requireAvailableMutation();
     final total = AccountingEngine.computeTotalNetPayroll(employees);
     if (total <= 0) return;
     final empAcc = accounts.firstWhere(
@@ -674,6 +1118,7 @@ class ErpController extends ChangeNotifier {
   }
 
   void receivePurchaseOrder(String poId) {
+    _requireAvailableMutation();
     final idx = purchaseOrders.indexWhere((p) => p.id == poId);
     if (idx < 0) return;
     final po = purchaseOrders[idx];
@@ -728,6 +1173,9 @@ class ErpController extends ChangeNotifier {
   }
 
   String? completeProductionOrder(String orderId) {
+    if (_salesPosting || _resetting) {
+      return 'توجد عملية حفظ جارية؛ حاول مجددًا.';
+    }
     final idx = productionOrders.indexWhere((o) => o.id == orderId);
     if (idx < 0) return 'الأمر غير موجود';
     final order = productionOrders[idx];
@@ -747,7 +1195,8 @@ class ErpController extends ChangeNotifier {
       if (invIdx >= 0) {
         final raw = inventory[invIdx];
         inventory[invIdx] = raw.copyWith(
-          quantity: raw.quantity - (comp.quantityPerUnit * order.quantityToProduce),
+          quantity:
+              raw.quantity - (comp.quantityPerUnit * order.quantityToProduce),
         );
       }
     }
@@ -755,7 +1204,8 @@ class ErpController extends ChangeNotifier {
     final fgIdx = inventory.indexWhere((i) => i.id == order.finishedItemId);
     if (fgIdx >= 0) {
       final fg = inventory[fgIdx];
-      inventory[fgIdx] = fg.copyWith(quantity: fg.quantity + order.quantityToProduce);
+      inventory[fgIdx] =
+          fg.copyWith(quantity: fg.quantity + order.quantityToProduce);
     }
 
     productionOrders[idx] = order.copyWith(

@@ -13,8 +13,10 @@ class ProcurementScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             const Text('أوامر الشراء والتوريد',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -33,7 +35,8 @@ class ProcurementScreen extends StatelessWidget {
                   unitCost: item.avgCost,
                 );
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('تم إنشاء أمر شراء سريع واعتماده')),
+                  const SnackBar(
+                      content: Text('تم إنشاء أمر شراء سريع واعتماده')),
                 );
               },
               icon: const Icon(Icons.add_shopping_cart, size: 16),
@@ -51,8 +54,10 @@ class ProcurementScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text('${po.poNumber} · ${po.supplierName}',
                           style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -60,10 +65,12 @@ class ProcurementScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text('المستودع: ${po.warehouseName} · التاريخ: ${po.orderDate}'),
+                  Text(
+                      'المستودع: ${po.warehouseName} · التاريخ: ${po.orderDate}'),
                   Text(
                     'الإجمالي: ${AccountingEngine.formatAmount(total)} $cur',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0B5CA8)),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, color: Color(0xFF0B5CA8)),
                   ),
                   if (po.status != PurchaseOrderStatus.received) ...[
                     const SizedBox(height: 8),
@@ -71,7 +78,9 @@ class ProcurementScreen extends StatelessWidget {
                       onPressed: () {
                         controller.receivePurchaseOrder(po.id);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('تم استلام ${po.poNumber} وتحديث المخزون')),
+                          SnackBar(
+                              content: Text(
+                                  'تم استلام ${po.poNumber} وتحديث المخزون')),
                         );
                       },
                       child: const Text('استلام بالمخزن وترحيل التكلفة'),
