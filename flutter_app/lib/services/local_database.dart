@@ -673,9 +673,11 @@ class LocalDatabase {
         if (changed != 1) throw StateError('الصنف غير موجود في المستودع الأصلي.');
       }
       double money(double number) => (number * 100).round() / 100;
-      if (money(net) > facts.preTaxTotal + 0.005) throw StateError('تجاوز المرتجع أصل الفاتورة.');
+      if (!net.isFinite || net > facts.preTaxTotal + 1e-7) throw StateError('تجاوز المرتجع أصل الفاتورة.');
       final tax = money(facts.taxAmount * net / facts.preTaxTotal);
-      final amount = money(money(net) - money(previousNet) + tax - previousTax);
+      final returnedNet = net - previousNet;
+      final returnedTax = money(tax - previousTax);
+      final amount = returnedNet + returnedTax;
       final settings = (await txn.query('erp_state', where: 'stateKey = ?', whereArgs: ['settings'])).single;
       final config = jsonDecode(settings['payloadJson'] as String) as Map<String,dynamic>;
       final highest = Sqflite.firstIntValue(await txn.rawQuery('SELECT MAX(entryNumber) FROM ledger_entries')) ?? 0;
@@ -699,8 +701,8 @@ class LocalDatabase {
         'payloadJson':jsonEncode({'quantities':quantities,'net':net,'tax':tax}),
         'updatedAt':now}, conflictAlgorithm:ConflictAlgorithm.replace);
       await txn.insert('erp_state', {'stateKey':'return_detail/${entry.id}',
-        'payloadJson':jsonEncode({'sourceEntryId':source.id,'net':money(money(net)-money(previousNet)),
-          'tax':money(tax-previousTax),'total':amount}), 'updatedAt':now});
+        'payloadJson':jsonEncode({'sourceEntryId':source.id,'net':returnedNet,
+          'tax':returnedTax,'total':amount}), 'updatedAt':now});
       config['nextEntryNumber'] = number;
       await txn.update('erp_state', {'payloadJson':jsonEncode(config),'updatedAt':now},
           where:'stateKey = ?', whereArgs:['settings']);
