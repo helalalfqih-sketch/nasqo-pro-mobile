@@ -315,6 +315,9 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
             loadFacts: widget.controller.loadOriginalSaleFacts,
             saveDraft: widget.controller.saveSalesReturnDraft,
             postDraft: widget.controller.postSalesReturn,
+            cashboxForSale: (id) => widget.controller.ledger
+                .where((entry) => entry.id == '$id/cashbox' && !entry.deleted)
+                .firstOrNull?.accountName,
           )
         ),
       'chart-accounts' => (
