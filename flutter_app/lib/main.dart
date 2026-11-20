@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/account_tools.dart';
+import 'screens/account_groups_view.dart';
 import 'screens/purchase_invoice_view.dart';
 import 'screens/stock_scanner_view.dart';
 import 'screens/home_navigation.dart';
@@ -284,6 +285,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       'purchase-register' => ('سجل فواتير المشتريات',PurchasesRegister(controller:widget.controller,
           openNew:()=>_openModulePage('purchase-new'))),
       'purchase-new' => ('فاتورة مشتريات جديدة',PurchaseInvoiceView(controller:widget.controller)),
+      'group-directory' => ('إدارة مجموعات الحسابات',AccountGroupsView(controller:widget.controller)),
       'account-new' => ('إضافة حساب',AccountEditor(controller:widget.controller)),
       'account-import' => ('استيراد الحسابات',AccountImportView(controller:widget.controller)),
       'message-settings' => ('إعدادات إشعارات واتساب',MessageSettingsView(controller:widget.controller)),
