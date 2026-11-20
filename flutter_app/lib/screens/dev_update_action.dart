@@ -3,7 +3,8 @@ import '../services/dev_update_service.dart';
 
 /// Both startup checks and manual checks share the same verification path.
 class DevUpdateAction extends StatefulWidget {
-  const DevUpdateAction({super.key});
+  const DevUpdateAction({super.key, this.updates = const DevUpdateService()});
+  final DevUpdateService updates;
   @override
   State<DevUpdateAction> createState() => _DevUpdateActionState();
 }
@@ -17,35 +18,51 @@ class _DevUpdateActionState extends State<DevUpdateAction> {
   }
 
   Future<void> _check({bool silent = false}) async {
-    if (busy || !DevUpdateService.supported) return;
+    if (!mounted || busy || !widget.updates.supported) return;
+    var reportError = !silent;
     setState(() => busy = true);
     try {
-      final release = await DevUpdateService.check();
+      final release = await widget.updates.check();
       if (!mounted) return;
       if (release == null) {
-        if (!silent) ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('التطبيق محدّث بالفعل')));
+        if (!silent)
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('التطبيق محدّث بالفعل')));
         return;
       }
       final accepted = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('تحديث تجريبي متاح'),
-          content: Text('الإصدار ${release.versionName} (${release.versionCode})\n${release.notes}\n'
-              'سيتم تنزيل نسخة موقعة والتحقق من بصمتها. لن تُمسح قاعدة البيانات المحلية.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('لاحقًا')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('تنزيل وتحديث')),
-          ],
-        ),
+        builder:
+            (context) => AlertDialog(
+              title: const Text('تحديث تجريبي متاح'),
+              content: Text(
+                'الإصدار ${release.versionName} (${release.versionCode})\n${release.notes}\n'
+                'سيتم تنزيل نسخة موقعة والتحقق من بصمتها. أكمل حفظ عملك قبل التثبيت. يُثبَّت التحديث فوق التطبيق الحالي للاحتفاظ ببياناته.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('لاحقًا'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('تنزيل وتحديث'),
+                ),
+              ],
+            ),
       );
       if (accepted != true || !mounted) return;
+      reportError = true;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('جار تنزيل التحديث والتحقق منه…')));
-      await DevUpdateService.downloadAndInstall(release);
+        const SnackBar(content: Text('جار تنزيل التحديث والتحقق منه…')),
+      );
+      await widget.updates.downloadAndInstall(release);
     } catch (error) {
-      if (mounted && !silent) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تعذر التحديث: $error')));
+      if (mounted && reportError)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('تعذر التحديث: $error')));
     } finally {
       if (mounted) setState(() => busy = false);
     }
