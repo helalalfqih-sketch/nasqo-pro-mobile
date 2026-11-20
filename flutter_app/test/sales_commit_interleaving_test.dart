@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:nasqo_pro_erp/models/sales_return_draft.dart';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -89,6 +91,38 @@ Future<void> _sale(ErpController controller) {
 }
 
 void main() {
+  test('partial returns reverse stock and tax once and reject surplus', () async {
+    final dir = await Directory.systemTemp.createTemp('nasqo-return-');
+    final store = _GatedStore(p.join(dir.path, 'return.db'));
+    final c = ErpController(autoInitDb: false, localDatabase: store);
+    addTearDown(() async { c.dispose(); await store.close(); await dir.delete(recursive:true); });
+    await c.initDatabase();
+    final item = c.inventory.first;
+    await c.submitSalesInvoice(accountId:c.accounts.first.id, customerName:'اختبار',
+      warehouse:c.warehouses.firstWhere((w) => w.id == item.warehouseId),
+      payment:PaymentMethod.credit, includeVat:true,
+      rows:[InvoiceItemRow(id:'row',itemId:item.id,productName:item.name,quantity:2,unitPrice:10)]);
+    final source = c.saleLines.single;
+    Future<SalesReturnDraft> draft(double qty) => c.saveSalesReturnDraft(
+        sourceEntryId:source.entryId,date:'2026-11-20',reason:'اختبار',
+        selections:[SalesReturnSelection(position:source.position,quantity:qty)]);
+    final one = await draft(1);
+    final surplus = await draft(2);
+    final number = await c.postSalesReturn(one.id,one.revision);
+    final entry = c.ledger.singleWhere((e) => e.entryNumber == number);
+    expect(entry.amount,11.5);
+    expect(entry.direction,EntryDirection.credit);
+    await expectLater(c.postSalesReturn(one.id,one.revision),throwsStateError);
+    await expectLater(c.postSalesReturn(surplus.id,surplus.revision),throwsStateError);
+    await store.close();
+    final snap = await store.loadSnapshot();
+    expect(snap.inventory.singleWhere((i) => i.id == item.id).quantity,item.quantity-1);
+    expect(snap.ledger.where((e) => e.id == entry.id),hasLength(1));
+    final sql = await store.database;
+    final tax = await sql.query('erp_state',where:'stateKey = ?',whereArgs:['return_detail/${entry.id}']);
+    expect(jsonDecode(tax.single['payloadJson'] as String)['tax'],1.5);
+  });
+
   test(
       'pending SQLite commit blocks another writer and changes neither stock nor ledger yet',
       () async {
