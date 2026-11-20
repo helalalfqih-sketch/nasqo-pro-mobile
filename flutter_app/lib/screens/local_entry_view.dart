@@ -27,10 +27,14 @@ class _LocalEntryState extends State<LocalEntryView> {
   final accountSearch = TextEditingController();
 
   List<AccountRecord> get matchingAccounts {
-    final query = accountSearch.text.trim().toLowerCase().replaceAllMapped(
+    String normalize(String value) => value.trim().toLowerCase().replaceAllMapped(
       RegExp('[٠-٩۰-۹]'), (m) => '0123456789'[m[0]!.codeUnitAt(0) & 15]);
-    return widget.controller.accounts.where((a) =>
-      '${a.name} ${a.codeNumber} ${a.phone}'.toLowerCase().contains(query)).toList();
+    final query = normalize(accountSearch.text);
+    final matches = widget.controller.accounts.where((a) =>
+      normalize('${a.name} ${a.codeNumber} ${a.phone}').contains(query));
+    bool exact(AccountRecord a) => query.isNotEmpty &&
+      [a.codeNumber.toString(), normalize(a.name), normalize(a.phone)].contains(query);
+    return [...matches.where(exact), ...matches.where((a) => !exact(a))];
   }
 
   Future<void> addExchangeAccount() async {
