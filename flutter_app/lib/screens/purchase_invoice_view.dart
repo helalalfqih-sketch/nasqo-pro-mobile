@@ -15,7 +15,7 @@ class _PurchaseInvoiceState extends State<PurchaseInvoiceView> {
   PaymentMethod payment=PaymentMethod.credit;
   final rows=<InvoiceItemRow>[];
   final price=TextEditingController(),quantity=TextEditingController(text:'1');
-  String reference='',error='';
+  String reference='',error='',rate='1';
   bool saving=false;
   @override
   void dispose(){price.dispose();quantity.dispose();super.dispose();}
@@ -33,7 +33,7 @@ class _PurchaseInvoiceState extends State<PurchaseInvoiceView> {
     setState(()=>saving=true);
     try {
       final number=await widget.controller.postPurchaseInvoice(accountId:account??'',warehouseId:warehouse??'',
-        payment:payment,rows:rows,reference:reference);
+        payment:payment,rows:rows,reference:reference,exchangeRate:parseAccountAmount(rate));
       if(!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تم ترحيل فاتورة الشراء رقم $number')));
       Navigator.pop(context);
@@ -43,11 +43,14 @@ class _PurchaseInvoiceState extends State<PurchaseInvoiceView> {
   @override
   Widget build(BuildContext context){
     final c=widget.controller;
-    final suppliers=c.accounts.where((a)=>a.category==AccountCategory.purchases && a.currency==c.defaultCurrency);
+    final suppliers=c.accounts.where((a)=>a.category==AccountCategory.purchases);
+    final cur=suppliers.where((a)=>a.id==account).firstOrNull?.currency??c.defaultCurrency;
     return ListView(padding:const EdgeInsets.all(16),children:[
       DropdownButtonFormField<String>(value:account,isExpanded:true,decoration:const InputDecoration(labelText:'المورد'),
-        items:[for(final a in suppliers) DropdownMenuItem(value:a.id,child:Text(a.name))],onChanged:(v)=>setState(()=>account=v)),
-      if(suppliers.isEmpty) Text('أضف حساب مورد بعملة ${c.defaultCurrency.label} من دليل الحسابات.'),
+        items:[for(final a in suppliers) DropdownMenuItem(value:a.id,child:Text(a.name))],onChanged:rows.isNotEmpty?null:(v)=>setState((){account=v;rate='1';price.clear();item=null;})),
+      if(suppliers.isEmpty) const Text('أضف حساب مورد من دليل الحسابات.'),
+      if(cur!=c.defaultCurrency) TextFormField(key:ValueKey(account),initialValue:rate,keyboardType:TextInputType.number,
+        onChanged:(v)=>rate=v,decoration:InputDecoration(labelText:'سعر الصرف: ${c.defaultCurrency.label} لكل ${cur.label}')),
       DropdownButtonFormField<String>(value:warehouse,decoration:const InputDecoration(labelText:'المستودع'),
         items:[for(final w in c.warehouses) DropdownMenuItem(value:w.id,child:Text(w.name))],
         onChanged:rows.isNotEmpty?null:(v)=>setState((){warehouse=v;item=null;price.clear();})),
@@ -57,13 +60,13 @@ class _PurchaseInvoiceState extends State<PurchaseInvoiceView> {
       TextField(decoration:const InputDecoration(labelText:'رقم فاتورة المورد'),onChanged:(s)=>reference=s),
       DropdownButtonFormField<String>(key:ValueKey(warehouse),value:item,isExpanded:true,decoration:const InputDecoration(labelText:'الصنف'),
         items:[for(final i in c.inventory.where((v)=>v.warehouseId==warehouse)) DropdownMenuItem(value:i.id,child:Text(i.name))],
-        onChanged:(v)=>setState((){item=v;price.text=c.inventory.firstWhere((i)=>i.id==v).avgCost.toString();})),
+        onChanged:(v)=>setState((){item=v;price.text=cur==c.defaultCurrency?c.inventory.firstWhere((i)=>i.id==v).avgCost.toString():'';})),
       TextField(controller:quantity,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'الكمية')),
       TextField(controller:price,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'سعر الشراء')),
       OutlinedButton(onPressed:saving?null:add,child:const Text('إضافة بند')),
       for(final row in rows) ListTile(title:Text(row.productName),subtitle:Text('${row.quantity} × ${row.unitPrice}'),
         trailing:IconButton(tooltip:'إزالة البند',onPressed:saving?null:()=>setState(()=>rows.remove(row)),icon:const Icon(Icons.close))),
-      Text('إجمالي الفاتورة: ${AccountingEngine.formatAmount(rows.fold<double>(0,(s,r)=>s+r.lineTotal))} ${c.defaultCurrency.label}'),
+      Text('إجمالي الفاتورة: ${AccountingEngine.formatAmount(rows.fold<double>(0,(s,r)=>s+r.lineTotal))} ${cur.label}'),
       if(error.isNotEmpty) Text(error),
       FilledButton(onPressed:saving || rows.isEmpty?null:save,child:const Text('حفظ وترحيل المشتريات'))
     ]);
