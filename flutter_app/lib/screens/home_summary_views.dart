@@ -67,7 +67,9 @@ class _CurrencyDetailsEditor extends StatefulWidget {
 class _CurrencyDetailsEditorState extends State<_CurrencyDetailsEditor> {
   late final details = widget.controller.currencyDetails(widget.currency);
   late String symbol = details['symbol'] ?? '', subunit = details['subunit'] ?? '';
-  late String buy = '${details['buy'] ?? 1}', sell = '${details['sell'] ?? 1}';
+  String initialRate(String side) => widget.currency == widget.controller.defaultCurrency
+      ? '1' : '${details[side] ?? 1}';
+  late String buy = initialRate('buy'), sell = initialRate('sell');
   bool saving = false;
   String error = '';
 
