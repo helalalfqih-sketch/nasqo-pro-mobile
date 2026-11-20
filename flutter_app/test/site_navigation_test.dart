@@ -35,6 +35,23 @@ void main() {
     await open(LocalReport.stock);
     expect(find.text('إجمالي القيمة: 12'),findsOneWidget);
     expect(find.text('77'),findsOneWidget);
+    c.ledger.clear();
+    c.saleLines.clear();
+    void post(String id,LedgerKind kind,EntryDirection direction,double qty,double price) {
+      c.ledger.add(LedgerEntryRecord(id:id,accountId:'a',accountName:'عميل',
+        kind:kind,typeLabel:'حركة',payment:PaymentMethod.credit,direction:direction,amount:qty*price,
+        entryNumber:c.ledger.length+1,entryDate:'2026-01-01'));
+      c.saleLines.add(SavedSaleLine(entryId:id,position:0,itemId:'i',itemName:'صنف اختبار',unit:'حبة',quantity:qty,unitPrice:price));
+    }
+    post('buy',LedgerKind.invoice,EntryDirection.credit,10,5);
+    post('sale',LedgerKind.invoice,EntryDirection.debit,4,10);
+    post('return',LedgerKind.returnEntry,EntryDirection.credit,1,10);
+    await open(LocalReport.profit);
+    expect(find.text('إجمالي المبيعات: 30'),findsOneWidget);
+    expect(find.text('إجمالي الأرباح: 15'),findsOneWidget);
+    await open(LocalReport.movement);
+    expect(find.text('صافي كمية الشراء'),findsOneWidget);
+    expect(find.text('إجمالي الأرباح: 15'),findsOneWidget);
     await open(LocalReport.expiry);
     expect(find.text('2020-01-01'),findsOneWidget);
     expect(find.textContaining('منتهي منذ'),findsOneWidget);
