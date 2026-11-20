@@ -184,7 +184,7 @@ void main() {
       await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 20)));
     }
-    expect(controller.ledger, hasLength(beforeCount + 1));
+    expect(controller.ledger, hasLength(beforeCount + 3));
     await tester.pumpAndSettle();
     expect(find.byType(InvoiceFormSheet), findsNothing);
     await tester.runAsync(() async {
@@ -194,7 +194,12 @@ void main() {
       expect(rows['accounts'], equals(before['accounts']));
       expect(rows['warehouses'], equals(before['warehouses']));
       expect(rows['ledger_entries'],
-          hasLength((before['ledger_entries']! as List).length + 1));
+          hasLength((before['ledger_entries']! as List).length + 3));
+      final movements = await persisted.query('ledger_entries', where: 'entryNumber = ?',
+          whereArgs: [documentNumber + 1]);
+      expect(movements.where((row) => row['kind'] == 'invoice'), hasLength(1));
+      final settlements = movements.where((row) => row['kind'] == 'voucher');
+      expect(settlements.map((row) => row['direction']), unorderedEquals(['debit', 'credit']));
       final savedItem = (await persisted
               .query('inventory_items', where: 'id = ?', whereArgs: [item.id]))
           .single;
