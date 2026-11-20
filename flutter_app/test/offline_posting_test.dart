@@ -30,6 +30,7 @@ void main() {
     expect(c.inventory.first.quantity,item.quantity);
     final number=await c.postPurchaseInvoice(accountId:supplier.id,warehouseId:item.warehouseId,payment:PaymentMethod.credit,rows:[line(3)]);
     await c.saveMessagePreferences('external','770000000',true);
+    await c.saveGroup(name:'موردون محليون',category:AccountCategory.purchases,currency:supplier.currency,members:{supplier.id});
     await c.updateAlerts(['stock_test']);
     await c.updateAlerts(['limit_test'],dismiss:true);
     await store.close();
@@ -45,6 +46,9 @@ void main() {
     expect(stock.quantity,item.quantity+3);
     expect(stock.name,'صنف محرر');
     expect(stock.avgCost,(item.quantity*item.avgCost+36)/(item.quantity+3));
+    final group=reopened.restoredGroups!.groups.singleWhere((g)=>g.name=='موردون محليون');
+    expect(reopened.restoredGroups!.membership[supplier.id],group.id);
+    expect(reopened.restoredGroups!.groupCurrencies[group.id],supplier.currency.name);
     expect(reopened.messageProvider,'external');
     expect(reopened.messagePhone,'770000000');
     expect(reopened.readAlerts,containsAll(['stock_test','limit_test']));
