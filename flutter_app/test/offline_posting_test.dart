@@ -29,6 +29,8 @@ void main() {
     expect(c.ledger.length,before);
     expect(c.inventory.first.quantity,item.quantity);
     final number=await c.postPurchaseInvoice(accountId:supplier.id,warehouseId:item.warehouseId,payment:PaymentMethod.credit,rows:[line(3)]);
+    await c.saveCurrencyDetails(CurrencyCode.usd, 'USD', 'سنت', 3.7, 3.8);
+    await expectLater(c.saveCurrencyDetails(CurrencyCode.usd, 'USD', '', 0, 1), throwsA(isA<Exception>()));
     await c.saveMessagePreferences('external','770000000',true);
     await c.saveGroup(name:'موردون محليون',category:AccountCategory.purchases,currency:supplier.currency,members:{supplier.id});
     await c.updateAlerts(['stock_test']);
@@ -49,6 +51,10 @@ void main() {
     final group=reopened.restoredGroups!.groups.singleWhere((g)=>g.name=='موردون محليون');
     expect(reopened.restoredGroups!.membership[supplier.id],group.id);
     expect(reopened.restoredGroups!.groupCurrencies[group.id],supplier.currency.name);
+    expect(reopened.currencyDetails(CurrencyCode.usd)['subunit'], 'سنت');
+    expect(reopened.exchangeQuote(CurrencyCode.usd, CurrencyCode.sar, EntryDirection.credit), 3.7);
+    expect(reopened.exchangeQuote(CurrencyCode.sar, CurrencyCode.usd, EntryDirection.credit), 1 / 3.8);
+    expect(reopened.exchangeQuote(CurrencyCode.usd, CurrencyCode.eur, EntryDirection.debit), isNull);
     expect(reopened.messageProvider,'external');
     expect(reopened.messagePhone,'770000000');
     expect(reopened.readAlerts,containsAll(['stock_test','limit_test']));
