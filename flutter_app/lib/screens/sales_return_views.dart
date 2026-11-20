@@ -38,12 +38,14 @@ class SalesReturnDraftsView extends StatefulWidget {
       required this.loadSales,
       required this.saveDraft,
       this.postDraft,
+      this.cashboxForSale,
       this.loadFacts});
   final Future<List<SalesReturnDraft>> Function() loadDrafts;
   final Future<SalesReturnDraft?> Function(int id) loadDraft;
   final Future<List<SalesReturnSource>> Function() loadSales;
   final SalesReturnSave saveDraft;
   final Future<int> Function(int, int)? postDraft;
+  final String? Function(String sourceId)? cashboxForSale;
   final Future<SaleFacts?> Function(String)? loadFacts;
   @override
   State<SalesReturnDraftsView> createState() => _SalesReturnDraftsViewState();
@@ -92,9 +94,12 @@ class _SalesReturnDraftsViewState extends State<SalesReturnDraftsView> {
 
   Future<void> _post(SalesReturnDraft draft) async {
     if (_opening) return;
+    final box = widget.cashboxForSale?.call(draft.sourceEntryId);
     final confirm = await showDialog<bool>(context: context, builder: (dialog) =>
       AlertDialog(title: const Text('ترحيل مرتجع المبيعات؟'),
-        content: Text('ستعود الكميات إلى المستودع ويُسجل المبلغ على حساب ${draft.accountName}.'),
+        content: Text(box == null
+            ? 'ستعود الكميات إلى المستودع ويُسجل المبلغ على حساب ${draft.accountName}.'
+            : 'ستعود الكميات إلى المستودع ويُرد المبلغ من صندوق «$box» إلى ${draft.accountName}.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('إلغاء')),
           FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('ترحيل')),
