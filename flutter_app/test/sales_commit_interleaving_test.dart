@@ -118,6 +118,10 @@ void main() {
     final snap = await store.loadSnapshot();
     expect(snap.inventory.singleWhere((i) => i.id == item.id).quantity,item.quantity-1);
     expect(snap.ledger.where((e) => e.id == entry.id),hasLength(1));
+    final register = await store.loadSaleTaxRegister();
+    final reversal = register.rows.singleWhere((r) => r.entryId == entry.id);
+    expect(reversal.taxAmount, -1.5);
+    expect(reversal.finalTotal, -11.5);
     final sql = await store.database;
     final tax = await sql.query('erp_state',where:'stateKey = ?',whereArgs:['return_detail/${entry.id}']);
     expect(jsonDecode(tax.single['payloadJson'] as String)['tax'],1.5);
