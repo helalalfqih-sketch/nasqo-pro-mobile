@@ -30,9 +30,13 @@ void main() {
     final ledgerBefore = List.of(c.ledger);
     await tester.pumpWidget(NasqoProErpApp(controller: c));
     await tester.pumpAndSettle();
-    final review = find.text('ميزان المراجعة');
-    expect(review, findsOneWidget);
-    await tester.ensureVisible(review);
+    await tester.tap(find.byKey(const Key('home-open-drawer')));
+    await tester.pumpAndSettle();
+    final review = find.byKey(const ValueKey('nasqo-drawer-finance'));
+    await tester.scrollUntilVisible(review,250,
+        scrollable:find.descendant(of:find.byKey(const Key('nasqo-web-drawer-list')),matching:find.byType(Scrollable)).first);
+    await Scrollable.ensureVisible(tester.element(review),alignment:0.5);
+    await tester.pumpAndSettle();
     await tester.tap(review);
     await tester.pumpAndSettle();
     await tester.tap(find.text('VAT 15%'));
