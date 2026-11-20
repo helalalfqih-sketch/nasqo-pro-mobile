@@ -15,6 +15,9 @@ class InvoiceFormSheet extends StatefulWidget {
 
 class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
   String? _selectedAccountId;
+  String? _cashboxId;
+  Iterable<AccountRecord> get _cashboxes => widget.controller.accounts.where((a) =>
+      a.isCashAccount && a.currency == widget.controller.defaultCurrency);
   String? _selectedWhId;
   bool _useCustomCustomer = false;
   final _customNameCtrl = TextEditingController();
@@ -31,6 +34,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
     super.initState();
     final preferredAccounts = _clientAccounts;
     _selectedAccountId = preferredAccounts.firstOrNull?.id;
+    _cashboxId = _cashboxes.firstOrNull?.id;
     _selectedWhId = widget.controller.warehouses.firstOrNull?.id;
     final firstItem = _stockItems.firstOrNull;
     _rows.add(
@@ -145,6 +149,10 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
       return;
     }
 
+    if (_payment == PaymentMethod.cash && _cashboxId == null) {
+      setState(() => _saleError = 'أضف حسابًا نقديًا بعملة الفاتورة من دليل الحسابات ثم اختره هنا.');
+      return;
+    }
     setState(() {
       _saving = true;
       _saleError = null;
@@ -155,6 +163,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
         customerName: customerName,
         warehouse: wh,
         payment: _payment,
+        cashboxAccountId: _payment == PaymentMethod.cash ? _cashboxId : null,
         includeVat: _includeVat,
         rows: _rows,
         documentNumber: _documentNumberCtrl.text,
@@ -327,6 +336,15 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                         ],
                       ),
                       const SizedBox(height: 8),
+                      if (_payment == PaymentMethod.cash)
+                        DropdownButtonFormField<String>(
+                          key: const ValueKey('invoice-cashbox'),
+                          value: _cashboxId, isExpanded: true,
+                          decoration: const InputDecoration(labelText: 'صندوق النقدية'),
+                          items: [for (final box in _cashboxes)
+                            DropdownMenuItem(value: box.id, child: Text(box.name))],
+                          onChanged: _saving ? null : (v) => setState(() => _cashboxId = v),
+                        ),
                       TextField(
                         key: const Key('invoice-document-number'),
                         controller: _documentNumberCtrl,
