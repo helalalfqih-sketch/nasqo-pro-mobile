@@ -933,7 +933,7 @@ class ErpController extends ChangeNotifier {
         inventory: backup.inventory, saleLines: backup.lines, companyName: backup.company,
         isDarkMode: isDarkMode, nextEntryNumber: backup.lastNumber,
         restoredWebExport: backup.original,
-        erpData: {...backup.modules.toJson(),'messagePreferences':preferences},
+        erpData: {...backup.modules.toJson(),'messagePreferences':preferences,'currencyDetails':backup.currencyDetails},
       );
       accounts..clear()..addAll(backup.accounts);
       ledger..clear()..addAll(backup.ledger);
@@ -942,7 +942,7 @@ class ErpController extends ChangeNotifier {
       saleLines..clear()..addAll(backup.lines);
       groupDirectory=null;
       restoredGroups = backup.groupData;
-      _currencyDetails = {};
+      _currencyDetails = Map.of(backup.currencyDetails);
       _loadAppearance(null);
       _loadAlertState(null);
       _loadMessagePreferences(preferences);
