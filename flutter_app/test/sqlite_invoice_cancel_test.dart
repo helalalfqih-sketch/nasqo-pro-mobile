@@ -115,8 +115,16 @@ void main() {
 
     await tester.pumpWidget(NasqoProErpApp(controller: controller));
     await tester.pumpAndSettle();
+    Future<void> openInvoice() async {
+      final action = find.byKey(const ValueKey('home-invoice-new'));
+      await tester.scrollUntilVisible(action, 200,
+          scrollable: find.byType(Scrollable).first);
+      await tester.ensureVisible(action);
+      await tester.tap(action);
+    }
+
     for (final systemBack in [false, true]) {
-      await tester.tap(find.text('فاتورة جديدة'));
+      await openInvoice();
       await tester.pumpAndSettle();
       expect(find.byType(InvoiceFormSheet), findsOneWidget);
       final price = find.widgetWithText(TextFormField, 'السعر');
@@ -143,7 +151,7 @@ void main() {
     });
 
     // Overselling through the UI keeps the draft open and changes no table.
-    await tester.tap(find.text('فاتورة جديدة'));
+    await openInvoice();
     await tester.pumpAndSettle();
     final quantity = find.widgetWithText(TextFormField, 'الكمية');
     await tester.ensureVisible(quantity);
@@ -163,7 +171,7 @@ void main() {
     });
 
     // Positive control: the same route writes once when explicitly saved.
-    await tester.tap(find.text('فاتورة جديدة'));
+    await openInvoice();
     await tester.pumpAndSettle();
     final save = find.byKey(const Key('invoice-save'));
     await tester.ensureVisible(save);
