@@ -30,6 +30,10 @@ Future<String> readWebsiteBackup(Uint8List input, int limit) async {
       if (!tables.containsAll({'workspaces','accounts','account_groups','ledger_entries','inventory_items','warehouses'})) {
         throw const FormatException('قاعدة SQLite من إصدار آخر. اختر تصدير JSON الموحد من الموقع.');
       }
+      final integrity = await db.rawQuery('PRAGMA quick_check(1)');
+      if (integrity.length != 1 || integrity.single.values.single != 'ok') {
+        throw const FormatException('لم يجتز ملف SQLite فحص السلامة.');
+      }
       final workspaces = await db.query('workspaces',limit:2);
       if (workspaces.length != 1) throw const FormatException('يجب أن تتضمن النسخة منشأة واحدة.');
       final ws = workspaces.single;
@@ -50,9 +54,26 @@ Future<String> readWebsiteBackup(Uint8List input, int limit) async {
         }
       }
       for (final entry in ledger) { entry['lines'] = lines[entry['id']] ?? []; }
+      final modules = <String,dynamic>{};
+      const moduleTables = {
+        'employees':'erp_employees','leaveRequests':'erp_leave_requests',
+        'deals':'erp_deals','purchaseOrders':'erp_purchase_orders','boms':'erp_boms',
+        'productionOrders':'erp_production_orders','costCenters':'erp_cost_centers'
+      };
+      for (final module in moduleTables.entries) {
+        if (!tables.contains(module.value)) continue;
+        final records = await rows(module.value);
+        for (final record in records) {
+          for (final field in ['lines','components','linkedCategories']) {
+            final encoded = record.remove('${field}Json');
+            if (encoded is String) record[field] = jsonDecode(encoded);
+          }
+        }
+        modules[module.key] = records;
+      }
       return jsonEncode({
         'format':'nasqo-unified-sqlite-export-v2','version':2,
-        'workspace':{'companyName':ws['company_name']},'accountGroups':await rows('account_groups'),
+        'erpData':modules,'workspace':{'companyName':ws['company_name']},'accountGroups':await rows('account_groups'),
         'accounts':await rows('accounts'),'warehouses':await rows('warehouses'),
         'ledger':ledger,'inventory':await rows('inventory_items')
       });
