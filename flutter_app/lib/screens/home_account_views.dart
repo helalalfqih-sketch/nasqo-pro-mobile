@@ -48,10 +48,11 @@ class HomeAccountsView extends StatefulWidget {
       {super.key,
       required this.controller,
       this.category = AccountCategory.clients,
-      this.cashOnly = false});
+      this.cashOnly = false, this.onOpenModule});
   final ErpController controller;
   final AccountCategory? category;
   final bool cashOnly;
+  final ValueChanged<String>? onOpenModule;
 
   @override
   State<HomeAccountsView> createState() => _HomeAccountsViewState();
@@ -83,9 +84,7 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
               appBar: AppBar(
                   title: Text(widget.cashOnly
                       ? 'الصناديق المحلية'
-                      : widget.category == AccountCategory.clients
-                          ? 'العملاء'
-                          : 'الحسابات')),
+                      : widget.category?.label ?? 'الحسابات')),
               body: ListView(padding: const EdgeInsets.all(16), children: [
                 Text(widget.cashOnly
                     ? 'حسابات مميزة كنقدية في الدفتر المحلي، وليست سجلات صناديق مستقلة. للقراءة فقط.'
@@ -111,14 +110,14 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
                             .closing,
                         currency)),
                     onTap: () {
-                      if (account.isCashAccount ||
-                          account.category == AccountCategory.purchases) {
+                      if (widget.onOpenModule != null && (account.isCashAccount ||
+                          account.category == AccountCategory.purchases)) {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => CashSupplierStatementView(
                               controller: widget.controller,
                               account: account,
-                              onOpenModule: (_) {},
+                              onOpenModule: widget.onOpenModule!,
                             ),
                           ),
                         );

@@ -14,7 +14,10 @@ class DashboardScreen extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onOpenModule,
+    this.scrollController,
   });
+
+  final ScrollController? scrollController;
 
   final ErpController controller;
   final ValueChanged<String> onOpenModule;
@@ -191,7 +194,7 @@ class DashboardScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    controller.companyName.trim().isEmpty
+                    (controller.companyName.trim().isEmpty || controller.companyName == 'نسقو برو ERP')
                         ? 'نسقو برو'
                         : controller.companyName,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -207,9 +210,9 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
             IconButton(
-              tooltip: 'البحث السريع',
+              tooltip: 'مسح رمز QR',
               icon: const Icon(Icons.qr_code_2, color: Color(0xFF0B5CA8)),
-              onPressed: () => onOpenModule('quick-search'),
+              onPressed: () => onOpenModule('qr-scanner'),
             ),
           ],
         ),
@@ -221,6 +224,7 @@ class DashboardScreen extends StatelessWidget {
       final balance = GroupBalancesPanel(controller: controller);
 
       return ListView(
+        controller: scrollController,
         key: const PageStorageKey('nasqo-home-scroll'),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         children: [
@@ -455,42 +459,42 @@ class _MetricCardsGridState extends State<_MetricCardsGrid> {
         title: 'المبيعات',
         category: AccountCategory.sales,
         icon: Icons.shopping_cart_outlined,
-        route: 'sales-overview',
+        route: 'group-sales',
         group: groupMap[AccountCategory.sales],
       ),
       _MetricCardData(
         title: 'المشتريات',
         category: AccountCategory.purchases,
         icon: Icons.local_shipping_outlined,
-        route: 'accounts',
+        route: 'group-purchases',
         group: groupMap[AccountCategory.purchases],
       ),
       _MetricCardData(
         title: 'العملاء',
         category: AccountCategory.clients,
         icon: Icons.people_alt_outlined,
-        route: 'accounts',
+        route: 'group-clients',
         group: groupMap[AccountCategory.clients],
       ),
       _MetricCardData(
         title: 'الموظفين',
         category: AccountCategory.employees,
         icon: Icons.badge_outlined,
-        route: 'hr',
+        route: 'group-employees',
         group: groupMap[AccountCategory.employees],
       ),
       _MetricCardData(
         title: 'الحوالات',
         category: AccountCategory.transfers,
         icon: Icons.swap_horiz_outlined,
-        route: 'cash-transfer-drafts',
+        route: 'group-transfers',
         group: groupMap[AccountCategory.transfers],
       ),
       _MetricCardData(
         title: 'المحل',
         category: AccountCategory.shop,
         icon: Icons.storefront_outlined,
-        route: 'accounts',
+        route: 'group-shop',
         group: groupMap[AccountCategory.shop],
       ),
       _MetricCardData(

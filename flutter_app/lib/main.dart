@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/stock_scanner_view.dart';
+import 'screens/home_navigation.dart';
 import 'screens/customer_list_sheet.dart';
 import 'screens/invoice_form_sheet.dart';
 import 'screens/nasqo_web_drawer.dart';
@@ -118,7 +120,24 @@ class NasqoMainShell extends StatefulWidget {
 
 class _NasqoMainShellState extends State<NasqoMainShell> {
   final _shellKey = GlobalKey<ScaffoldState>();
+  final _homeScroll = ScrollController();
   String? _activeModule;
+
+  @override
+  void dispose() {
+    _homeScroll.dispose();
+    super.dispose();
+  }
+
+  Future<void> _quickActions() async {
+    final route = await showHomeQuickActions(context);
+    if (!mounted || route == null) return;
+    if (route == 'invoice') {
+      _openInvoice();
+    } else {
+      _openModulePage(route);
+    }
+  }
 
   Widget _documents(NonpostingDocumentType type, {bool createOnOpen = false}) {
     final controller = widget.controller;
@@ -170,7 +189,10 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       return;
     }
     if (_activeModule == moduleId) return;
+    final category = AccountCategory.values.where((c) => moduleId == 'group-${c.name}').firstOrNull;
     final (title, Widget page) = switch (moduleId) {
+      _ when category != null => (category.label, HomeAccountsView(
+        controller: widget.controller, category: category, onOpenModule: _openModulePage)),
       'measurements' => (
           'التمييز والمقاسات',
           CustomerMeasurementsView(controller: widget.controller),
@@ -288,6 +310,9 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           'سلة المحذوفات',
           HomeTrashView(controller: widget.controller),
         ),
+      'reports' => ('التقارير', HomeReportsView(onOpenModule: _openModulePage)),
+      'qr-scanner' || 'item-new' => ('الأصناف', StockScannerView(
+        controller: widget.controller, createOnOpen: moduleId == 'item-new')),
       'quick-search' => (
           'البحث السريع',
           HomeQuickSearchScreen(controller: widget.controller)
@@ -302,7 +327,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         ),
       'account-statement' => (
           'كشف حساب',
-          HomeAccountsView(controller: widget.controller, category: null)
+          HomeAccountsView(controller: widget.controller, category: null, onOpenModule: _openModulePage)
         ),
       'warehouses' => (
           'المخازن',
@@ -389,7 +414,8 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       MaterialPageRoute(
         builder: (_) => Directionality(
           textDirection: TextDirection.rtl,
-          child: const {
+          child: category != null || const {
+            'qr-scanner', 'item-new', 'account-statement', 'cashboxes',
             'warehouses',
             'currencies',
             'sales-overview',
@@ -511,8 +537,9 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         actions: [
           const _UnavailableHeader(
               icon: Icons.chat_outlined, label: 'واتساب غير متاح'),
-          const _UnavailableHeader(
-              icon: Icons.delete_outline, label: 'سلة المحذوفات غير متاحة'),
+          SizedBox(width: 34, child: IconButton(
+            tooltip: 'سلة المحذوفات', iconSize: 19, padding: EdgeInsets.zero,
+            onPressed: () => _openModulePage('trash'), icon: const Icon(Icons.delete_outline))),
           SizedBox(
             width: 34,
             child: IconButton(
@@ -550,24 +577,28 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
               PopupMenuItem(
                   value: 'simple-journal-drafts', child: Text('قيد بسيط جديد')),
               PopupMenuItem(
-                  value: 'inventory', child: Text('إضافة صنف للمخزن')),
+                  value: 'item-new', child: Text('إضافة صنف للمخزن')),
             ],
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        key: const ValueKey('home-fab-invoice'),
-        tooltip: 'فاتورة جديدة',
-        backgroundColor: const Color(0xFF0B5CA8),
-        foregroundColor: Colors.white,
-        onPressed: _openInvoice,
-        child: const Icon(Icons.add, size: 28),
+      bottomNavigationBar: HomeNavigation(
+        onHome: () {
+          if (_homeScroll.hasClients) {
+            _homeScroll.animateTo(0, duration: const Duration(milliseconds: 240), curve: Curves.easeOut);
+          }
+        },
+        onServices: () => _openModulePage('hub'),
+        onQuickActions: _quickActions,
+        onReports: () => _openModulePage('reports'),
+        onProfile: () => _openModulePage('settings'),
       ),
       drawer: NasqoWebDrawer(
         companyName: widget.controller.companyName,
         onOpen: _openFromDrawer,
       ),
       body: DashboardScreen(
+        scrollController: _homeScroll,
         controller: widget.controller,
         onOpenModule: _openModulePage,
       ),

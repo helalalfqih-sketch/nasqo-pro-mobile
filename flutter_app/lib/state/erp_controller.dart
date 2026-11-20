@@ -40,10 +40,11 @@ class ErpController extends ChangeNotifier {
   Future<void> _writeTail = Future<void>.value();
   bool _salesPosting = false;
   bool _resetting = false;
+  bool _receivingStock = false;
   bool _disposed = false;
 
   void _requireAvailableMutation() {
-    if (_salesPosting || _resetting) {
+    if (_salesPosting || _resetting || _receivingStock) {
       throw const SaleValidationException(
           'توجد عملية حفظ جارية؛ انتظر اكتمالها.');
     }
@@ -731,6 +732,58 @@ class ErpController extends ChangeNotifier {
       if (!_disposed) notifyListeners();
     } finally {
       _resetting = false;
+    }
+  }
+
+  Future<void> receiveStock({
+    String? existingId,
+    required double quantity,
+    String name = '',
+    String sku = '',
+    String unit = '',
+    String warehouseId = '',
+    double avgCost = 0,
+    double threshold = 25,
+  }) async {
+    _requireAvailableMutation();
+    _receivingStock = true;
+    try {
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw const SaleValidationException('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final next = List<InventoryItemRecord>.of(inventory);
+      if (!quantity.isFinite || quantity < 0) {
+        throw const SaleValidationException('أدخل كمية صالحة.');
+      }
+      if (existingId != null) {
+        final index = next.indexWhere((item) => item.id == existingId);
+        if (index < 0 || quantity <= 0) throw const SaleValidationException('تحقق من الصنف والكمية.');
+        final total = next[index].quantity + quantity;
+        if (!total.isFinite || total == next[index].quantity) {
+          throw const SaleValidationException('الكمية خارج النطاق.');
+        }
+        next[index] = next[index].copyWith(quantity: total);
+      } else {
+        if (name.trim().isEmpty || unit.trim().isEmpty ||
+            !warehouses.any((w) => w.id == warehouseId) ||
+            !avgCost.isFinite || avgCost < 0 || !threshold.isFinite || threshold < 0) {
+          throw const SaleValidationException('تحقق من الاسم والوحدة والمستودع والتكلفة.');
+        }
+        if (sku.trim().isNotEmpty && next.any((i) => i.warehouseId == warehouseId &&
+            i.sku.toLowerCase() == sku.trim().toLowerCase())) {
+          throw const SaleValidationException('رمز الصنف مسجل في هذا المستودع.');
+        }
+        next.add(InventoryItemRecord(id: 'item_${DateTime.now().microsecondsSinceEpoch}',
+          name: name.trim(), sku: sku.trim(), unit: unit.trim(), warehouseId: warehouseId,
+          quantity: quantity, avgCost: avgCost, minThreshold: threshold));
+      }
+      if (_usesPersistentStore) await _saveCurrentSnapshot(nextInventory: next);
+      inventory..clear()..addAll(next);
+      if (!_disposed) notifyListeners();
+    } finally {
+      _receivingStock = false;
     }
   }
 
