@@ -45,7 +45,8 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
       metadata:c.restoredGroups,currency:currency,warehouse:warehouse,
       from:day(period?.start),through:day(period?.end),basis:basis);
     final rows = allRows.where((r)=>!movement || itemId==null || r.item.id==itemId);
-    final visible=rows.where((r)=>movement || r.sold.abs()>0.0001 || r.sales.abs()>0.0001 || r.profit.abs()>0.0001);
+    final visible=rows.where((r)=>movement || r.sold.abs()>0.0001 || r.sales.abs()>0.0001).toList();
+    if(!movement) visible.sort((a,b)=>b.profit.compareTo(a.profit));
     return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
       if(movement) Autocomplete<InventoryItemRecord>(
         displayStringForOption:(i)=>i.name,
