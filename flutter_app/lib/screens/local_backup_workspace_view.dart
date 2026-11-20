@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import '../services/web_backup.dart';
+import '../services/website_backup_file.dart';
+import 'nasqo_brand_mark.dart';
 
 import '../services/local_backup_files.dart';
 
@@ -36,6 +38,7 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
   List<LocalBackupFile> _files = [];
   bool _busy = false;
   String? _status;
+  String? _restoring;
   String? _error;
   LocalBackupCheck? _result;
   @override
@@ -76,6 +79,7 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
       if (mounted) {
         setState(() {
           _busy = false;
+          _restoring = null;
         });
       }
     }
@@ -93,7 +97,7 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
     }
     final WebBackup backup;
     try {
-      final raw = utf8.decode(buffer.takeBytes());
+      final raw = await readWebsiteBackup(buffer.takeBytes(), limit);
       final root = jsonDecode(raw);
       if (root is Map && root['format'] == 'nasqo-local-qa-json-v1' && widget.importLocal != null) {
         final file = await widget.importLocal!(raw);
@@ -113,14 +117,17 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
           '${backup.company}\nالحسابات: ${backup.accounts.length} • القيود: ${backup.ledger.length}\n'
           'المستودعات: ${backup.warehouses.length} • الأصناف: ${backup.inventory.length}\n'
           'ستُستبدل السجلات والمسودات الحالية. تُستخدم الحقول المدعومة في هذه الأقسام وبنود الفواتير وسجلات وحدات ERP المتوافقة. '
-          'تفاصيل الويب الإضافية مثل الضرائب والخصومات والمجموعات تبقى في ملف المصدر ولا تُفعّل على الهاتف.')),
+          'تُستعاد المجموعات المدعومة. قد تتضمن النسخة بيانات إضافية مثل جداول الإدارة وحقول الضرائب والخصومات لا يدعمها هذا المسار.')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('استبدال واستعادة')),
         ]));
     if (confirmed != true || !mounted) return 'أُلغيت الاستعادة.';
+    setState(() => _restoring = file.name);
     await widget.restoreWeb!(backup);
-    return 'اكتملت استعادة السجلات المحددة إلى بيانات التطبيق.';
+    final message = 'تمت استعادة ${file.name} • المجموعات: ${backup.groupData.groups.length} • الحسابات: ${backup.accounts.length} • الحركات: ${backup.ledger.length} • الأصناف: ${backup.inventory.length}';
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(message)));
+    return message;
   });
 
   Future<void> _restoreLocal(LocalBackupFile file) => _run('جارٍ تجهيز الاستعادة…', () async {
@@ -130,6 +137,7 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
       actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
         FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('استبدال واستعادة'))]));
     if (confirm != true) return 'أُلغيت الاستعادة.';
+    setState(() => _restoring = file.id);
     await widget.restoreLocal!(file.id);
     return 'اكتملت الاستعادة إلى قاعدة الهاتف.';
   });
@@ -172,7 +180,7 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
         textDirection: TextDirection.rtl,
         child: PopScope(
           canPop: !_busy,
-          child: Scaffold(
+          child: Stack(children:[Scaffold(
             appBar: AppBar(title: const Text('النسخ المحلية واختبار التعافي')),
             body: ListView(padding: const EdgeInsets.all(16), children: [
               if (widget.restoreWeb != null)
@@ -266,6 +274,16 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
                             ]))),
             ]),
           ),
+          if (_restoring != null) Positioned.fill(child: ColoredBox(
+            color:const Color(0xE6101224),child: Center(child: Material(color:Colors.transparent,
+            child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,
+              children:[const Stack(alignment:Alignment.center,children:[
+                SizedBox.square(dimension:84,child:CircularProgressIndicator(color:Color(0xFF22BEEB))),
+                NasqoBrandMark(size:64)]),
+                const SizedBox(height:20),Text('جارٍ استعادة $_restoring وتجهيز النظام…',
+                  textAlign:TextAlign.center,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.bold))
+              ])))))),
+          ]),
         ),
       );
 }
