@@ -89,6 +89,8 @@ class ErpController extends ChangeNotifier {
     if(data==null) return;
     final target=restoredGroups ??= RestoredGroups.fromJson({});
     final updated=RestoredGroups.fromJson(data);
+    target.groupCategories..clear()..addAll(updated.groupCategories);
+    target.groupCurrencies..clear()..addAll(updated.groupCurrencies);
     target.groups..clear()..addAll(updated.groups);
     target.membership..clear()..addAll(updated.membership);
   }
