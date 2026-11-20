@@ -4,8 +4,6 @@ import initSqlJs from "sql.js";
 
 const require = createRequire(import.meta.url);
 
-test.use({ channel: "chrome" });
-
 async function sampleSqlite() {
   const SQL = await initSqlJs({ locateFile: () => require.resolve("sql.js/dist/sql-wasm.wasm") });
   const db = new SQL.Database();
@@ -89,7 +87,7 @@ test("unified single SQLite backend persists data, imports SQLite, opens invoice
   await expect(page.getByTestId("account-groups-table").getByText("العملاء")).toBeVisible({ timeout: 10_000 });
 
   // Also check Settings -> SQLite table browser works over the restored DB
-  await page.getByLabel("الإعدادات", { exact: true }).click();
+  await page.getByTestId("home-nav-profile").click();
   await expect(page.getByTestId("settings-full-sqlite-import-btn")).toBeVisible({ timeout: 10_000 });
   await page.getByTestId("settings-full-sqlite-import-btn").click();
   const dialog = page.getByRole("dialog");
@@ -299,7 +297,7 @@ test("unified single SQLite backend persists data, imports SQLite, opens invoice
   await page.locator(".transaction-card", { hasText: unbrokenText }).getByRole("button", { name: /ملف PDF للعملية/ }).click();
   const previewDoc = page.getByTestId("cash-invoice-document");
   await expect(previewDoc).toBeVisible({ timeout: 10_000 });
-  await expect(previewDoc.getByText(unbrokenText)).toBeVisible();
+  await expect(previewDoc.getByRole("cell", { name: unbrokenText, exact: true })).toBeVisible();
   await page.getByTestId("cash-invoice-actual-size").click();
   const wrapMetrics = await previewDoc.evaluate(() => {
     const firstTd = document.querySelector(".cash-invoice-table tbody td:first-child") as HTMLElement | null;
@@ -358,7 +356,7 @@ test("unified single SQLite backend persists data, imports SQLite, opens invoice
   await expect(page.getByTestId("erp-hub-screen")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("erp-hub-screen")).toContainText("15% تقديري");
   await page.getByTestId("erp-mod-btn-erp-finance").click();
-  await page.getByTestId("erp-finance-screen").getByRole("tab", { name: "الضرائب VAT" }).click();
+  await page.getByTestId("erp-finance-screen").getByRole("tab", { name: "الضرائب", exact: true }).click();
   await expect(page.getByTestId("erp-vat-jurisdiction-select")).toHaveValue("sa_15");
 
   // Verify again zero IndexedDB stores & zero Firestore requests throughout entire session
@@ -516,7 +514,7 @@ test("UI handles invalid {} JSON safely, inline invoice validation focuses field
     await page1.route(`**/api/db/workspace/${uid}/export/json`, async () => {
       // Intentionally hold request open beyond 12s AbortController timeout
     });
-    await page1.getByLabel("الإعدادات", { exact: true }).click({ timeout: 10_000 });
+    await page1.getByTestId("home-nav-profile").click({ timeout: 10_000 });
     await page1.getByTestId("settings-full-sqlite-import-btn").click({ timeout: 10_000 });
     const dbCenter = page1.getByRole("dialog");
     await dbCenter.getByTestId("legacy-export-json-btn").click({ timeout: 10_000 });

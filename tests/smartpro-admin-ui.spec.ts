@@ -26,10 +26,18 @@ test("primary SmartPro mode requires verified sign-in and cannot silently enter 
 
 test("after central cutover, network failure fails closed without writing legacy workspace", async ({page}) => {
   test.setTimeout(45000);
+  const workspaceWrites: string[] = [];
+  page.on("request", request => {
+    if (new URL(request.url()).pathname.startsWith("/api/db/workspace/") &&
+        ["POST", "PUT", "PATCH", "DELETE"].includes(request.method())) {
+      workspaceWrites.push(request.method() + " " + request.url());
+    }
+  });
   await page.addInitScript(() => localStorage.setItem("nasqo-smartpro-primary-active","1"));
   await page.route("**/api/smartpro/status", route => route.abort());
   await page.goto("/?autostart=1");
-  await expect(page.getByText("تعذر الاتصال بقاعدة SmartPro المركزية")).toBeVisible({timeout:20000});
+  await expect(page.getByRole("heading", { name: "تعذر الاتصال بالإدارة المركزية" })).toBeVisible({timeout:20000});
   await expect(page.getByTestId("local-erp-signin-button")).toHaveCount(0);
   await expect(page.getByTestId("dashboard-screen")).toHaveCount(0);
+  expect(workspaceWrites).toEqual([]);
 });
