@@ -112,6 +112,7 @@ class RestoredGroups {
   final Map<String, int> membership;
   final Map<String, ({num? debit, num? credit, bool settled})> sides;
 
+  final dueDates = <String,String>{};
   final documentTypes = <String,int>{};
   final counterparts = <String,String>{};
   final settledEntries = <String>{};
@@ -142,6 +143,7 @@ class RestoredGroups {
       for (var i=0;i<lines.length;i++) {
         result.reportLines[(id,i)] = Map<String,dynamic>.from(lines[i] as Map);
       }
+      if(e['dueDate'] is String && e['dueDate'].isNotEmpty) result.dueDates[id]=e['dueDate'];
       final type = int.tryParse(e['docType'].toString());
       if (type != null) result.documentTypes[id] = type;
       if (e['settledOnReceipt'] == true) result.settledEntries.add(id);
