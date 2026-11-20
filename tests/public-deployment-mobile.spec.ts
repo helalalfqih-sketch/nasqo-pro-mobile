@@ -28,10 +28,10 @@ test("NASQO SQLite page shows mobile login without clipped grid", async ({ brows
       }).slice(-12).map(e=>({tag:e.tagName,className:e.className,rect:[Math.round(e.getBoundingClientRect().top),Math.round(e.getBoundingClientRect().height)],background:getComputedStyle(e).backgroundColor,z:getComputedStyle(e).zIndex})))));
     await page.screenshot({path:"test-results/public-mobile.png",fullPage:true});
     expect(errors.filter(e=>e.startsWith("PAGE:"))).toEqual([]);
-    await expect(page.getByText("نسقو برو — قاعدة SQLite المحلية")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "نسقو برو — تسجيل الدخول" })).toBeVisible();
     await expect(page.getByTestId("sqlite-admin-login")).toBeVisible();
     const card = await page.locator(".auth-gate-single-panel .auth-card").boundingBox();
-    const field = await page.getByLabel("كلمة مرور قاعدة SQLite").boundingBox();
+    const field = await page.getByLabel("كلمة مرور المدير").boundingBox();
     const login = await page.getByTestId("sqlite-admin-login").boundingBox();
     expect(card).not.toBeNull();
     expect(field).not.toBeNull();
