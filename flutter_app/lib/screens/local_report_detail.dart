@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import '../models/erp_models.dart';
 import '../services/accounting_engine.dart';
 import '../state/erp_controller.dart';
+import '../services/invoice_movement_report.dart';
 
 enum LocalReport {
+  profit('أرباح الفواتير'),
+  movement('حركة الأصناف والأرباح'),
   closing('تقرير الحسابات الختامية'),
   category('تقرير إجمالي حسب التصنيف'),
   stock('المخزون المتبقي'),
@@ -25,6 +28,39 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
   late CurrencyCode currency = widget.controller.defaultCurrency;
   String warehouse = '';
   int limit = 100;
+  DateTimeRange? period;
+  CostBasis basis = CostBasis.average;
+  String day(DateTime? d) => d?.toIso8601String().split('T').first ?? '';
+
+  Future<void> choosePeriod() async {
+    final picked = await showDateRangePicker(context:context,firstDate:DateTime(1900),
+      lastDate:DateTime(2200),initialDateRange:period);
+    if(mounted && picked!=null) setState(() {period=picked;limit=100;});
+  }
+
+  Widget invoiceReport() {
+    final c=widget.controller, movement=widget.report==LocalReport.movement;
+    final rows=invoiceMovementReport(inventory:c.inventory,ledger:c.ledger,lines:c.saleLines,
+      metadata:c.restoredGroups,currency:currency,warehouse:warehouse,
+      from:day(period?.start),through:day(period?.end),basis:basis);
+    final visible=rows.where((r)=>movement || r.sold.abs()>0.0001 || r.sales.abs()>0.0001 || r.profit.abs()>0.0001);
+    return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+      if(movement) DropdownButtonFormField<CostBasis>(value:basis,decoration:const InputDecoration(labelText:'أساس الربح'),
+        items:const [DropdownMenuItem(value:CostBasis.average,child:Text('متوسط الشراء')),
+          DropdownMenuItem(value:CostBasis.catalog,child:Text('تكلفة الصنف')),
+          DropdownMenuItem(value:CostBasis.lastPurchase,child:Text('آخر سعر شراء'))],
+        onChanged:(v)=>setState((){if(v!=null) basis=v;})),
+      Wrap(children:[TextButton.icon(onPressed:choosePeriod,icon:const Icon(Icons.date_range),
+        label:Text(period==null?'كل الفترات':'${day(period!.start)} — ${day(period!.end)}')),
+        if(period!=null) TextButton(onPressed:()=>setState((){period=null;limit=100;}),child:const Text('إزالة الفترة'))]),
+      table(['اسم الصنف',if(movement)...['صافي كمية الشراء','إجمالي الشراء'],'كمية البيع','إجمالي البيع','الربح'],
+        [for(final r in visible) [r.item.name,if(movement)...[format(r.bought),format(r.purchases)],
+          format(r.sold),format(r.sales),format(r.profit)]],
+        'لا توجد حركات فواتير أصناف في النطاق المحدد.'),
+      Text('إجمالي المبيعات: ${format(rows.fold<double>(0,(s,r)=>s+r.sales))}'),
+      Text('إجمالي الأرباح: ${format(rows.fold<double>(0,(s,r)=>s+r.profit))}')
+    ]);
+  }
   final format = AccountingEngine.formatAmount;
 
   Widget table(List<String> headers,List<List<String>> rows,String empty) {
@@ -176,16 +212,17 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
   @override
   Widget build(BuildContext context) => ListenableBuilder(listenable:widget.controller,builder:(context,_) {
     final stock = widget.report==LocalReport.stock || widget.report==LocalReport.expiry;
+    final invoices = widget.report==LocalReport.movement || widget.report==LocalReport.profit;
     return ListView(padding:const EdgeInsets.all(12),children:[
-      if(stock) DropdownButtonFormField<String>(value:warehouse,decoration:const InputDecoration(labelText:'مخزن التقرير'),
+      if(stock || invoices) DropdownButtonFormField<String>(value:warehouse,decoration:const InputDecoration(labelText:'مخزن التقرير'),
         items:[const DropdownMenuItem(value:'',child:Text('كل المخازن')),
           for(final w in widget.controller.warehouses) DropdownMenuItem(value:w.id,child:Text(w.name))],
-        onChanged:(v)=>setState((){warehouse=v ?? '';limit=100;}))
-      else DropdownButtonFormField<CurrencyCode>(value:currency,decoration:const InputDecoration(labelText:'عملة التقرير'),
+        onChanged:(v)=>setState((){warehouse=v ?? '';limit=100;})),
+      if(!stock) DropdownButtonFormField<CurrencyCode>(value:currency,decoration:const InputDecoration(labelText:'عملة التقرير'),
         items:[for(final v in CurrencyCode.values) DropdownMenuItem(value:v,child:Text(v.label))],
         onChanged:(v)=>setState((){if(v!=null) currency=v;limit=100;})),
       const SizedBox(height:12),
-      if(stock) stockReport() else if(widget.report==LocalReport.closing) closingReport() else if(widget.report==LocalReport.category) categoryReport() else servicesReport()
+      if(invoices) invoiceReport() else if(stock) stockReport() else if(widget.report==LocalReport.closing) closingReport() else if(widget.report==LocalReport.category) categoryReport() else servicesReport()
     ]);
   });
 }
