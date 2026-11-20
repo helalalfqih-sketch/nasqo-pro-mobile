@@ -38,6 +38,7 @@ class SalesReturnDraftsView extends StatefulWidget {
       required this.loadSales,
       required this.saveDraft,
       this.postDraft,
+      this.onPosting,
       this.cashboxForSale,
       this.loadFacts});
   final Future<List<SalesReturnDraft>> Function() loadDrafts;
@@ -45,6 +46,7 @@ class SalesReturnDraftsView extends StatefulWidget {
   final Future<List<SalesReturnSource>> Function() loadSales;
   final SalesReturnSave saveDraft;
   final Future<int> Function(int, int)? postDraft;
+  final ValueChanged<bool>? onPosting;
   final String? Function(String sourceId)? cashboxForSale;
   final Future<SaleFacts?> Function(String)? loadFacts;
   @override
@@ -95,16 +97,19 @@ class _SalesReturnDraftsViewState extends State<SalesReturnDraftsView> {
   Future<void> _post(SalesReturnDraft draft) async {
     if (_opening) return;
     final box = widget.cashboxForSale?.call(draft.sourceEntryId);
+    final stockMessage = draft.sourceEntryId.startsWith('service-sale_')
+        ? 'هذا مردود فاتورة حرة دون حركة مخزون' : 'ستعود الكميات إلى المستودع';
     final confirm = await showDialog<bool>(context: context, builder: (dialog) =>
       AlertDialog(title: const Text('ترحيل مرتجع المبيعات؟'),
         content: Text(box == null
-            ? 'ستعود الكميات إلى المستودع ويُسجل المبلغ على حساب ${draft.accountName}.'
-            : 'ستعود الكميات إلى المستودع ويُرد المبلغ من صندوق «$box» إلى ${draft.accountName}.'),
+            ? '$stockMessage ويُسجل المبلغ على حساب ${draft.accountName}.'
+            : '$stockMessage ويُرد المبلغ من صندوق «$box» إلى ${draft.accountName}.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('إلغاء')),
           FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('ترحيل')),
         ]));
     if (!mounted || confirm != true) return;
+    widget.onPosting?.call(true);
     setState(() { _opening = true; _error = null; });
     try {
       final number = await widget.postDraft!(draft.id, draft.revision);
@@ -114,7 +119,7 @@ class _SalesReturnDraftsViewState extends State<SalesReturnDraftsView> {
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
-      if (mounted) setState(() => _opening = false);
+      if (mounted) { widget.onPosting?.call(false); setState(() => _opening = false); }
     }
   }
 

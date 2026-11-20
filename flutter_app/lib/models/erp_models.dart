@@ -220,6 +220,8 @@ class InvoiceItemRow {
     required this.productName,
     required this.quantity,
     required this.unitPrice,
+    this.discount = 0,
+    this.roundLineTotal = false,
   });
 
   final String id;
@@ -228,7 +230,17 @@ class InvoiceItemRow {
   double quantity;
   double unitPrice;
 
-  double get lineTotal => quantity * unitPrice;
+  double discount;
+  final bool roundLineTotal;
+  bool get validDiscount => discount.isFinite && discount >= 0;
+  double get lineTotal {
+    final gross = quantity * unitPrice;
+    if ((!roundLineTotal && discount == 0) || !gross.isFinite || !validDiscount) return gross;
+    final cents = (gross - discount).clamp(0.0, double.infinity) * 100;
+    return cents.isFinite ? cents.roundToDouble() / 100 : double.infinity;
+  }
+  double get netUnitPrice => discount == 0 && !roundLineTotal ? unitPrice : lineTotal / quantity;
+  String get discountNote => 'سعر الوحدة: $unitPrice، خصم السطر: $discount، الصافي: $lineTotal';
 }
 
 /// Durable sale line. Old ledger headers have no synthetic backfilled lines.
@@ -250,6 +262,25 @@ class SavedSaleLine {
   final String unit;
   final double quantity;
   final double unitPrice;
+
+  static bool sameQuantity(double a, double b) {
+    if (a == b) return true;
+    if (a <= 0 || b <= 0) return false;
+    return (a - b).abs() <= 1e-15 * (a > b ? a : b);
+  }
+
+  /// Allocate the difference of cumulative amounts so splitting a return
+  /// cannot create or lose a cent. Preserve the exact original final total.
+  static double returnedValue(double originalQuantity, double price,
+      double alreadyReturned, double nextQuantity) {
+    double cumulative(double qty) {
+      final amount = qty * price;
+      if (sameQuantity(originalQuantity, qty)) return originalQuantity * price;
+      final rounded = (amount * 100).roundToDouble() / 100;
+      return rounded.clamp(0.0, originalQuantity * price).toDouble();
+    }
+    return cumulative(alreadyReturned + nextQuantity) - cumulative(alreadyReturned);
+  }
 }
 
 class SaleValidationException implements Exception {

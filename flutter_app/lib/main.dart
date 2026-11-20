@@ -10,7 +10,7 @@ import 'screens/home_navigation.dart';
 import 'screens/local_report_detail.dart';
 import 'screens/local_entry_view.dart';
 import 'screens/customer_list_sheet.dart';
-import 'screens/invoice_form_sheet.dart';
+import 'screens/invoice_workspace.dart';
 import 'screens/nasqo_web_drawer.dart';
 import 'screens/nasqo_brand_mark.dart';
 import 'screens/erp_hub_screen.dart';
@@ -309,7 +309,8 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         ),
       'sales-return-drafts' => (
           'مسودات مرتجع المبيعات',
-          SalesReturnDraftsView(
+          InvoiceWorkspace(controller: widget.controller, salesReturnBuilder: (onPosting) => SalesReturnDraftsView(
+            onPosting: onPosting,
             loadDrafts: widget.controller.loadSalesReturnDrafts,
             loadDraft: widget.controller.loadSalesReturnDraft,
             loadSales: _salesReturnSources,
@@ -319,7 +320,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
             cashboxForSale: (id) => widget.controller.ledger
                 .where((entry) => entry.id == '$id/cashbox' && !entry.deleted)
                 .firstOrNull?.accountName,
-          )
+          ))
         ),
       'chart-accounts' => (
           'دليل الحسابات',
@@ -491,12 +492,9 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
   }
 
   void _openInvoice() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      enableDrag: false,
-      builder: (_) => InvoiceFormSheet(controller: widget.controller),
-    );
+    Navigator.of(context).push<void>(MaterialPageRoute(
+      builder: (_) => InvoiceWorkspace(controller: widget.controller),
+    ));
   }
 
   void _openCustomers() {

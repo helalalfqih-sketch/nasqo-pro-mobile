@@ -657,17 +657,26 @@ class LocalDatabase {
       final previousNet = (prior['net'] as num?)?.toDouble() ?? 0;
       final previousTax = (prior['tax'] as num?)?.toDouble() ?? 0;
       var net = previousNet;
+      final values = <int,double>{};
       for (final line in draft.lines) {
         final original = byPosition[line.position];
         final key = line.position.toString();
         final total = ((quantities[key] as num?) ?? 0) + line.quantity;
         if (original == null || original['itemId'] != line.itemId ||
             original['unitPrice'] != line.unitPrice || line.quantity <= 0 ||
-            total > (original['quantity'] as num) + 1e-9) {
+            total <= ((quantities[key] as num?) ?? 0) ||
+            (total > (original['quantity'] as num) && !SavedSaleLine.sameQuantity(total,(original['quantity'] as num).toDouble())) ||
+            ((quantities[key] as num?) ?? 0) >= (original['quantity'] as num)) {
           throw StateError('تجاوزت كمية المرتجع المتبقي في الفاتورة.');
         }
         quantities[key] = total;
-        net += line.quantity * line.unitPrice;
+        final value = source.id.startsWith('discount-sale_') || source.id.startsWith('service-sale_')
+            ? SavedSaleLine.returnedValue((original['quantity'] as num).toDouble(),
+                line.unitPrice, total - line.quantity, line.quantity)
+            : line.quantity * line.unitPrice;
+        values[line.position] = value;
+        net += value;
+        if (source.id.startsWith('service-sale_') && line.itemId.isEmpty) continue;
         final changed = await txn.rawUpdate(
             'UPDATE inventory_items SET quantity = quantity + ? WHERE id = ? AND warehouseId = ?',
             [line.quantity, line.itemId, source.warehouseId]);
@@ -675,7 +684,7 @@ class LocalDatabase {
       }
       double money(double number) => (number * 100).round() / 100;
       if (!net.isFinite || net > facts.preTaxTotal + 1e-7) throw StateError('تجاوز المرتجع أصل الفاتورة.');
-      final tax = money(facts.taxAmount * net / facts.preTaxTotal);
+      final tax = facts.preTaxTotal == 0 ? 0.0 : money(facts.taxAmount * net / facts.preTaxTotal);
       final returnedNet = net - previousNet;
       final returnedTax = money(tax - previousTax);
       final amount = returnedNet + returnedTax;
@@ -712,7 +721,7 @@ class LocalDatabase {
       for (final line in draft.lines) {
         await txn.insert('sale_lines', {'entryId':entry.id,'position':line.position,
           'itemId':line.itemId,'itemName':line.itemName,'unit':line.unit,
-          'quantity':line.quantity,'unitPrice':line.unitPrice});
+          'quantity':line.quantity,'unitPrice':values[line.position]!/line.quantity});
       }
       final now = DateTime.now().toIso8601String();
       await txn.insert('erp_state', {'stateKey':stateKey,
@@ -1159,6 +1168,11 @@ class LocalDatabase {
       final linked = await txn.query('ledger_entries', columns: ['id'],
         where: "id IN (?, ?) OR id || '/cashbox' = ? OR id || '/settlement' = ?",
         whereArgs: ['$id/cashbox', '$id/settlement', id, id], limit: 1);
+      final purchaseLinks = await txn.rawQuery(
+          "SELECT 1 FROM ledger_entries WHERE instr(id, 'purchase-return/' || ? || '/') = 1 LIMIT 1", [id]);
+      if (id.startsWith('purchase-return/') || purchaseLinks.isNotEmpty) {
+        throw StateError('القيد مرتبط بمردود شراء.');
+      }
       if (linked.isNotEmpty) throw StateError('القيد مرتبط بتسوية نقدية.');
       if(drafts.isNotEmpty || posted.isNotEmpty) throw StateError('القيد مرتبط بمرتجع محفوظ.');
       for(final table in ['sale_line_cost_facts','sale_facts','sale_lines']) {

@@ -1223,9 +1223,12 @@ class ErpController extends ChangeNotifier {
   }
 
   Future<int> postPurchaseInvoice({required String accountId,required String warehouseId,
-      required PaymentMethod payment,required List<InvoiceItemRow> rows, String reference='',double exchangeRate=1}) async {
+      required PaymentMethod payment,required List<InvoiceItemRow> rows, String reference='',double exchangeRate=1,
+      double? freeAmount, String? cashboxAccountId, DateTime? invoiceDate}) async {
     _requireAvailableMutation();
     _editingWorkspace=true;
+    final draftRows = [for (final row in rows) InvoiceItemRow(id:row.id, itemId:row.itemId,
+        productName:row.productName, quantity:row.quantity, unitPrice:row.unitPrice, discount:row.discount,roundLineTotal:row.roundLineTotal)];
     try {
       if(_usesPersistentStore) {
         await initDatabase();
@@ -1234,33 +1237,44 @@ class ErpController extends ChangeNotifier {
       }
       final supplier=accounts.where((a)=>a.id==accountId && a.category==AccountCategory.purchases).firstOrNull;
       final warehouse=warehouses.where((w)=>w.id==warehouseId).firstOrNull;
-      if(supplier==null || warehouse==null || rows.isEmpty) throw StateError('اختر المورد والمستودع وأضف بنود الفاتورة.');
+      if(freeAmount!=null && (!freeAmount.isFinite || freeAmount<=0 || draftRows.isNotEmpty)) {
+        throw const FormatException('تحقق من مبلغ الفاتورة الحرة.');
+      }
+      if(supplier==null || warehouse==null || (draftRows.isEmpty && freeAmount==null)) throw StateError('اختر المورد والمستودع وأضف بنود الفاتورة.');
+      final box=accounts.where((a)=>a.id==cashboxAccountId).firstOrNull;
+      if(cashboxAccountId!=null && (box==null || !box.isCashAccount || box.currency!=supplier.currency || payment!=PaymentMethod.cash)) {
+        throw const FormatException('اختر صندوقًا بعملة المورد.');
+      }
+      if(payment!=PaymentMethod.credit && payment!=PaymentMethod.cash) throw const FormatException('طريقة دفع غير صالحة.');
       final rate=supplier.currency==defaultCurrency?1.0:exchangeRate;
       if(!rate.isFinite || rate<=0) throw const FormatException('تحقق من سعر الصرف.');
-      final number=_nextEntryNumber+1, id='purchase_${DateTime.now().microsecondsSinceEpoch}_$number';
+      final prefix = freeAmount == null ? 'purchase' : 'purchase_service';
+      final number=_nextEntryNumber+1, id='${prefix}_${DateTime.now().microsecondsSinceEpoch}_$number';
       final stock=List.of(inventory), lines=List.of(saleLines);
-      var total=0.0;
-      for(final (pos,row) in rows.indexed) {
+      var total=freeAmount??0.0;
+      if(freeAmount!=null) lines.add(SavedSaleLine(entryId:id,position:0,itemId:'',itemName:'فاتورة حرة',unit:'خدمة',quantity:1,unitPrice:freeAmount));
+      for(final (pos,row) in draftRows.indexed) {
         final i=stock.indexWhere((v)=>v.id==row.itemId && v.warehouseId==warehouseId);
-        if(i<0 || !row.quantity.isFinite || row.quantity<=0 || !row.unitPrice.isFinite || row.unitPrice<0) {
+        if(i<0 || !row.quantity.isFinite || row.quantity<=0 || !row.unitPrice.isFinite || row.unitPrice<0 || !row.validDiscount) {
           throw const FormatException('تحقق من الأصناف والكميات والأسعار.');
         }
         final item=stock[i], quantity=item.quantity+row.quantity;
-        final cost=item.quantity>0 ? (item.quantity*item.avgCost+row.lineTotal*rate)/quantity : row.unitPrice*rate;
+        final cost=item.quantity>0 ? (item.quantity*item.avgCost+row.lineTotal*rate)/quantity : row.netUnitPrice*rate;
         total+=row.lineTotal;
         if(!quantity.isFinite || !cost.isFinite || !total.isFinite || quantity==item.quantity) {
           throw const FormatException('قيمة البند خارج النطاق.');
         }
         stock[i]=item.copyWith(quantity:quantity,avgCost:cost);
         lines.add(SavedSaleLine(entryId:id,position:pos,itemId:item.id,itemName:item.name,
-            unit:item.unit,quantity:row.quantity,unitPrice:row.unitPrice));
+            unit:item.unit,quantity:row.quantity,unitPrice:row.netUnitPrice));
       }
       final entry=LedgerEntryRecord(id:id,accountId:accountId,accountName:supplier.name,kind:LedgerKind.invoice,
         typeLabel:payment==PaymentMethod.cash?'ف.مشتريات نقدية':'ف.مشتريات آجل',payment:payment,
         direction:EntryDirection.credit,amount:total,currency:supplier.currency,exchangeRate:rate,
+        details:[if(freeAmount!=null) 'فاتورة حرة',for(final row in draftRows.where((r)=>r.discount>0)) '${row.productName} · ${row.discountNote}'].join('\n'),
         documentNumber:reference.trim().isEmpty?'PUR-$number':reference.trim(),warehouseId:warehouseId,
-        warehouseName:warehouse.name,entryNumber:number,entryDate:DateTime.now().toIso8601String().substring(0,10));
-      final posted=[entry,...ledger];
+        warehouseName:warehouse.name,entryNumber:number,entryDate:(invoiceDate ?? DateTime.now()).toIso8601String().substring(0,10));
+      final posted=[entry,if(box!=null) ...cashSaleSettlement(entry,cashboxId:box.id,cashboxName:box.name),...ledger];
       if(_usesPersistentStore) await _saveCurrentSnapshot(nextInventory:stock,nextLedger:posted,
         nextSaleLines:lines,nextEntryNumber:number);
       inventory..clear()..addAll(stock);
@@ -1270,6 +1284,87 @@ class ErpController extends ChangeNotifier {
       if(!_disposed) notifyListeners();
       return number;
     } finally { _editingWorkspace=false; }
+  }
+
+  Iterable<LedgerEntryRecord> get returnablePurchases => ledger.where((entry) =>
+      entry.id.startsWith('purchase_') && entry.kind == LedgerKind.invoice && !entry.deleted);
+
+  String _purchaseReturnPrefix(String sourceId) => 'purchase-return/$sourceId/';
+
+  Map<int,double> remainingPurchaseQuantities(String sourceId) {
+    final remaining = {for (final l in saleLines.where((l) => l.entryId == sourceId))
+      l.position: l.quantity};
+    final prefix = _purchaseReturnPrefix(sourceId);
+    for (final l in saleLines.where((l) => l.entryId.startsWith(prefix))) {
+      remaining.update(l.position, (q) => SavedSaleLine.sameQuantity(q,l.quantity) ? 0.0 : q - l.quantity);
+    }
+    return remaining;
+  }
+
+  Future<int> postPurchaseReturn({required String sourceId, required String requestId,
+      required Map<int,double> quantities}) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    final requested = Map<int,double>.of(quantities);
+    try {
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final source = returnablePurchases.where((e) => e.id == sourceId).firstOrNull;
+      final id = '${_purchaseReturnPrefix(sourceId)}$requestId';
+      if (source == null || requested.isEmpty || !RegExp(r'^[a-zA-Z0-9_-]{1,80}$').hasMatch(requestId)) {
+        throw const FormatException('اختر فاتورة شراء وبنودًا صالحة.');
+      }
+      if (ledger.any((e) => e.id == id)) throw StateError('سبق ترحيل المردود.');
+      final remaining = remainingPurchaseQuantities(sourceId);
+      final originals = {for (final l in saleLines.where((l) => l.entryId == sourceId)) l.position:l};
+      final stock = List.of(inventory), lines = List.of(saleLines);
+      var total = 0.0;
+      for (final selection in requested.entries) {
+        final requestedQty = selection.value, line = originals[selection.key];
+        final available = remaining[selection.key] ?? 0;
+        final qty = SavedSaleLine.sameQuantity(requestedQty, available) ? available : requestedQty;
+        if (line == null || !requestedQty.isFinite || qty <= 0 || qty > available) {
+          throw const FormatException('تجاوزت كمية المردود المتبقي في الفاتورة.');
+        }
+        if (line.itemId.isNotEmpty) {
+          final index = stock.indexWhere((i) => i.id == line.itemId && i.warehouseId == source.warehouseId);
+          if (index < 0 || (qty > stock[index].quantity && !SavedSaleLine.sameQuantity(qty,stock[index].quantity))) {
+            throw const FormatException('كمية المستودع لا تكفي للمردود.');
+          }
+          final balance = stock[index].quantity - qty;
+          stock[index] = stock[index].copyWith(quantity: balance < 0 ? 0 : balance);
+        }
+        final priorQuantity = line.quantity - remaining[selection.key]!;
+        final value = SavedSaleLine.returnedValue(line.quantity, line.unitPrice, priorQuantity, qty);
+        total += value;
+        lines.add(SavedSaleLine(entryId:id,position:line.position,itemId:line.itemId,
+            itemName:line.itemName,unit:line.unit,quantity:qty,unitPrice:value/qty));
+      }
+      if (!total.isFinite) throw const FormatException('مبلغ المردود خارج النطاق.');
+      final number = _nextEntryNumber + 1;
+      final entry = LedgerEntryRecord(id:id,accountId:source.accountId,accountName:source.accountName,
+          kind:LedgerKind.returnEntry,typeLabel:'مردود شراء',payment:source.payment,
+          direction:EntryDirection.debit,amount:total,currency:source.currency,exchangeRate:source.exchangeRate,
+          documentNumber:source.documentNumber,warehouseId:source.warehouseId,warehouseName:source.warehouseName,
+          entryNumber:number,entryDate:DateTime.now().toIso8601String().substring(0,10));
+      final box = ledger.where((e) => e.id == '${source.id}/cashbox').firstOrNull;
+      if (box != null && (box.deleted || !isCashSaleSettlement(box) || box.direction != EntryDirection.credit ||
+          box.currency != source.currency || box.amount != source.amount)) {
+        throw StateError('تعذر التحقق من سداد الفاتورة النقدية.');
+      }
+      final posted = [entry, if(box!=null) ...cashSaleSettlement(entry,cashboxId:box.accountId,cashboxName:box.accountName), ...ledger];
+      if (_usesPersistentStore) await _saveCurrentSnapshot(nextInventory:stock, nextLedger:posted,
+          nextSaleLines:lines, nextEntryNumber:number);
+      inventory..clear()..addAll(stock);
+      ledger..clear()..addAll(posted);
+      saleLines..clear()..addAll(lines);
+      _nextEntryNumber = number;
+      if (!_disposed) notifyListeners();
+      return number;
+    } finally { _editingWorkspace = false; }
   }
 
   Future<void> receiveStock({
@@ -1366,6 +1461,9 @@ class ErpController extends ChangeNotifier {
     required bool includeVat,
     required List<InvoiceItemRow> rows,
     String? cashboxAccountId,
+    double? freeAmount,
+    DateTime? invoiceDate,
+    ValueChanged<String>? onCommitted,
     String documentNumber = '',
     String memo = '',
   }) async {
@@ -1388,7 +1486,12 @@ class ErpController extends ChangeNotifier {
             'البيان يجب أن يكون سطرًا واحدًا حتى 240 حرفًا.');
       }
       // The draft is mutable; snapshot its fields before an async boundary.
+      final isFree = freeAmount != null;
+      if (freeAmount != null && (rows.isNotEmpty || !freeAmount.isFinite || freeAmount <= 0)) {
+        throw const SaleValidationException('أدخل مبلغًا موجبًا للفاتورة الحرة دون أصناف.');
+      }
       final draftRows = [
+        if (freeAmount != null) InvoiceItemRow(id:'service', itemId:'', productName:'فاتورة حرة', quantity:1, unitPrice:freeAmount),
         for (final row in rows)
           InvoiceItemRow(
             id: row.id,
@@ -1396,6 +1499,8 @@ class ErpController extends ChangeNotifier {
             productName: row.productName,
             quantity: row.quantity,
             unitPrice: row.unitPrice,
+            discount: row.discount,
+            roundLineTotal: row.roundLineTotal,
           ),
       ];
       if (_usesPersistentStore) {
@@ -1430,6 +1535,7 @@ class ErpController extends ChangeNotifier {
       };
       final demand = <String, double>{};
       for (final row in draftRows) {
+        if (isFree) continue;
         final idx = indexed[row.itemId];
         if (idx == null || inventory[idx].warehouseId != warehouse.id) {
           throw const SaleValidationException(
@@ -1438,7 +1544,7 @@ class ErpController extends ChangeNotifier {
         if (!row.quantity.isFinite ||
             row.quantity <= 0 ||
             !row.unitPrice.isFinite ||
-            row.unitPrice < 0) {
+            row.unitPrice < 0 || !row.validDiscount) {
           throw const SaleValidationException('تحقق من الكمية والسعر لكل بند.');
         }
         final id = inventory[idx].id;
@@ -1480,6 +1586,7 @@ class ErpController extends ChangeNotifier {
 
       final details = [
         if (description.isNotEmpty) 'بيان الفاتورة: $description',
+        for (final r in draftRows.where((r) => r.discount > 0)) '${r.productName} · ${r.discountNote}',
         ...draftRows.map((r) =>
             '${r.productName} | ${r.quantity} × ${AccountingEngine.formatAmount(r.unitPrice)}'),
         if (includeVat)
@@ -1487,26 +1594,27 @@ class ErpController extends ChangeNotifier {
       ].join('\n');
 
       final entryNum = _nextEntryNumber + 1;
-      final entryId = 'led_${DateTime.now().microsecondsSinceEpoch}_$entryNum';
+      final prefix = isFree ? 'service-sale' : draftRows.any((r)=>r.discount>0) ? 'discount-sale' : 'led';
+      final entryId = '${prefix}_${DateTime.now().microsecondsSinceEpoch}_$entryNum';
       final postedCurrency = defaultCurrency;
       final stagedCosts = <SaleLineCostFact>[];
       final stagedLines = List<SavedSaleLine>.of(saleLines);
       for (var pos = 0; pos < draftRows.length; pos++) {
         final row = draftRows[pos];
-        final item = inventory[indexed[row.itemId]!];
+        final item = isFree ? null : inventory[indexed[row.itemId]!];
         stagedCosts.add(SaleLineCostFact(
           position: pos,
           stockAverageCost:
-              item.avgCost.isFinite && item.avgCost >= 0 ? item.avgCost : null,
+              item != null && item.avgCost.isFinite && item.avgCost >= 0 ? item.avgCost : null,
         ));
         stagedLines.add(SavedSaleLine(
           entryId: entryId,
           position: pos,
-          itemId: item.id,
-          itemName: item.name,
-          unit: item.unit,
+          itemId: item?.id ?? '',
+          itemName: item?.name ?? 'فاتورة حرة',
+          unit: item?.unit ?? 'خدمة',
           quantity: row.quantity,
-          unitPrice: row.unitPrice,
+          unitPrice: row.netUnitPrice,
         ));
       }
       final stagedLedger = List<LedgerEntryRecord>.of(ledger);
@@ -1528,7 +1636,7 @@ class ErpController extends ChangeNotifier {
           warehouseId: warehouse.id,
           warehouseName: warehouse.name,
           entryNumber: entryNum,
-          entryDate: DateTime.now().toIso8601String().substring(0, 10),
+          entryDate: (invoiceDate ?? DateTime.now()).toIso8601String().substring(0, 10),
         ),
       );
       if (cashbox != null) {
@@ -1568,6 +1676,7 @@ class ErpController extends ChangeNotifier {
         ..clear()
         ..addAll(stagedLedger);
       _nextEntryNumber = entryNum;
+      onCommitted?.call(entryId);
       if (!_disposed) notifyListeners();
     } finally {
       _salesPosting = false;

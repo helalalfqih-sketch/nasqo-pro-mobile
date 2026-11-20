@@ -16,6 +16,9 @@ class DocumentSpy extends ErpController {
   Future<void> submitSalesInvoice({
     required String accountId,
     String? cashboxAccountId,
+      double? freeAmount,
+      DateTime? invoiceDate,
+      ValueChanged<String>? onCommitted,
     required String customerName,
     required WarehouseRecord warehouse,
     required PaymentMethod payment,

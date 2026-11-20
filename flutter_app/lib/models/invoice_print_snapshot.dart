@@ -7,7 +7,10 @@ class InvoicePrintSnapshot {
   InvoicePrintSnapshot(this.entry, Iterable<SavedSaleLine> lines, this.facts)
       : lines = List.unmodifiable(
             lines.toList()..sort((a, b) => a.position.compareTo(b.position))) {
-    if (!isEligibleSalesReturnSource(entry) ||
+    final purchase = entry.id.startsWith('purchase_') && !entry.deleted &&
+        entry.kind == LedgerKind.invoice && entry.direction == EntryDirection.credit &&
+        entry.typeLabel.startsWith('ف.مشتريات');
+    if ((!isEligibleSalesReturnSource(entry) && !purchase) ||
         !entry.amount.isFinite ||
         entry.amount < 0 ||
         this.lines.any((line) =>

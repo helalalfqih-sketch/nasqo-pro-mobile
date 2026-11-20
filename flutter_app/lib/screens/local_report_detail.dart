@@ -233,7 +233,8 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
   Widget servicesReport() {
     final c = widget.controller;
     final invoices = c.ledger.where((e)=>!e.deleted && e.kind==LedgerKind.invoice &&
-        e.currency==currency && (c.restoredGroups?.serviceInvoices.contains(e.id) ?? false)).toList()
+        e.currency==currency && (e.id.startsWith('service-sale_') || e.id.startsWith('purchase_service_') ||
+          (c.restoredGroups?.serviceInvoices.contains(e.id) ?? false))).toList()
       ..sort((a,b){final date=b.entryDate.compareTo(a.entryDate);
         return date==0 ? b.entryNumber.compareTo(a.entryNumber) : date;});
     double total(EntryDirection side) => invoices.where((e)=>e.direction==side).fold<double>(0,(sum,e)=>sum+e.amount);

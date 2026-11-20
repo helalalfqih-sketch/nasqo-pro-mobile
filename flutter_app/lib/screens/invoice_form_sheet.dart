@@ -3,11 +3,16 @@ import '../models/erp_models.dart';
 import '../services/accounting_engine.dart';
 import '../state/erp_controller.dart';
 import 'customer_list_sheet.dart';
+import 'invoice_actions.dart';
 
 class InvoiceFormSheet extends StatefulWidget {
-  const InvoiceFormSheet({super.key, required this.controller});
+  const InvoiceFormSheet({super.key, required this.controller, this.onSaving,
+      this.initialPayment = PaymentMethod.cash, this.initialVat = true});
 
   final ErpController controller;
+  final ValueChanged<bool>? onSaving;
+  final PaymentMethod initialPayment;
+  final bool initialVat;
 
   @override
   State<InvoiceFormSheet> createState() => _InvoiceFormSheetState();
@@ -23,8 +28,11 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
   final _customNameCtrl = TextEditingController();
   final _documentNumberCtrl = TextEditingController();
   final _memoCtrl = TextEditingController();
-  PaymentMethod _payment = PaymentMethod.cash;
-  bool _includeVat = true;
+  late PaymentMethod _payment = widget.initialPayment;
+  late bool _includeVat = widget.initialVat;
+  bool _free = false;
+  DateTime _date = DateTime.now();
+  final _freeTotal = TextEditingController();
   String? _saleError;
   bool _saving = false;
   final List<InvoiceItemRow> _rows = [];
@@ -39,6 +47,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
     final firstItem = _stockItems.firstOrNull;
     _rows.add(
       InvoiceItemRow(
+            roundLineTotal: true,
         id: 'row_${DateTime.now().millisecondsSinceEpoch}',
         itemId: firstItem?.id,
         productName: firstItem?.name ?? 'صنف افتراضي',
@@ -52,6 +61,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
 
   @override
   void dispose() {
+    _freeTotal.dispose();
     _customNameCtrl.dispose();
     _documentNumberCtrl.dispose();
     _memoCtrl.dispose();
@@ -91,7 +101,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
     return double.tryParse(normalized) ?? double.nan;
   }
 
-  double get _subtotal => _rows.fold(
+  double get _subtotal => _free ? AccountingEngine.parseArabicNumber(_freeTotal.text) : _rows.fold(
       0.0, (sum, row) => sum + (row.lineTotal.isFinite ? row.lineTotal : 0));
   double get _vat {
     final scaled = _subtotal * 15;
@@ -126,7 +136,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
     if (!_saving) Navigator.of(context).pop();
   }
 
-  Future<void> _saveInvoice() async {
+  Future<void> _saveInvoice({bool printAfter = false}) async {
     if (_saving) return;
     if (widget.controller.accounts.isEmpty ||
         widget.controller.warehouses.isEmpty) {
@@ -157,6 +167,8 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
       _saving = true;
       _saleError = null;
     });
+    widget.onSaving?.call(true);
+    String? committedId;
     try {
       await widget.controller.submitSalesInvoice(
         accountId: activeAcc.id,
@@ -165,7 +177,10 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
         payment: _payment,
         cashboxAccountId: _payment == PaymentMethod.cash ? _cashboxId : null,
         includeVat: _includeVat,
-        rows: _rows,
+        rows: _free ? [] : _rows,
+        freeAmount: _free ? _inputNumber(_freeTotal.text) : null,
+        invoiceDate: _date,
+        onCommitted: (id) => committedId = id,
         documentNumber: _documentNumberCtrl.text,
         memo: _memoCtrl.text,
       );
@@ -173,7 +188,11 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
       final messenger = ScaffoldMessenger.of(context);
       final message =
           'تمت إضافة الفاتورة للعميل ($customerName) بقيمة ${AccountingEngine.formatAmount(_grandTotal)} ${widget.controller.defaultCurrency.label}';
-      Navigator.pop(context);
+      if (printAfter && committedId!=null) {
+        showCommittedInvoice(context, widget.controller, committedId!);
+      } else {
+        Navigator.pop(context);
+      }
       messenger.showSnackBar(SnackBar(content: Text(message)));
     } on SaleValidationException catch (error) {
       if (mounted) setState(() => _saleError = error.message);
@@ -183,7 +202,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
             _saleError = 'تعذر تأكيد حفظ الفاتورة. بقيت المسودة دون تغيير.');
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) { widget.onSaving?.call(false); setState(() => _saving = false); }
     }
   }
 
@@ -262,6 +281,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                       else
                         DropdownButtonFormField<String>(
                           value: _selectedAccountId,
+                          isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'العميل',
                             isDense: true,
@@ -271,7 +291,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                               .map(
                                 (a) => DropdownMenuItem(
                                   value: a.id,
-                                  child: Text(a.name),
+                                  child: Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                                 ),
                               )
                               .toList(),
@@ -282,11 +302,12 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                           },
                         ),
                       const SizedBox(height: 8),
-                      Row(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
+                          DropdownButtonFormField<String>(
                               value: _selectedWhId,
+                              isExpanded: true,
                               decoration: const InputDecoration(
                                 labelText: 'المستودع',
                                 isDense: true,
@@ -296,7 +317,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                                   .map(
                                     (w) => DropdownMenuItem(
                                       value: w.id,
-                                      child: Text(w.name),
+                                      child: Text(w.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                                     ),
                                   )
                                   .toList(),
@@ -316,8 +337,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                                 });
                               },
                             ),
-                          ),
-                          const SizedBox(width: 8),
+                          const SizedBox(height: 8),
                           SegmentedButton<PaymentMethod>(
                             segments: const [
                               ButtonSegment(
@@ -345,6 +365,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                             DropdownMenuItem(value: box.id, child: Text(box.name))],
                           onChanged: _saving ? null : (v) => setState(() => _cashboxId = v),
                         ),
+                      InvoiceDateField(value:_date,onChanged:(v)=>setState(()=>_date=v)),
                       TextField(
                         key: const Key('invoice-document-number'),
                         controller: _documentNumberCtrl,
@@ -378,6 +399,13 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                         onChanged: (v) =>
                             setState(() => _includeVat = v ?? true),
                       ),
+                      SegmentedButton<bool>(segments: const [
+                        ButtonSegment(value:false,label:Text('أصناف')),
+                        ButtonSegment(value:true,label:Text('حرة')),
+                      ],selected:{_free},onSelectionChanged:(v)=>setState(()=>_free=v.single)),
+                      if (_free) TextField(controller:_freeTotal, keyboardType:const TextInputType.numberWithOptions(decimal:true),
+                          onChanged:(_)=>setState((){}),decoration:InputDecoration(labelText:_includeVat ? 'مبلغ الفاتورة قبل الضريبة' : 'إجمالي مبلغ الفاتورة'))
+                      else ...[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -391,6 +419,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                               setState(() {
                                 _rows.add(
                                   InvoiceItemRow(
+            roundLineTotal: true,
                                     id: 'row_${DateTime.now().millisecondsSinceEpoch}_${_rows.length}',
                                     itemId: firstItem?.id,
                                     productName: firstItem?.name ?? 'صنف جديد',
@@ -411,7 +440,8 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                       ..._rows.map((row) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 6),
-                          child: Row(
+                          key: ValueKey(row.id),
+                          child: Column(children:[Row(
                             children: [
                               Expanded(
                                 flex: 3,
@@ -493,8 +523,14 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                               ),
                             ],
                           ),
+                          TextFormField(initialValue:row.discount==0?'':row.discount.toString(),
+                            keyboardType:const TextInputType.numberWithOptions(decimal:true),
+                            decoration:const InputDecoration(labelText:'خصم السطر'),
+                            onChanged:(v)=>setState(()=>row.discount=v.trim().isEmpty?0:_inputNumber(v))),
+                          ]),
                         );
                       }),
+                      ],
                       const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.all(10),
@@ -543,6 +579,8 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                         onPressed: _saving ? null : _cancel,
                         child: const Text('إلغاء دون حفظ'),
                       ),
+                      OutlinedButton.icon(onPressed:_saving ? null : ()=>_saveInvoice(printAfter:true),
+                        icon:const Icon(Icons.print_outlined),label:const Text('حفظ وطباعة')),
                       FilledButton.icon(
                         key: const Key('invoice-save'),
                         onPressed: _saving ||
@@ -569,8 +607,9 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
   }
 
   Widget _summaryRow(String label, String value, {bool bold = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      spacing: 8, runSpacing: 2,
       children: [
         Text(
           label,
