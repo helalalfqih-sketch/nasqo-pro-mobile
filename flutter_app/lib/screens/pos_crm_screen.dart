@@ -20,6 +20,11 @@ class _PosCrmScreenState extends State<PosCrmScreen> {
   bool _saving = false;
   String? _saleError;
   PaymentMethod _payment = PaymentMethod.cash;
+  String? _selectedBox;
+  Iterable<AccountRecord> get _cashboxes => widget.controller.accounts.where((a) =>
+      a.isCashAccount && a.currency == widget.controller.defaultCurrency);
+  String? get _cashboxId => _cashboxes.any((a) => a.id == _selectedBox)
+      ? _selectedBox : _cashboxes.firstOrNull?.id;
 
   void _adjustCart(InventoryItemRecord item, int delta) {
     if (_saving) return;
@@ -66,6 +71,9 @@ class _PosCrmScreenState extends State<PosCrmScreen> {
             a.category == AccountCategory.clients,
         orElse: () => widget.controller.accounts.first,
       );
+      if (_payment == PaymentMethod.cash && _cashboxId == null) {
+        throw const SaleValidationException('أضف حسابًا نقديًا بعملة الفاتورة لتحصيل البيع.');
+      }
       await widget.controller.submitSalesInvoice(
         accountId: acc.id,
         customerName: acc.name,
@@ -78,6 +86,7 @@ class _PosCrmScreenState extends State<PosCrmScreen> {
           orElse: () => widget.controller.warehouses.first,
         ),
         payment: _payment,
+        cashboxAccountId: _payment == PaymentMethod.cash ? _cashboxId : null,
         includeVat: _includeVat,
         rows: rows,
       );
@@ -277,6 +286,14 @@ class _PosCrmScreenState extends State<PosCrmScreen> {
                           runSpacing: 6,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
+                            if (_payment == PaymentMethod.cash)
+                              DropdownButton<String>(
+                                value: _cashboxId,
+                                hint: const Text('صندوق النقدية'),
+                                items: [for (final box in _cashboxes)
+                                  DropdownMenuItem(value: box.id, child: Text(box.name))],
+                                onChanged: _saving ? null : (v) => setState(() => _selectedBox = v),
+                              ),
                             SegmentedButton<PaymentMethod>(
                               segments: const [
                                 ButtonSegment(
