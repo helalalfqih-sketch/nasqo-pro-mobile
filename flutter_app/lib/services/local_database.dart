@@ -901,9 +901,18 @@ class LocalDatabase {
     required bool isDarkMode,
     required int nextEntryNumber,
     SaleFacts? appendedSaleFacts,
+    String? restoredWebExport,
   }) async {
     final db = await database;
     await db.transaction((txn) async {
+      if (restoredWebExport != null) {
+        await _clearTables(txn);
+        await txn.insert('erp_state', {
+          'stateKey': 'original_web_export',
+          'payloadJson': restoredWebExport,
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+      }
       await txn.delete('accounts');
       for (final a in accounts) {
         await txn.insert('accounts', _accountToMap(a),
@@ -985,7 +994,10 @@ class LocalDatabase {
 
   Future<void> clearAll() async {
     final db = await database;
-    await db.transaction((txn) async {
+    await db.transaction(_clearTables);
+  }
+
+  Future<void> _clearTables(DatabaseExecutor txn) async {
       await txn.delete('accounts');
       await txn.delete('ledger_entries');
       await txn.delete('warehouses');
@@ -1002,7 +1014,7 @@ class LocalDatabase {
       await CashTransferDraftRepository.clearDrafts(txn);
       await SimpleJournalDraftRepository.clearDrafts(txn);
       await FxDraftRepository.clearDrafts(txn);
-    });
+
   }
 
   Map<String, Object?> _accountToMap(AccountRecord a) => {

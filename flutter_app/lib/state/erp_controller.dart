@@ -15,6 +15,7 @@ import '../models/sale_tax_register.dart';
 import '../services/accounting_engine.dart';
 import '../services/local_database.dart';
 import '../services/local_backup_service.dart';
+import '../services/web_backup.dart';
 import '../services/local_backup_files.dart';
 import '../services/voucher_draft_repository.dart';
 import '../services/cash_transfer_draft_repository.dart';
@@ -664,6 +665,39 @@ class ErpController extends ChangeNotifier {
       }
     });
     return _writeTail;
+  }
+
+  Future<void> restoreWebBackup(WebBackup backup) async {
+    _requireAvailableMutation();
+    _resetting = true;
+    try {
+      final files = await _openLocalBackupFiles();
+      await _writeTail;
+      await files.createBackup();
+      await _localDatabase.saveSnapshot(
+        accounts: backup.accounts, ledger: backup.ledger, warehouses: backup.warehouses,
+        inventory: backup.inventory, saleLines: backup.lines, companyName: backup.company,
+        isDarkMode: isDarkMode, nextEntryNumber: backup.lastNumber,
+        restoredWebExport: backup.original,
+      );
+      accounts..clear()..addAll(backup.accounts);
+      ledger..clear()..addAll(backup.ledger);
+      warehouses..clear()..addAll(backup.warehouses);
+      inventory..clear()..addAll(backup.inventory);
+      saleLines..clear()..addAll(backup.lines);
+      employees.clear();
+      leaveRequests.clear();
+      deals.clear();
+      purchaseOrders.clear();
+      boms.clear();
+      productionOrders.clear();
+      costCenters.clear();
+      companyName = backup.company;
+      _nextEntryNumber = backup.lastNumber;
+      if (!_disposed) notifyListeners();
+    } finally {
+      _resetting = false;
+    }
   }
 
   Future<void> resetLocalDatabase() async {

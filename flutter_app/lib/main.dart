@@ -330,6 +330,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       'local-backups' => (
           'النسخ المحلية واختبار الاستعادة',
           LocalBackupWorkspaceView(
+            restoreWeb: widget.controller.restoreWebBackup,
             loadBackups: widget.controller.loadLocalBackups,
             createBackup: widget.controller.createLocalBackup,
             verifyBackup: widget.controller.verifyLocalBackup,

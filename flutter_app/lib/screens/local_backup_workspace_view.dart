@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import '../services/web_backup.dart';
 
 import '../services/local_backup_files.dart';
 
@@ -7,8 +11,10 @@ class LocalBackupWorkspaceView extends StatefulWidget {
       {super.key,
       required this.loadBackups,
       required this.createBackup,
+      this.restoreWeb,
       required this.verifyBackup,
       required this.testRestore});
+  final Future<void> Function(WebBackup)? restoreWeb;
   final Future<List<LocalBackupFile>> Function() loadBackups;
   final Future<LocalBackupFile> Function() createBackup;
   final Future<LocalBackupCheck> Function(String id) verifyBackup;
@@ -69,6 +75,41 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
     }
   }
 
+  Future<void> _importWeb() => _run('جارٍ قراءة ملف النسخة…', () async {
+    final file = await openFile();
+    if (file == null) return 'أُلغي اختيار الملف.';
+    final buffer = BytesBuilder(copy: false);
+    const limit = LocalBackupFiles.maxBackupBytes;
+    if (await file.length() > limit) return 'الحد الأقصى للنسخة 16 ميبيبايت.';
+    await for (final chunk in file.openRead()) {
+      if (buffer.length + chunk.length > limit) return 'الملف أكبر من الحد المدعوم.';
+      buffer.add(chunk);
+    }
+    final WebBackup backup;
+    try {
+      backup = WebBackup.parse(utf8.decode(buffer.takeBytes()));
+    } on FormatException catch (error) {
+      return 'تعذرت قراءة النسخة: ${error.message}';
+    } on Object {
+      return 'بنية سجلات الملف غير متوافقة مع تطبيق الهاتف.';
+    }
+    if (!mounted) return '';
+    final confirmed = await showDialog<bool>(context: context, builder: (context) =>
+      AlertDialog(title: const Text('استبدال بيانات الهاتف؟'),
+        content: SingleChildScrollView(child: Text(
+          '${backup.company}\nالحسابات: ${backup.accounts.length} • القيود: ${backup.ledger.length}\n'
+          'المستودعات: ${backup.warehouses.length} • الأصناف: ${backup.inventory.length}\n'
+          'ستُستبدل السجلات والمسودات الحالية. تُستخدم الحقول المدعومة في هذه الأقسام وبنود الفواتير فقط. '
+          'تفاصيل الويب الإضافية مثل الضرائب والخصومات والمجموعات ووحدات ERP تبقى في ملف المصدر ولا تُفعّل على الهاتف.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('استبدال واستعادة')),
+        ]));
+    if (confirmed != true || !mounted) return 'أُلغيت الاستعادة.';
+    await widget.restoreWeb!(backup);
+    return 'اكتملت استعادة السجلات المحددة إلى بيانات التطبيق.';
+  });
+
   void _refresh() => _run('جارٍ تحديث القائمة…', () async {
         final files = await widget.loadBackups();
         if (mounted) {
@@ -110,8 +151,12 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
           child: Scaffold(
             appBar: AppBar(title: const Text('النسخ المحلية واختبار التعافي')),
             body: ListView(padding: const EdgeInsets.all(16), children: [
+              if (widget.restoreWeb != null)
+                FilledButton.icon(onPressed: _busy ? null : _importWeb,
+                  icon: const Icon(Icons.file_open),
+                  label: const Text('استعادة من ملف الموقع (.back أو .json)')),
               const Text(
-                  'نسخ محلية خاصة داخل مساحة التطبيق فقط، غير مشفرة وليست نسخاً خارجية. حذف التطبيق أو فقد الجهاز قد يفقد هذه النسخ أيضاً. لا توجد هنا مشاركة أو حذف أو استبدال للبيانات الحالية.'),
+                  'نسخ محلية خاصة داخل مساحة التطبيق فقط، غير مشفرة وليست نسخاً خارجية. حذف التطبيق أو فقد الجهاز قد يفقد هذه النسخ أيضاً. اختبار النسخة المحلية يجري في قاعدة منفصلة.'),
               const SizedBox(height: 12),
               const Text(
                   'التحقق يفحص سلامة النسخة. اختبار الاستعادة يقرأها في قاعدة مؤقتة معزولة، ولا يُعد استعادة فعلية أو ضماناً شاملاً للتعافي.'),

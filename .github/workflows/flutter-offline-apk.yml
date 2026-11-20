@@ -7,6 +7,9 @@ on:
     paths:
       - 'flutter_app/**'
       - '.github/workflows/flutter-offline-apk.yml'
+  pull_request:
+    paths:
+      - 'flutter_app/**'
   workflow_dispatch:
 
 permissions:

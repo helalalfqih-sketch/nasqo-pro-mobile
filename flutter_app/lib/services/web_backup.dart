@@ -1,0 +1,103 @@
+import 'dart:convert';
+import '../models/erp_models.dart';
+
+/// The original export is retained alongside the records supported by mobile.
+class WebBackup {
+  WebBackup._(this.original, this.company);
+  final String original, company;
+  final accounts = <AccountRecord>[];
+  final warehouses = <WarehouseRecord>[];
+  final inventory = <InventoryItemRecord>[];
+  final ledger = <LedgerEntryRecord>[];
+  final lines = <SavedSaleLine>[];
+  int lastNumber = 0;
+
+  static WebBackup parse(String source) {
+    final data = jsonDecode(source);
+    if (data is! Map<String, dynamic> ||
+        !const {'nasqo-pro-erp-backup', 'nasqo-unified-sqlite-export-v1',
+          'nasqo-unified-sqlite-export-v2'}.contains(data['format']) ||
+        !const {1, 2}.contains(data['version'])) {
+      throw const FormatException('صيغة النسخة أو إصدارها غير مدعوم.');
+    }
+    final result = WebBackup._(source, _required(data['workspace']['companyName']));
+    List<Map<String, dynamic>> rows(String key) {
+      final list = (data[key] as List).cast<Map<String, dynamic>>();
+      final ids = <String>{};
+      for (final row in list) {
+        if (!ids.add(_required(row['id']))) {
+          throw FormatException('معرّف مكرر في $key');
+        }
+      }
+      return list;
+    }
+    for (final r in rows('accounts')) {
+      result.accounts.add(AccountRecord(id: r['id'], name: _required(r['name']),
+        category: AccountCategory.values.byName(r['category']),
+        phone: r['phone'] ?? '', creditLimit: _number(r['creditLimit']),
+        currency: _currency(r['currency']), isCashAccount: r['isCashAccount'],
+        note: r['note'] ?? '', openingBalance: _number(r['openingBalance']),
+        openingDirection: EntryDirection.values.byName(r['openingDirection']),
+        codeNumber: r['codeNumber']));
+    }
+    for (final r in rows('warehouses')) {
+      result.warehouses.add(WarehouseRecord(id: r['id'], name: _required(r['name']),
+        details: r['details'] ?? '', isDefault: r['isDefault']));
+    }
+    final warehouseIds = result.warehouses.map((w) => w.id).toSet();
+    for (final r in rows('inventory')) {
+      if (!warehouseIds.contains(r['warehouseId']) || r['quantityUnverified'] == true) {
+        throw const FormatException('تحقق من مستودع الصنف وكميته في الموقع.');
+      }
+      result.inventory.add(InventoryItemRecord(id: r['id'], name: _required(r['name']),
+        unit: _required(r['unit']), quantity: _number(r['computedQuantity'] ?? r['quantity']),
+        avgCost: _number(r['avgCost']), warehouseId: r['warehouseId'],
+        minThreshold: _number(r['minThreshold'] ?? 0), sku: r['sku'] ?? ''));
+    }
+    final accountIds = result.accounts.map((a) => a.id).toSet();
+    for (final r in rows('ledger')) {
+      if (!accountIds.contains(r['accountId'])) {
+        throw const FormatException('يوجد قيد يشير إلى حساب مفقود.');
+      }
+      final kind = {'return': 'returnEntry', 'simple-entry': 'simpleEntry'}[r['kind']] ?? r['kind'];
+      final entry = LedgerEntryRecord(id: r['id'], accountId: r['accountId'],
+        accountName: r['accountName'], kind: LedgerKind.values.byName(kind),
+        typeLabel: r['typeLabel'], payment: PaymentMethod.values.byName(r['payment']),
+        direction: EntryDirection.values.byName(r['direction']), amount: _number(r['amount']),
+        currency: _currency(r['currency']), exchangeRate: _number(r['exchangeRate']),
+        details: r['details'] ?? '', documentNumber: r['documentNumber'] ?? '',
+        warehouseId: r['warehouseId'] ?? '', warehouseName: r['warehouseName'] ?? '',
+        expenseCategory: r['expenseCategory'] ?? '', entryNumber: r['entryNumber'],
+        deleted: r['deleted'], entryDate: _required(r['entryDate']));
+      result.ledger.add(entry);
+      if (entry.entryNumber > result.lastNumber) result.lastNumber = entry.entryNumber;
+      final items = (r['lines'] ?? []) as List;
+      for (var i = 0; i < items.length; i++) {
+        final line = items[i];
+        result.lines.add(SavedSaleLine(entryId: entry.id, position: i,
+          itemId: line['inventoryItemId'] ?? '', itemName: line['itemName'],
+          unit: line['unit'] ?? '', quantity: _number(line['quantity']),
+          unitPrice: _number(line['price'])));
+      }
+    }
+    if (result.accounts.isEmpty && result.warehouses.isEmpty &&
+        result.ledger.isEmpty && result.inventory.isEmpty) {
+      throw const FormatException('النسخة لا تتضمن سجلات محاسبية أو مخزنية للاستعادة.');
+    }
+    return result;
+  }
+
+  static String _required(dynamic value) {
+    if (value is String && value.trim().isNotEmpty) return value;
+    throw const FormatException('نص مطلوب مفقود من النسخة.');
+  }
+
+  static double _number(dynamic value) {
+    if (value is num && value.isFinite) return value.toDouble();
+    throw const FormatException('قيمة عددية غير صالحة في النسخة.');
+  }
+
+  static CurrencyCode _currency(dynamic value) => CurrencyCode.values.firstWhere(
+    (currency) => currency.name.toUpperCase() == value || currency.label == value || currency.name == value,
+    orElse: () => throw FormatException('عملة غير مدعومة: $value'));
+}
