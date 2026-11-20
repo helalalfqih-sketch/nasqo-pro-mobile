@@ -75,7 +75,9 @@ Future<String> readWebsiteBackup(Uint8List input, int limit) async {
         'format':'nasqo-unified-sqlite-export-v2','version':2,
         'erpData':modules,'workspace':{'companyName':ws['company_name']},'accountGroups':await rows('account_groups'),
         'accounts':await rows('accounts'),'warehouses':await rows('warehouses'),
-        'ledger':ledger,'inventory':await rows('inventory_items')
+        'ledger':ledger,'inventory':await rows('inventory_items'),
+        if(tables.contains('stock_transfers')) 'stockTransfers':await rows('stock_transfers'),
+        if(tables.contains('stock_transfer_lines')) 'stockTransferLines':await rows('stock_transfer_lines')
       });
     } finally { await db.close(); }
   } finally { await directory.delete(recursive:true); }
