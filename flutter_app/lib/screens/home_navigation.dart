@@ -60,7 +60,7 @@ class HomeReportsView extends StatelessWidget {
   Widget build(BuildContext context) {
     const groups = [
       ('التقارير المالية', [
-        ('cashboxes','حركة الصندوق'),('report-category','تقرير إجمالي حسب التصنيف'),
+        ('cashboxes','حركة الصندوق'),('report-closing','تقرير الحسابات الختامية'),('report-category','تقرير إجمالي حسب التصنيف'),
         ('finance','ميزان المراجعة')
       ]),
       ('التقارير المخزنية', [
