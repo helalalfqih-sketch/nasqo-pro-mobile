@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import '../services/account_csv.dart';
+import '../services/cash_sale_settlement.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -1364,6 +1365,7 @@ class ErpController extends ChangeNotifier {
     required PaymentMethod payment,
     required bool includeVat,
     required List<InvoiceItemRow> rows,
+    String? cashboxAccountId,
     String documentNumber = '',
     String memo = '',
   }) async {
@@ -1403,6 +1405,11 @@ class ErpController extends ChangeNotifier {
               'قاعدة البيانات المحلية غير جاهزة.');
         }
         await _writeTail;
+      }
+      final cashbox = accounts.where((a) => a.id == cashboxAccountId).firstOrNull;
+      if (cashboxAccountId != null && (payment != PaymentMethod.cash ||
+          cashbox == null || !cashbox.isCashAccount || cashbox.currency != defaultCurrency)) {
+        throw const SaleValidationException('اختر صندوقًا نقديًا بعملة الفاتورة.');
       }
       final referenceKey = _invoiceReferenceKey(reference);
       if (referenceKey.isNotEmpty &&
@@ -1524,6 +1531,10 @@ class ErpController extends ChangeNotifier {
           entryDate: DateTime.now().toIso8601String().substring(0, 10),
         ),
       );
+      if (cashbox != null) {
+        stagedLedger.insertAll(1, cashSaleSettlement(stagedLedger.first,
+            cashboxId: cashbox.id, cashboxName: cashbox.name));
+      }
       if (_usesPersistentStore) {
         try {
           await _saveCurrentSnapshot(
