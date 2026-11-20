@@ -10,9 +10,11 @@ class PendingSalesController extends ErpController {
   PendingSalesController() : super(autoInitDb: false);
   Completer<void> pending = Completer<void>();
   int calls = 0;
+  String? submittedCashbox;
   @override
   Future<void> submitSalesInvoice(
       {required String accountId,
+      String? cashboxAccountId,
       required String customerName,
       required WarehouseRecord warehouse,
       required PaymentMethod payment,
@@ -20,6 +22,7 @@ class PendingSalesController extends ErpController {
       required List<InvoiceItemRow> rows,
       String documentNumber = '',
       String memo = ''}) {
+    submittedCashbox = cashboxAccountId;
     calls++;
     return pending.future;
   }
@@ -49,6 +52,7 @@ void main() {
     await tester.tap(find.byKey(const Key('invoice-save')));
     await tester.pump();
     expect(controller.calls, 1);
+    expect(controller.submittedCashbox, controller.accounts.firstWhere((a) => a.isCashAccount).id);
     expect(find.text('جارٍ حفظ الفاتورة…'), findsOneWidget);
     await tester.tap(find.byKey(const Key('invoice-save')),
         warnIfMissed: false);
