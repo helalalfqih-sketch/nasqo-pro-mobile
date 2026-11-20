@@ -29,6 +29,7 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
   String warehouse = '';
   int limit = 100;
   DateTimeRange? period;
+  String? itemId;
   CostBasis basis = CostBasis.average;
   String day(DateTime? d) => d?.toIso8601String().split('T').first ?? '';
 
@@ -40,11 +41,20 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
 
   Widget invoiceReport() {
     final c=widget.controller, movement=widget.report==LocalReport.movement;
-    final rows=invoiceMovementReport(inventory:c.inventory,ledger:c.ledger,lines:c.saleLines,
+    final allRows=invoiceMovementReport(inventory:c.inventory,ledger:c.ledger,lines:c.saleLines,
       metadata:c.restoredGroups,currency:currency,warehouse:warehouse,
       from:day(period?.start),through:day(period?.end),basis:basis);
+    final rows = allRows.where((r)=>!movement || itemId==null || r.item.id==itemId);
     final visible=rows.where((r)=>movement || r.sold.abs()>0.0001 || r.sales.abs()>0.0001 || r.profit.abs()>0.0001);
     return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+      if(movement) Autocomplete<InventoryItemRecord>(
+        displayStringForOption:(i)=>i.name,
+        optionsBuilder:(v)=>c.inventory.where((i)=>i.name.contains(v.text.trim()) || i.sku.contains(v.text.trim())).take(80),
+        onSelected:(i)=>setState((){itemId=i.id;limit=100;}),
+        fieldViewBuilder:(ctx,editor,focus,submit)=>TextField(controller:editor,focusNode:focus,
+          decoration:InputDecoration(labelText:'بحث عن صنف',suffixIcon:IconButton(icon:const Icon(Icons.clear),
+            onPressed:(){editor.clear();focus.unfocus();setState((){itemId=null;limit=100;});})),
+          onChanged:(_){if(itemId!=null) setState(()=>itemId=null);})),
       if(movement) DropdownButtonFormField<CostBasis>(value:basis,decoration:const InputDecoration(labelText:'أساس الربح'),
         items:const [DropdownMenuItem(value:CostBasis.average,child:Text('متوسط الشراء')),
           DropdownMenuItem(value:CostBasis.catalog,child:Text('تكلفة الصنف')),
@@ -53,8 +63,8 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
       Wrap(children:[TextButton.icon(onPressed:choosePeriod,icon:const Icon(Icons.date_range),
         label:Text(period==null?'كل الفترات':'${day(period!.start)} — ${day(period!.end)}')),
         if(period!=null) TextButton(onPressed:()=>setState((){period=null;limit=100;}),child:const Text('إزالة الفترة'))]),
-      table(['اسم الصنف',if(movement)...['صافي كمية الشراء','إجمالي الشراء'],'كمية البيع','إجمالي البيع','الربح'],
-        [for(final r in visible) [r.item.name,if(movement)...[format(r.bought),format(r.purchases)],
+      table(['اسم الصنف',if(movement)...['رصيد أول المدة','صافي كمية الشراء','إجمالي الشراء','تحويل وارد','تحويل صادر','رصيد آخر المدة'],'كمية البيع','إجمالي البيع','الربح'],
+        [for(final r in visible) [r.item.name,if(movement)...[format(r.opening),format(r.bought),format(r.purchases),format(r.incoming),format(r.outgoing),format(r.remaining)],
           format(r.sold),format(r.sales),format(r.profit)]],
         'لا توجد حركات فواتير أصناف في النطاق المحدد.'),
       Text('إجمالي المبيعات: ${format(rows.fold<double>(0,(s,r)=>s+r.sales))}'),
