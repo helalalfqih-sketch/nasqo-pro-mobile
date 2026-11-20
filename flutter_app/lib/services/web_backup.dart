@@ -117,6 +117,7 @@ class RestoredGroups {
   final settledEntries = <String>{};
   final serviceInvoices = <String>{};
   final expiryDates = <String,String>{};
+  final transfers = <({String item,String date,String source,String destination,double quantity,int unit})>[];
   final reportLines = <(String,int),Map<String,dynamic>>{};
   final unitFactors = <String,(double,double)>{};
   final itemNumbers = <String,int>{};
@@ -158,6 +159,14 @@ class RestoredGroups {
         result.expiryDates[id] = item['expiryDate'];
       }
       if (item['legacyId'] is int) result.itemNumbers[id] = item['legacyId'];
+    }
+    final headers = {for(final row in data['stockTransfers'] ?? []) row['id']:row};
+    for(final line in data['stockTransferLines'] ?? []) {
+      final header = headers[line['transferId']];
+      if(header==null || line['inventoryItemId'] is! String || line['quantity'] is! num) continue;
+      result.transfers.add((item:line['inventoryItemId'] as String,date:(header['transferDate'] ?? '') as String,
+        source:(header['fromWarehouseId'] ?? '') as String,destination:(header['toWarehouseId'] ?? '') as String,
+        quantity:(line['quantity'] as num).toDouble(),unit:(line['unitNum'] as num?)?.toInt() ?? 1));
     }
     return result;
   }
