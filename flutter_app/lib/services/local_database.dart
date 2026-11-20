@@ -664,7 +664,9 @@ class LocalDatabase {
         final total = ((quantities[key] as num?) ?? 0) + line.quantity;
         if (original == null || original['itemId'] != line.itemId ||
             original['unitPrice'] != line.unitPrice || line.quantity <= 0 ||
-            total > (original['quantity'] as num) + 1e-9) {
+            total <= ((quantities[key] as num?) ?? 0) ||
+            (total > (original['quantity'] as num) && !SavedSaleLine.sameQuantity(total,(original['quantity'] as num).toDouble())) ||
+            ((quantities[key] as num?) ?? 0) >= (original['quantity'] as num)) {
           throw StateError('تجاوزت كمية المرتجع المتبقي في الفاتورة.');
         }
         quantities[key] = total;

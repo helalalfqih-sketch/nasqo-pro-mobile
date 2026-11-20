@@ -261,13 +261,19 @@ class SavedSaleLine {
   final double quantity;
   final double unitPrice;
 
+  static bool sameQuantity(double a, double b) {
+    if (a == b) return true;
+    if (a <= 0 || b <= 0) return false;
+    return (a - b).abs() <= 1e-15 * (a > b ? a : b);
+  }
+
   /// Allocate the difference of cumulative amounts so splitting a return
   /// cannot create or lose a cent. Preserve the exact original final total.
   static double returnedValue(double originalQuantity, double price,
       double alreadyReturned, double nextQuantity) {
     double cumulative(double qty) {
       final amount = qty * price;
-      if ((originalQuantity - qty).abs() < 1e-9) return originalQuantity * price;
+      if (sameQuantity(originalQuantity, qty)) return originalQuantity * price;
       final rounded = (amount * 100).roundToDouble() / 100;
       return rounded.clamp(0.0, originalQuantity * price).toDouble();
     }

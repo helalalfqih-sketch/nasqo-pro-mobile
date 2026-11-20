@@ -1296,7 +1296,7 @@ class ErpController extends ChangeNotifier {
       l.position: l.quantity};
     final prefix = _purchaseReturnPrefix(sourceId);
     for (final l in saleLines.where((l) => l.entryId.startsWith(prefix))) {
-      remaining.update(l.position, (q) => q - l.quantity);
+      remaining.update(l.position, (q) => SavedSaleLine.sameQuantity(q,l.quantity) ? 0.0 : q - l.quantity);
     }
     return remaining;
   }
@@ -1323,13 +1323,15 @@ class ErpController extends ChangeNotifier {
       final stock = List.of(inventory), lines = List.of(saleLines);
       var total = 0.0;
       for (final selection in requested.entries) {
-        final qty = selection.value, line = originals[selection.key];
-        if (line == null || !qty.isFinite || qty <= 0 || qty > remaining[selection.key]! + 1e-9) {
+        final requestedQty = selection.value, line = originals[selection.key];
+        final available = remaining[selection.key] ?? 0;
+        final qty = SavedSaleLine.sameQuantity(requestedQty, available) ? available : requestedQty;
+        if (line == null || !requestedQty.isFinite || qty <= 0 || qty > available) {
           throw const FormatException('تجاوزت كمية المردود المتبقي في الفاتورة.');
         }
         if (line.itemId.isNotEmpty) {
           final index = stock.indexWhere((i) => i.id == line.itemId && i.warehouseId == source.warehouseId);
-          if (index < 0 || qty > stock[index].quantity + 1e-9) {
+          if (index < 0 || (qty > stock[index].quantity && !SavedSaleLine.sameQuantity(qty,stock[index].quantity))) {
             throw const FormatException('كمية المستودع لا تكفي للمردود.');
           }
           final balance = stock[index].quantity - qty;

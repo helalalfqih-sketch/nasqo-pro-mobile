@@ -308,7 +308,8 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         ),
       'sales-return-drafts' => (
           'مسودات مرتجع المبيعات',
-          InvoiceWorkspace(controller: widget.controller, salesReturn: SalesReturnDraftsView(
+          InvoiceWorkspace(controller: widget.controller, salesReturnBuilder: (onPosting) => SalesReturnDraftsView(
+            onPosting: onPosting,
             loadDrafts: widget.controller.loadSalesReturnDrafts,
             loadDraft: widget.controller.loadSalesReturnDraft,
             loadSales: _salesReturnSources,

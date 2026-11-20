@@ -7,9 +7,9 @@ import 'invoice_form_sheet.dart';
 import 'purchase_invoice_view.dart';
 
 class InvoiceWorkspace extends StatefulWidget {
-  const InvoiceWorkspace({super.key, required this.controller, this.salesReturn});
+  const InvoiceWorkspace({super.key, required this.controller, this.salesReturnBuilder});
   final ErpController controller;
-  final Widget? salesReturn;
+  final Widget Function(ValueChanged<bool>)? salesReturnBuilder;
 
   @override
   State<InvoiceWorkspace> createState() => _InvoiceWorkspaceState();
@@ -24,7 +24,7 @@ class _InvoiceWorkspaceState extends State<InvoiceWorkspace> {
 
   @override
   Widget build(BuildContext context) {
-    final returns = widget.salesReturn != null;
+    final returns = widget.salesReturnBuilder != null;
     return PopScope(canPop: !saving, child: Scaffold(
       appBar: AppBar(title: Text(returns ? 'مردود جديد' : 'فاتورة جديدة')),
       body: SafeArea(child: Column(children: [
@@ -42,7 +42,7 @@ class _InvoiceWorkspaceState extends State<InvoiceWorkspace> {
           if (returns) _PurchaseReturnForm(controller: widget.controller, onSaving: onSaving)
           else PurchaseInvoiceView(controller: widget.controller, onSaving: onSaving),
           if (!visitedSale) const SizedBox.shrink()
-          else widget.salesReturn ?? InvoiceFormSheet(controller: widget.controller, onSaving: onSaving),
+          else widget.salesReturnBuilder?.call(onSaving) ?? InvoiceFormSheet(controller: widget.controller, onSaving: onSaving),
         ])),
       ])),
     ));
@@ -94,7 +94,7 @@ class _PurchaseReturnFormState extends State<_PurchaseReturnForm> {
     final eligible = c.returnablePurchases;
     final source = eligible.where((e) => e.id == sourceId).firstOrNull;
     final remaining = source == null ? <int,double>{} : c.remainingPurchaseQuantities(source.id);
-    final lines = c.saleLines.where((l) => l.entryId == sourceId && (remaining[l.position] ?? 0) > 1e-9);
+    final lines = c.saleLines.where((l) => l.entryId == sourceId && (remaining[l.position] ?? 0) > 0);
     return ListView(padding: const EdgeInsets.all(16), children: [
       DropdownButtonFormField<String>(value:sourceId, isExpanded:true,
         decoration: const InputDecoration(labelText:'فاتورة الشراء الأصلية'),
