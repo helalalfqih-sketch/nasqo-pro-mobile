@@ -1,9 +1,11 @@
 import 'dart:convert';
+import '../models/erp_workspace_snapshot.dart';
 import '../models/erp_models.dart';
 
 /// The original export is retained alongside the records supported by mobile.
 class WebBackup {
-  WebBackup._(this.original, this.company);
+  WebBackup._(this.original, this.company, this.modules);
+  final ErpWorkspaceSnapshot modules;
   final String original, company;
   final accounts = <AccountRecord>[];
   final warehouses = <WarehouseRecord>[];
@@ -20,7 +22,8 @@ class WebBackup {
         !const {1, 2}.contains(data['version'])) {
       throw const FormatException('صيغة النسخة أو إصدارها غير مدعوم.');
     }
-    final result = WebBackup._(source, _required(data['workspace']['companyName']));
+    final result = WebBackup._(source, _required(data['workspace']['companyName']),
+      ErpWorkspaceSnapshot.fromJson((data['erpData'] ?? <String, dynamic>{}) as Map<String, dynamic>));
     List<Map<String, dynamic>> rows(String key) {
       final list = (data[key] as List).cast<Map<String, dynamic>>();
       final ids = <String>{};

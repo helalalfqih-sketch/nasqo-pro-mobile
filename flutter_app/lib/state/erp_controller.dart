@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import '../models/erp_models.dart';
+import '../models/erp_workspace_snapshot.dart';
 import '../models/invoice_print_snapshot.dart';
 import '../models/nonposting_document.dart';
 import '../models/sales_return_draft.dart';
@@ -103,6 +104,26 @@ class ErpController extends ChangeNotifier {
   final List<ErpBomRecipe> boms = [];
   final List<ErpProductionOrder> productionOrders = [];
   final List<ErpCostCenter> costCenters = [];
+
+  ErpWorkspaceSnapshot get _modules => ErpWorkspaceSnapshot(
+    employees: employees,
+    leaveRequests: leaveRequests,
+    deals: deals,
+    purchaseOrders: purchaseOrders,
+    boms: boms,
+    productionOrders: productionOrders,
+    costCenters: costCenters,
+  );
+
+  void _loadModules(ErpWorkspaceSnapshot modules) {
+    employees..clear()..addAll(modules.employees);
+    leaveRequests..clear()..addAll(modules.leaveRequests);
+    deals..clear()..addAll(modules.deals);
+    purchaseOrders..clear()..addAll(modules.purchaseOrders);
+    boms..clear()..addAll(modules.boms);
+    productionOrders..clear()..addAll(modules.productionOrders);
+    costCenters..clear()..addAll(modules.costCenters);
+  }
 
   int _nextEntryNumber = 1200;
 
@@ -574,6 +595,7 @@ class ErpController extends ChangeNotifier {
       final hasData = await _localDatabase.hasSeededData();
       if (hasData) {
         final snap = await _localDatabase.loadSnapshot();
+        if (snap.erpData != null) _loadModules(ErpWorkspaceSnapshot.fromJson(snap.erpData!));
         accounts
           ..clear()
           ..addAll(snap.accounts);
@@ -634,6 +656,7 @@ class ErpController extends ChangeNotifier {
         isDarkMode: isDarkMode,
         nextEntryNumber: nextEntryNumber ?? _nextEntryNumber,
         appendedSaleFacts: appendedSaleFacts,
+        erpData: _modules.toJson(),
       );
 
   Future<void> _persistToDb() {
@@ -647,6 +670,7 @@ class ErpController extends ChangeNotifier {
     final snapshotCompany = companyName;
     final snapshotTheme = isDarkMode;
     final snapshotNumber = _nextEntryNumber;
+    final snapshotModules = _modules.toJson();
     _writeTail = _writeTail.then((_) async {
       try {
         if (!dbReady && !_resetting) return;
@@ -659,6 +683,7 @@ class ErpController extends ChangeNotifier {
           companyName: snapshotCompany,
           isDarkMode: snapshotTheme,
           nextEntryNumber: snapshotNumber,
+          erpData: snapshotModules,
         );
       } catch (_) {
         // Legacy screen behavior: it does not expose the write result.
@@ -680,19 +705,14 @@ class ErpController extends ChangeNotifier {
         inventory: backup.inventory, saleLines: backup.lines, companyName: backup.company,
         isDarkMode: isDarkMode, nextEntryNumber: backup.lastNumber,
         restoredWebExport: backup.original,
+        erpData: backup.modules.toJson(),
       );
       accounts..clear()..addAll(backup.accounts);
       ledger..clear()..addAll(backup.ledger);
       warehouses..clear()..addAll(backup.warehouses);
       inventory..clear()..addAll(backup.inventory);
       saleLines..clear()..addAll(backup.lines);
-      employees.clear();
-      leaveRequests.clear();
-      deals.clear();
-      purchaseOrders.clear();
-      boms.clear();
-      productionOrders.clear();
-      costCenters.clear();
+      _loadModules(backup.modules);
       companyName = backup.company;
       _nextEntryNumber = backup.lastNumber;
       if (!_disposed) notifyListeners();
@@ -1087,6 +1107,7 @@ class ErpController extends ChangeNotifier {
     required AccountRecord client,
     required double value,
   }) {
+    _requireAvailableMutation();
     deals.insert(
       0,
       ErpDealRecord(
@@ -1101,10 +1122,12 @@ class ErpController extends ChangeNotifier {
             employees.isNotEmpty ? employees.first.name : 'فريق المبيعات',
       ),
     );
+    unawaited(_persistToDb());
     notifyListeners();
   }
 
   void advanceDeal(String dealId) {
+    _requireAvailableMutation();
     final idx = deals.indexWhere((d) => d.id == dealId);
     if (idx < 0) return;
     final d = deals[idx];
@@ -1116,6 +1139,7 @@ class ErpController extends ChangeNotifier {
     };
     if (next == null) return;
     deals[idx] = d.copyWith(stage: next, probability: next.defaultProbability);
+    unawaited(_persistToDb());
     notifyListeners();
   }
 
@@ -1163,6 +1187,7 @@ class ErpController extends ChangeNotifier {
     required double allowances,
     required double deductions,
   }) {
+    _requireAvailableMutation();
     employees.insert(
       0,
       ErpEmployeeProfile(
@@ -1176,6 +1201,7 @@ class ErpController extends ChangeNotifier {
         hireDate: DateTime.now().toIso8601String().substring(0, 10),
       ),
     );
+    unawaited(_persistToDb());
     notifyListeners();
   }
 
@@ -1210,8 +1236,9 @@ class ErpController extends ChangeNotifier {
   }
 
   void decideLeave(String leaveId, LeaveStatus status) {
+    _requireAvailableMutation();
     final idx = leaveRequests.indexWhere((l) => l.id == leaveId);
-    if (idx < 0) return;
+    if (idx < 0 || leaveRequests[idx].status != LeaveStatus.pending) return;
     final lv = leaveRequests[idx];
     leaveRequests[idx] = lv.copyWith(status: status);
     if (status == LeaveStatus.approved) {
@@ -1224,6 +1251,7 @@ class ErpController extends ChangeNotifier {
         );
       }
     }
+    unawaited(_persistToDb());
     notifyListeners();
   }
 
@@ -1234,6 +1262,7 @@ class ErpController extends ChangeNotifier {
     required double quantity,
     required double unitCost,
   }) {
+    _requireAvailableMutation();
     final numCode = 101 + purchaseOrders.length;
     purchaseOrders.insert(
       0,
@@ -1258,6 +1287,7 @@ class ErpController extends ChangeNotifier {
         ],
       ),
     );
+    unawaited(_persistToDb());
     notifyListeners();
   }
 
@@ -1317,7 +1347,7 @@ class ErpController extends ChangeNotifier {
   }
 
   String? completeProductionOrder(String orderId) {
-    if (_salesPosting || _resetting) {
+    if (_salesPosting || _resetting || _editingWorkspace) {
       return 'توجد عملية حفظ جارية؛ حاول مجددًا.';
     }
     final idx = productionOrders.indexWhere((o) => o.id == orderId);
@@ -1356,6 +1386,7 @@ class ErpController extends ChangeNotifier {
       status: ProductionOrderStatus.completed,
       completedDate: DateTime.now().toIso8601String().substring(0, 10),
     );
+    unawaited(_persistToDb());
     notifyListeners();
     return null;
   }

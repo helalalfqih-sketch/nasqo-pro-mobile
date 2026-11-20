@@ -44,6 +44,7 @@ class _GatedStore extends LocalDatabase {
     required int nextEntryNumber,
     SaleFacts? appendedSaleFacts,
     String? restoredWebExport,
+    Map<String, Object?>? erpData,
   }) async {
     final waiting = gate;
     if (waiting != null && !entered.isCompleted) {
@@ -61,6 +62,7 @@ class _GatedStore extends LocalDatabase {
       nextEntryNumber: nextEntryNumber,
       appendedSaleFacts: appendedSaleFacts,
       restoredWebExport: restoredWebExport,
+      erpData: erpData,
     );
   }
 }

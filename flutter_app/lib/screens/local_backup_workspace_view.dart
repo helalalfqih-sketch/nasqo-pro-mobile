@@ -99,8 +99,8 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
         content: SingleChildScrollView(child: Text(
           '${backup.company}\nالحسابات: ${backup.accounts.length} • القيود: ${backup.ledger.length}\n'
           'المستودعات: ${backup.warehouses.length} • الأصناف: ${backup.inventory.length}\n'
-          'ستُستبدل السجلات والمسودات الحالية. تُستخدم الحقول المدعومة في هذه الأقسام وبنود الفواتير فقط. '
-          'تفاصيل الويب الإضافية مثل الضرائب والخصومات والمجموعات ووحدات ERP تبقى في ملف المصدر ولا تُفعّل على الهاتف.')),
+          'ستُستبدل السجلات والمسودات الحالية. تُستخدم الحقول المدعومة في هذه الأقسام وبنود الفواتير وسجلات وحدات ERP المتوافقة. '
+          'تفاصيل الويب الإضافية مثل الضرائب والخصومات والمجموعات تبقى في ملف المصدر ولا تُفعّل على الهاتف.')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('استبدال واستعادة')),

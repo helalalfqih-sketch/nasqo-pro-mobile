@@ -18,6 +18,8 @@ void main() {
     final item = first.inventory.first;
     final qty = item.quantity;
     await first.receiveStock(existingId: item.id, quantity: 2);
+    first.addEmployee(name: 'موظف اختبار', roleTitle: 'محاسب', department: 'المالية',
+      basicSalary: 1000, allowances: 200, deductions: 50);
     final voucher = await first.postLocalEntry(accountId: account.id, kind: LedgerKind.voucher,
       direction: EntryDirection.debit, payment: PaymentMethod.balance,
       amount: 25, currency: account.currency);
@@ -32,6 +34,7 @@ void main() {
     final second = ErpController(autoInitDb: false, localDatabase: reopened);
     addTearDown(() async { second.dispose(); await reopened.close(); });
     await second.initDatabase();
+    expect(second.employees.singleWhere((e) => e.name == 'موظف اختبار').allowances, 200);
     expect(second.inventory.singleWhere((i) => i.id == item.id).quantity, qty + 2);
     expect(second.ledger.singleWhere((e) => e.entryNumber == voucher).amount, 25);
     expect(second.ledger.singleWhere((e) => e.entryNumber == exchange).amount, 18.75);

@@ -27,6 +27,7 @@ class LocalDbSnapshot {
     this.companyName,
     this.isDarkMode,
     this.nextEntryNumber,
+    this.erpData,
   });
 
   final List<AccountRecord> accounts;
@@ -37,6 +38,7 @@ class LocalDbSnapshot {
   final String? companyName;
   final bool? isDarkMode;
   final int? nextEntryNumber;
+  final Map<String, dynamic>? erpData;
 }
 
 class LocalDatabase {
@@ -879,7 +881,18 @@ class LocalDatabase {
       }
     }
 
+    final modules = await db.query('erp_state', where: 'stateKey = ?', whereArgs: ['erp_modules']);
+    Map<String, dynamic>? erpData;
+    if (modules.isNotEmpty) {
+      erpData = jsonDecode(modules.single['payloadJson'] as String) as Map<String, dynamic>;
+    } else {
+      // Earlier restores kept the web export while clearing the mobile ERP lists.
+      final archived = await db.query('erp_state', columns: ['stateKey'],
+        where: 'stateKey = ?', whereArgs: ['original_web_export']);
+      if (archived.isNotEmpty) erpData = {};
+    }
     return LocalDbSnapshot(
+      erpData: erpData,
       accounts: accRows.map(_accountFromMap).toList(),
       ledger: ledRows.map(_ledgerFromMap).toList(),
       warehouses: whRows.map(_warehouseFromMap).toList(),
@@ -902,6 +915,7 @@ class LocalDatabase {
     required int nextEntryNumber,
     SaleFacts? appendedSaleFacts,
     String? restoredWebExport,
+    Map<String, Object?>? erpData,
   }) async {
     final db = await database;
     await db.transaction((txn) async {
@@ -950,6 +964,12 @@ class LocalDatabase {
         });
       }
 
+      if (erpData != null) {
+        await txn.insert('erp_state', {
+          'stateKey': 'erp_modules', 'payloadJson': jsonEncode(erpData),
+          'updatedAt': DateTime.now().toIso8601String(),
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
       if (appendedSaleFacts != null) {
         await _appendSaleFacts(txn, appendedSaleFacts);
       }
