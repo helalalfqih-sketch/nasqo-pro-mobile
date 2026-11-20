@@ -40,11 +40,11 @@ class ErpController extends ChangeNotifier {
   Future<void> _writeTail = Future<void>.value();
   bool _salesPosting = false;
   bool _resetting = false;
-  bool _receivingStock = false;
+  bool _editingWorkspace = false;
   bool _disposed = false;
 
   void _requireAvailableMutation() {
-    if (_salesPosting || _resetting || _receivingStock) {
+    if (_salesPosting || _resetting || _editingWorkspace) {
       throw const SaleValidationException(
           'توجد عملية حفظ جارية؛ انتظر اكتمالها.');
     }
@@ -735,6 +735,61 @@ class ErpController extends ChangeNotifier {
     }
   }
 
+  Future<int> postLocalEntry({
+    required String accountId,
+    required LedgerKind kind,
+    required EntryDirection direction,
+    required PaymentMethod payment,
+    required double amount,
+    required CurrencyCode currency,
+    CurrencyCode? fromCurrency,
+    double exchangeRate = 1,
+    String note = '',
+  }) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw const SaleValidationException('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final account = accounts.where((a) => a.id == accountId).firstOrNull;
+      final exchange = kind == LedgerKind.currency;
+      if (account == null || (!exchange && kind != LedgerKind.voucher) ||
+          !amount.isFinite || amount <= 0 ||
+          !exchangeRate.isFinite || exchangeRate <= 0 ||
+          (exchange && (fromCurrency == null || currency == fromCurrency)) ||
+          (!exchange && exchangeRate != 1) || payment == PaymentMethod.credit) {
+        throw const SaleValidationException('تحقق من الحساب والمبلغ والعملة.');
+      }
+      final total = amount * exchangeRate;
+      if (!total.isFinite || total <= 0) throw const SaleValidationException('المبلغ خارج النطاق.');
+      final nextNumber = _nextEntryNumber + 1;
+      final label = exchange
+          ? (direction == EntryDirection.credit ? 'صرف شراء' : 'صرف بيع')
+          : (direction == EntryDirection.credit ? 'له (سند)' : 'عليه (سند)');
+      final entry = LedgerEntryRecord(
+        id: 'local_${DateTime.now().microsecondsSinceEpoch}_$nextNumber',
+        accountId: account.id, accountName: account.name,
+        kind: kind, typeLabel: label, payment: payment, direction: direction,
+        amount: total, currency: currency, exchangeRate: exchangeRate,
+        details: [if (exchange) 'صرف $amount ${fromCurrency!.label} بسعر $exchangeRate إلى ${currency.label}',
+          if (note.trim().isNotEmpty) note.trim(), if (!exchange && note.trim().isEmpty) label].join(' · '),
+        entryNumber: nextNumber, entryDate: DateTime.now().toIso8601String().substring(0, 10),
+        warehouseId: '', warehouseName: '',
+      );
+      final nextLedger = [entry, ...ledger];
+      if (_usesPersistentStore) await _saveCurrentSnapshot(nextLedger: nextLedger, nextEntryNumber: nextNumber);
+      ledger.insert(0, entry);
+      _nextEntryNumber = nextNumber;
+      if (!_disposed) notifyListeners();
+      return nextNumber;
+    } finally {
+      _editingWorkspace = false;
+    }
+  }
+
   Future<void> receiveStock({
     String? existingId,
     required double quantity,
@@ -746,7 +801,7 @@ class ErpController extends ChangeNotifier {
     double threshold = 25,
   }) async {
     _requireAvailableMutation();
-    _receivingStock = true;
+    _editingWorkspace = true;
     try {
       if (_usesPersistentStore) {
         await initDatabase();
@@ -783,7 +838,7 @@ class ErpController extends ChangeNotifier {
       inventory..clear()..addAll(next);
       if (!_disposed) notifyListeners();
     } finally {
-      _receivingStock = false;
+      _editingWorkspace = false;
     }
   }
 

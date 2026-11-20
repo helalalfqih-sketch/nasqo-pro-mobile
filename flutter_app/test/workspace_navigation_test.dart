@@ -28,12 +28,9 @@ Future<void> _open(WidgetTester tester, String key) async {
   final tile = find.byKey(ValueKey(key));
   if (key.startsWith('home-') && key != 'home-open-drawer') {
     final list = find.byKey(const PageStorageKey('nasqo-home-scroll'));
-    for (var swipe = 0;
-        swipe < 10 && tile.hitTestable().evaluate().isEmpty;
-        swipe++) {
-      await tester.drag(list, const Offset(0, -115));
-      await tester.pumpAndSettle();
-    }
+    await tester.scrollUntilVisible(tile.hitTestable(), 120,
+      scrollable: find.descendant(of: list, matching: find.byType(Scrollable)).first);
+    await tester.pumpAndSettle();
   }
   expect(tile.hitTestable(), findsOneWidget);
   await tester.tap(tile);

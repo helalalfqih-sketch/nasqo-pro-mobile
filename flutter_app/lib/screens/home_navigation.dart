@@ -39,7 +39,7 @@ Future<String?> showHomeQuickActions(BuildContext context) => showModalBottomShe
         ('cash-transfer-drafts', 'حوالة جديدة', Icons.send_outlined),
         ('qr-scanner', 'مسح باركود', Icons.qr_code_scanner),
         ('invoice', 'فاتورة جديدة', Icons.receipt_long_outlined),
-        ('vouchers', 'سند جديد', Icons.note_add_outlined),
+        ('post-voucher', 'سند جديد', Icons.note_add_outlined),
       ])
         Expanded(child: InkWell(onTap: () => Navigator.pop(context, route),
           child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Column(

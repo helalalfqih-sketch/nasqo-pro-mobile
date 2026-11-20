@@ -33,7 +33,7 @@ void main() {
     await tester.tap(find.text('المخزون المتبقي'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('inventory-catalog-search')), findsOneWidget);
-    await tester.pageBack();
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('المخزون المتبقي'), findsOneWidget);
   });

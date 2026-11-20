@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/stock_scanner_view.dart';
 import 'screens/home_navigation.dart';
+import 'screens/local_entry_view.dart';
 import 'screens/customer_list_sheet.dart';
 import 'screens/invoice_form_sheet.dart';
 import 'screens/nasqo_web_drawer.dart';
@@ -70,8 +71,9 @@ class _NasqoProErpAppState extends State<NasqoProErpApp> {
       listenable: _controller,
       builder: (context, _) {
         final colorScheme = ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0B5CA8),
-          secondary: const Color(0xFFF39A16),
+          seedColor: const Color(0xFF4338CA),
+          primary: _controller.isDarkMode ? const Color(0xFFB9B4FF) : const Color(0xFF4338CA),
+          secondary: const Color(0xFF0891B2),
           brightness:
               _controller.isDarkMode ? Brightness.dark : Brightness.light,
         );
@@ -89,8 +91,9 @@ class _NasqoProErpAppState extends State<NasqoProErpApp> {
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: colorScheme,
+            scaffoldBackgroundColor: _controller.isDarkMode ? null : const Color(0xFFF5F7FF),
             appBarTheme: const AppBarTheme(
-              backgroundColor: Color(0xFF0B5CA8),
+              backgroundColor: Color(0xFF4338CA),
               foregroundColor: Colors.white,
               centerTitle: false,
             ),
@@ -310,6 +313,9 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           'سلة المحذوفات',
           HomeTrashView(controller: widget.controller),
         ),
+      'post-voucher' || 'post-exchange' => ('عملية جديدة', LocalEntryView(
+        controller: widget.controller, exchange: moduleId == 'post-exchange',
+        openDrafts: () => _openModulePage(moduleId == 'post-exchange' ? 'fx-drafts' : 'vouchers'))),
       'reports' => ('التقارير', HomeReportsView(onOpenModule: _openModulePage)),
       'qr-scanner' || 'item-new' => ('الأصناف', StockScannerView(
         controller: widget.controller, createOnOpen: moduleId == 'item-new')),
@@ -415,7 +421,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         builder: (_) => Directionality(
           textDirection: TextDirection.rtl,
           child: category != null || const {
-            'qr-scanner', 'item-new', 'account-statement', 'cashboxes',
+            'post-voucher', 'post-exchange', 'qr-scanner', 'item-new', 'account-statement', 'cashboxes',
             'warehouses',
             'currencies',
             'sales-overview',
@@ -478,8 +484,8 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
 
   @override
   Widget build(BuildContext context) {
-    const blue = Color(0xFF0B5CA8);
-    const navy = Color(0xFF073B68);
+    const blue = Color(0xFF4338CA);
+    const navy = Color(0xFF312E81);
     return Scaffold(
       key: _shellKey,
       appBar: AppBar(
@@ -563,7 +569,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
               PopupMenuItem(
                   value: 'customer', child: Text('إضافة حساب جديد')),
               PopupMenuItem(
-                  value: 'vouchers', child: Text('سند جديد')),
+                  value: 'post-voucher', child: Text('سند جديد')),
               PopupMenuItem(
                   value: 'cash-transfer-drafts', child: Text('حوالة جديدة')),
               PopupMenuItem(

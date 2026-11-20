@@ -36,7 +36,7 @@ class DashboardScreen extends StatelessWidget {
     // 9 Compact Quick Actions according to mobile reference specification
     final quickActions = [
       _Tile('سند جديد', Icons.receipt_outlined,
-          id: 'vouchers', action: () => onOpenModule('vouchers')),
+          id: 'vouchers', action: () => onOpenModule('post-voucher')),
       _Tile('حوالة جديدة', Icons.send_outlined,
           id: 'cash-transfer-drafts',
           action: () => onOpenModule('cash-transfer-drafts')),
@@ -58,7 +58,7 @@ class DashboardScreen extends StatelessWidget {
       _Tile('فاتورة جديدة', Icons.receipt_long_outlined,
           id: 'invoice-new', action: () => _openInvoice(context)),
       _Tile('صرف عملات', Icons.currency_exchange,
-          id: 'fx-drafts', action: () => onOpenModule('fx-drafts')),
+          id: 'fx-drafts', action: () => onOpenModule('post-exchange')),
       _Tile('البحث السريع', Icons.search,
           id: 'quick-search', action: () => onOpenModule('quick-search')),
     ];
@@ -176,10 +176,10 @@ class DashboardScreen extends StatelessWidget {
 
     // Mobile Reference Brand Plaque
     final brandPlaque = Card(
-      color: colors.surface,
+      color: Theme.of(context).brightness == Brightness.dark ? colors.surface : const Color(0xFFEEF2FF),
       elevation: 0.5,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(26),
         side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.5)),
       ),
       margin: EdgeInsets.zero,
@@ -199,7 +199,7 @@ class DashboardScreen extends StatelessWidget {
                         : controller.companyName,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0B5CA8),
+                          color: colors.primary,
                         ),
                   ),
                   const Text(
@@ -211,7 +211,7 @@ class DashboardScreen extends StatelessWidget {
             ),
             IconButton(
               tooltip: 'مسح رمز QR',
-              icon: const Icon(Icons.qr_code_2, color: Color(0xFF0B5CA8)),
+              icon: const Icon(Icons.qr_code_2, color: Color(0xFF4338CA)),
               onPressed: () => onOpenModule('qr-scanner'),
             ),
           ],
@@ -310,7 +310,7 @@ class _SectionHeader extends StatelessWidget {
         style: const TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.bold,
-          color: Color(0xFF073B68),
+          color: Color(0xFF312E81),
         ),
       ),
     );
@@ -350,8 +350,8 @@ class _QuickActionsGrid extends StatelessWidget {
                     : tile.title,
                 child: Material(
                   color: tile.highlight
-                      ? const Color(0xFFF39A16)
-                      : const Color(0xFF0B5CA8),
+                      ? const Color(0xFF0891B2)
+                      : const Color(0xFF4338CA),
                   borderRadius: BorderRadius.circular(10),
                   child: InkWell(
                     key: tile.id == null ? null : ValueKey('home-${tile.id}'),
@@ -591,7 +591,7 @@ class _MetricCardItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E293B) : Colors.white,
-          border: Border.all(color: const Color(0xFF0B5CA8), width: 2),
+          border: Border.all(color: const Color(0xFF4338CA), width: 2),
           borderRadius: BorderRadius.circular(11),
           boxShadow: const [
             BoxShadow(
@@ -607,10 +607,10 @@ class _MetricCardItem extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: const Color(0xFF0B5CA8).withValues(alpha: 0.1),
+                color: const Color(0xFF4338CA).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(data.icon, color: const Color(0xFF0B5CA8), size: 19),
+              child: Icon(data.icon, color: const Color(0xFF4338CA), size: 19),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -625,7 +625,7 @@ class _MetricCardItem extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF073B68),
+                      color: Color(0xFF312E81),
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -671,7 +671,7 @@ class _AdministrationGrid extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(0, 36),
                   backgroundColor: tile.highlight
-                      ? const Color(0xFF0B5CA8).withValues(alpha: 0.85)
+                      ? const Color(0xFF4338CA).withValues(alpha: 0.85)
                       : Theme.of(context).colorScheme.surfaceContainerHighest,
                   foregroundColor: tile.highlight
                       ? Colors.white
@@ -762,7 +762,7 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
           Text('مجموعات الحسابات والأرصدة',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF073B68),
+                    color: const Color(0xFF312E81),
                   )),
           const SizedBox(height: 3),
           const Text(
@@ -1023,13 +1023,13 @@ class _FooterLink extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: const Color(0xFF0B5CA8)),
+            Icon(icon, size: 13, color: const Color(0xFF4338CA)),
             const SizedBox(width: 3),
             Text(
               label,
               style: const TextStyle(
                 fontSize: 11,
-                color: Color(0xFF0B5CA8),
+                color: Color(0xFF4338CA),
                 fontWeight: FontWeight.w600,
               ),
             ),
