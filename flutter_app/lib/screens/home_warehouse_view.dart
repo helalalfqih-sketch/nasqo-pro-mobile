@@ -41,7 +41,7 @@ class _WarehouseState extends State<HomeWarehouseView> {
               } catch (e) {
                 if (context.mounted) update(() { saving = false; error = e is SaleValidationException ? e.message : 'تعذر حفظ المخزن.'; });
               }
-            }, child: const Text('حفظ'))])))));
+            }, child: const Text('حفظ'))]))));
   }
 
   @override

@@ -364,6 +364,8 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           LocalBackupWorkspaceView(
             restoreWeb: widget.controller.restoreWebBackup,
             restoreLocal: widget.controller.restoreLocalBackup,
+            importLocal: widget.controller.importLocalBackup,
+            exportLocal: widget.controller.exportLocalBackup,
             loadBackups: widget.controller.loadLocalBackups,
             createBackup: widget.controller.createLocalBackup,
             verifyBackup: widget.controller.verifyLocalBackup,

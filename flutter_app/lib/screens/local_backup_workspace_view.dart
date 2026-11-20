@@ -12,9 +12,13 @@ class LocalBackupWorkspaceView extends StatefulWidget {
       required this.loadBackups,
       required this.createBackup,
       this.restoreWeb,
+      this.importLocal,
+      this.exportLocal,
       this.restoreLocal,
       required this.verifyBackup,
       required this.testRestore});
+  final Future<LocalBackupFile> Function(String)? importLocal;
+  final Future<bool> Function(String)? exportLocal;
   final Future<void> Function(WebBackup)? restoreWeb;
   final Future<void> Function(String id)? restoreLocal;
   final Future<List<LocalBackupFile>> Function() loadBackups;
@@ -89,7 +93,14 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
     }
     final WebBackup backup;
     try {
-      backup = WebBackup.parse(utf8.decode(buffer.takeBytes()));
+      final raw = utf8.decode(buffer.takeBytes());
+      final root = jsonDecode(raw);
+      if (root is Map && root['format'] == 'nasqo-local-qa-json-v1' && widget.importLocal != null) {
+        final file = await widget.importLocal!(raw);
+        if (mounted) _files = [file, ..._files];
+        return 'تم التحقق من نسخة الهاتف وإضافتها للقائمة. اضغط «استعادة إلى الهاتف» لتطبيقها.';
+      }
+      backup = WebBackup.parse(raw);
     } on FormatException catch (error) {
       return 'تعذرت قراءة النسخة: ${error.message}';
     } on Object {
@@ -167,9 +178,9 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
               if (widget.restoreWeb != null)
                 FilledButton.icon(onPressed: _busy ? null : _importWeb,
                   icon: const Icon(Icons.file_open),
-                  label: const Text('استعادة من ملف الموقع (.back أو .json)')),
+                  label: const Text('استيراد نسخة الموقع أو الهاتف (.back أو .json)')),
               const Text(
-                  'نسخ محلية خاصة داخل مساحة التطبيق فقط، غير مشفرة وليست نسخاً خارجية. حذف التطبيق أو فقد الجهاز قد يفقد هذه النسخ أيضاً. اختبار النسخة المحلية يجري في قاعدة منفصلة.'),
+                  'تُحفظ النسخ داخل التطبيق دون تشفير. اختر «حفظ في ملف» للاحتفاظ بالنسخة خارج التطبيق. اختبار النسخة المحلية يجري في قاعدة منفصلة.'),
               const SizedBox(height: 12),
               const Text(
                   'التحقق يفحص سلامة النسخة. اختبار الاستعادة يقرأها في قاعدة مؤقتة معزولة، ولا يُعد استعادة فعلية أو ضماناً شاملاً للتعافي.'),
@@ -247,6 +258,9 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
                                         ? null
                                         : () => _check(file, restore: true),
                                     child: const Text('اختبار استعادة معزولة')),
+                                if (widget.exportLocal != null) OutlinedButton(onPressed: _busy ? null : () =>
+                                  _run('جارٍ تصدير النسخة…', () async => await widget.exportLocal!(file.id)
+                                    ? 'تم حفظ النسخة في الملف المحدد.' : 'أُلغي التصدير.'), child: const Text('حفظ في ملف')),
                                 if (widget.restoreLocal != null) OutlinedButton(onPressed: _busy ? null : () => _restoreLocal(file), child: const Text('استعادة إلى الهاتف')),
                               ]),
                             ]))),

@@ -80,8 +80,16 @@ class LocalBackupFiles {
     return List.unmodifiable(out);
   }
 
-  Future<LocalBackupFile> createBackup() async {
-    final envelope = await _core.createBackup();
+  Future<LocalBackupFile> createBackup() async => _save(await _core.createBackup());
+
+  Future<LocalBackupFile> importBackup(String envelope) async {
+    await _core.verifyRestore(envelope);
+    return _save(envelope);
+  }
+
+  Future<List<int>> exportBytes(String id) async => utf8.encode(await _read(id));
+
+  Future<LocalBackupFile> _save(String envelope) async {
     final bytes = utf8.encode(envelope);
     if (bytes.length > maxBackupBytes) {
       throw StateError('النسخة أكبر من الحد المدعوم لهذا الاختبار.');

@@ -568,6 +568,15 @@ class ErpController extends ChangeNotifier {
   Future<List<LocalBackupFile>> loadLocalBackups() async =>
       (await _openLocalBackupFiles()).loadBackups();
 
+  Future<LocalBackupFile> importLocalBackup(String envelope) async =>
+      (await _openLocalBackupFiles()).importBackup(envelope);
+
+  Future<bool> exportLocalBackup(String id) async {
+    final bytes = await (await _openLocalBackupFiles()).exportBytes(id);
+    const channel = MethodChannel('com.indexesstore.nasqo_qa/csv_export');
+    return await channel.invokeMethod<bool>('saveBackup', {'suggestedName': id, 'bytes': Uint8List.fromList(bytes)}) ?? false;
+  }
+
   Future<LocalBackupFile> createLocalBackup() async =>
       (await _openLocalBackupFiles()).createBackup();
 

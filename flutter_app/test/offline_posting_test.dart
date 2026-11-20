@@ -53,6 +53,8 @@ void main() {
     expect(second.ledger.singleWhere((e) => e.entryNumber == voucher).amount, 25);
     expect(second.ledger.singleWhere((e) => e.entryNumber == exchange).amount, 18.75);
     expect(second.ledger.singleWhere((e) => e.entryNumber == exchange).currency, CurrencyCode.sar);
+    final bytes = await (await second.database.database).rawQuery('PRAGMA integrity_check');
+    expect(bytes.single.values.single, 'ok');
     await second.restoreLocalBackup(backup.id);
     expect(second.ledger.where((e) => e.entryNumber == voucher), isEmpty);
     expect(second.employees.singleWhere((e) => e.name == 'موظف اختبار').allowances, 200);
