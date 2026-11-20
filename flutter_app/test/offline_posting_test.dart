@@ -1,5 +1,7 @@
 import 'package:nasqo_pro_erp/services/account_csv.dart';
 import 'dart:io';
+import 'dart:convert';
+import 'package:nasqo_pro_erp/services/web_backup.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nasqo_pro_erp/services/customer_measurement_repository.dart';
 import 'package:nasqo_pro_erp/models/erp_models.dart';
@@ -8,6 +10,21 @@ import 'package:nasqo_pro_erp/state/erp_controller.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  test('website JSON imports supported currency quotes without aliasing unknown codes', () {
+    final backup = WebBackup.parse(jsonEncode({
+      'format': 'nasqo-unified-sqlite-export-v2', 'version': 2,
+      'workspace': {'companyName': 'منشأة تجريبية'},
+      'accounts': [], 'warehouses': [], 'inventory': [], 'ledger': [],
+      'currencies': [
+        {'code': 'دولار', 'symbol': 'USD', 'nameSecondary': 'سنت',
+          'ratePrimary': 3.8, 'rateSecondary': 3.7},
+        {'code': 'عملة خارج الدليل', 'ratePrimary': 99, 'rateSecondary': 55}
+      ],
+    }));
+    expect(backup.currencyDetails, {
+      'usd': {'symbol': 'USD', 'subunit': 'سنت', 'sell': 3.8, 'buy': 3.7}
+    });
+  });
   test('catalog, imported accounts, message settings and purchases survive a cold reopen', () async {
     sqfliteFfiInit(); databaseFactory=databaseFactoryFfi;
     final dir=await Directory.systemTemp.createTemp('nasqo-account-import');
