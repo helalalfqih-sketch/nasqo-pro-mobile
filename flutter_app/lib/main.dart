@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/dev_update_action.dart';
 import 'screens/account_tools.dart';
 import 'screens/account_groups_view.dart';
 import 'screens/purchase_invoice_view.dart';
@@ -569,6 +570,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           ),
         ]),
         actions: [
+          const SizedBox(width: 40, child: DevUpdateAction()),
           SizedBox(width:34,child:IconButton(tooltip:'إعدادات واتساب',iconSize:19,padding:EdgeInsets.zero,
             onPressed:()=>_openModulePage('message-settings'),icon:const Icon(Icons.chat_outlined))),
           SizedBox(width: 34, child: IconButton(

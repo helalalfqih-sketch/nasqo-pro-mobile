@@ -16,10 +16,12 @@ class MainActivity : FlutterActivity() {
     private var writing = false
     private var csvChannel: MethodChannel? = null
     private var invoicePrinter: InvoicePdfPrintBridge? = null
+    private var devUpdateBridge: DevUpdateBridge? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         invoicePrinter = InvoicePdfPrintBridge(this, flutterEngine.dartExecutor.binaryMessenger)
+        devUpdateBridge = DevUpdateBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         csvChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         csvChannel?.setMethodCallHandler { call, result ->
             val backup = call.method == "saveBackup"
@@ -105,6 +107,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        devUpdateBridge?.dispose()
+        devUpdateBridge = null
         invoicePrinter?.dispose()
         invoicePrinter = null
         val request = pending
