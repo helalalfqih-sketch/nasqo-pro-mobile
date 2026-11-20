@@ -125,6 +125,20 @@ void main() {
     final sql = await store.database;
     final tax = await sql.query('erp_state',where:'stateKey = ?',whereArgs:['return_detail/${entry.id}']);
     expect(jsonDecode(tax.single['payloadJson'] as String)['tax'],1.5);
+    final remaining = await draft(1);
+    await sql.execute("CREATE TRIGGER reject_return BEFORE INSERT ON ledger_entries "
+        "WHEN NEW.kind = 'returnEntry' BEGIN SELECT RAISE(ABORT,'synthetic'); END");
+    await expectLater(c.postSalesReturn(remaining.id, remaining.revision),throwsA(anything));
+    final rolledBack = await store.loadSnapshot();
+    expect(rolledBack.inventory.singleWhere((i) => i.id == item.id).quantity,item.quantity-1);
+    expect(await store.getSalesReturnDraft(remaining.id),isNotNull);
+    await sql.execute('DROP TRIGGER reject_return');
+    await c.postSalesReturn(remaining.id, remaining.revision);
+    expect(c.inventory.singleWhere((i) => i.id == item.id).quantity,item.quantity);
+    final settled = await store.loadSaleTaxRegister();
+    expect(settled.rows.where((r) => r.documentNumber == entry.documentNumber)
+        .fold<double>(0,(sum,row) => sum + row.finalTotal),0);
+
   });
 
   test(
