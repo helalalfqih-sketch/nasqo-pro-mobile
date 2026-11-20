@@ -57,19 +57,31 @@ class HomeReportsView extends StatelessWidget {
   final ValueChanged<String> onOpenModule;
 
   @override
-  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(12), children: [
-    for (final (route, title, icon) in const [
-      ('finance', 'ميزان المراجعة', Icons.balance),
-      ('accounts', 'تقرير إجمالي حسب التصنيف', Icons.account_tree_outlined),
-      ('cashboxes', 'صناديق النقدية', Icons.account_balance_wallet_outlined),
-      ('inventory', 'المخزون المتبقي', Icons.inventory_2_outlined),
-      ('stock-movement', 'حركة المخزون', Icons.swap_horiz),
-      ('sales-register', 'سجل فواتير المبيعات', Icons.receipt_long_outlined),
-      ('recorded-sales-tax', 'التقارير الضريبية', Icons.percent),
-    ])
-      Card(child: ListTile(title: Text(title), leading: Icon(icon),
-        trailing: const Icon(Icons.chevron_left), onTap: () => onOpenModule(route))),
-  ]);
+  Widget build(BuildContext context) {
+    const groups = [
+      ('التقارير المالية', [
+        ('cashboxes','حركة الصندوق'),('report-category','تقرير إجمالي حسب التصنيف'),
+        ('finance','ميزان المراجعة')
+      ]),
+      ('التقارير المخزنية', [
+        ('stock-movement','حركة المخزون'),('report-expiry','تقرير المخزون المتبقي وتاريخ الانتهاء'),
+        ('report-stock','المخزون المتبقي'),('report-services','تقارير الخدمات'),
+        ('recorded-sales-tax','التقارير الضريبية'),('sales-register','سجل فواتير المبيعات')
+      ])
+    ];
+    return ListView(padding:const EdgeInsets.all(12),children:[
+      for(final (section,links) in groups) ...[
+        Padding(padding:const EdgeInsets.symmetric(vertical:8),
+          child:Text(section,style:Theme.of(context).textTheme.titleMedium)),
+        Wrap(spacing:8,runSpacing:8,children:[
+          for(final (index,link) in links.indexed)
+            FilledButton(onPressed:()=>onOpenModule(link.$1),
+              style:FilledButton.styleFrom(backgroundColor:index.isEven ? const Color(0xFF945100) : const Color(0xFF3730A3)),
+              child:Text(link.$2))
+        ]),
+      ]
+    ]);
+  }
 }
 
 class LocalAlertsView extends StatelessWidget {
