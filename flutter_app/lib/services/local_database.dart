@@ -1011,6 +1011,13 @@ class LocalDatabase {
     );
   }
 
+  Future<Map<String,dynamic>?> readOriginalWebExport() async {
+    final rows = await (await database).query('erp_state',columns:['payloadJson'],
+        where:'stateKey = ?',whereArgs:['original_web_export']);
+    if (rows.isEmpty) return null;
+    return jsonDecode(rows.single['payloadJson'] as String) as Map<String,dynamic>;
+  }
+
   Future<void> saveSnapshot({
     required List<AccountRecord> accounts,
     required List<LedgerEntryRecord> ledger,
