@@ -12,9 +12,11 @@ class LocalBackupWorkspaceView extends StatefulWidget {
       required this.loadBackups,
       required this.createBackup,
       this.restoreWeb,
+      this.restoreLocal,
       required this.verifyBackup,
       required this.testRestore});
   final Future<void> Function(WebBackup)? restoreWeb;
+  final Future<void> Function(String id)? restoreLocal;
   final Future<List<LocalBackupFile>> Function() loadBackups;
   final Future<LocalBackupFile> Function() createBackup;
   final Future<LocalBackupCheck> Function(String id) verifyBackup;
@@ -108,6 +110,17 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
     if (confirmed != true || !mounted) return 'أُلغيت الاستعادة.';
     await widget.restoreWeb!(backup);
     return 'اكتملت استعادة السجلات المحددة إلى بيانات التطبيق.';
+  });
+
+  Future<void> _restoreLocal(LocalBackupFile file) => _run('جارٍ تجهيز الاستعادة…', () async {
+    final confirm = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+      title: const Text('استعادة هذه النسخة إلى الهاتف؟'),
+      content: Text('ستُستبدل بيانات مساحة العمل بالنسخة ${file.id}. سيتم الاحتفاظ بنسخة من البيانات الحالية.'),
+      actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('استبدال واستعادة'))]));
+    if (confirm != true) return 'أُلغيت الاستعادة.';
+    await widget.restoreLocal!(file.id);
+    return 'اكتملت الاستعادة إلى قاعدة الهاتف.';
   });
 
   void _refresh() => _run('جارٍ تحديث القائمة…', () async {
@@ -234,6 +247,7 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
                                         ? null
                                         : () => _check(file, restore: true),
                                     child: const Text('اختبار استعادة معزولة')),
+                                if (widget.restoreLocal != null) OutlinedButton(onPressed: _busy ? null : () => _restoreLocal(file), child: const Text('استعادة إلى الهاتف')),
                               ]),
                             ]))),
             ]),

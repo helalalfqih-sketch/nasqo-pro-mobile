@@ -640,6 +640,8 @@ class ErpController extends ChangeNotifier {
   }
 
   Future<void> _saveCurrentSnapshot({
+    String? nextCompany,
+    List<WarehouseRecord>? nextWarehouses,
     List<LedgerEntryRecord>? nextLedger,
     List<InventoryItemRecord>? nextInventory,
     List<SavedSaleLine>? nextSaleLines,
@@ -649,10 +651,10 @@ class ErpController extends ChangeNotifier {
       _localDatabase.saveSnapshot(
         accounts: List.of(accounts),
         ledger: List.of(nextLedger ?? ledger),
-        warehouses: List.of(warehouses),
+        warehouses: List.of(nextWarehouses ?? warehouses),
         inventory: List.of(nextInventory ?? inventory),
         saleLines: List.of(nextSaleLines ?? saleLines),
-        companyName: companyName,
+        companyName: nextCompany ?? companyName,
         isDarkMode: isDarkMode,
         nextEntryNumber: nextEntryNumber ?? _nextEntryNumber,
         appendedSaleFacts: appendedSaleFacts,
@@ -691,6 +693,21 @@ class ErpController extends ChangeNotifier {
       }
     });
     return _writeTail;
+  }
+
+  Future<void> restoreLocalBackup(String id) async {
+    _requireAvailableMutation();
+    _resetting = true;
+    try {
+      final files = await _openLocalBackupFiles();
+      await _writeTail;
+      await files.createBackup();
+      await files.restoreLocal(id);
+      _nextEntryNumber = 0;
+      _loadModules(const ErpWorkspaceSnapshot());
+      await _loadOrCreateDatabase();
+      if (!dbReady) throw StateError('تعذر فتح النسخة المستعادة.');
+    } finally { _resetting = false; }
   }
 
   Future<void> restoreWebBackup(WebBackup backup) async {
@@ -753,6 +770,57 @@ class ErpController extends ChangeNotifier {
     } finally {
       _resetting = false;
     }
+  }
+
+  Future<void> renameCompany(String name) async {
+    if (name.trim().isEmpty || name.trim().length > 100) {
+      throw const SaleValidationException('أدخل اسم منشأة من 1 إلى 100 حرف.');
+    }
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw const SaleValidationException('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+        await _saveCurrentSnapshot(nextCompany: name.trim());
+      }
+      companyName = name.trim();
+      if (!_disposed) notifyListeners();
+    } finally { _editingWorkspace = false; }
+  }
+
+  Future<void> saveWarehouse({String? id, required String name, required String details,
+      required bool isDefault}) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw const SaleValidationException('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      if (name.trim().isEmpty || name.trim().length > 100 ||
+          warehouses.any((w) => w.id != id && w.name.trim() == name.trim())) {
+        throw const SaleValidationException('أدخل اسم مخزن صالحًا وغير مكرر.');
+      }
+      final next = List.of(warehouses);
+      final index = next.indexWhere((w) => w.id == id);
+      if (id != null && index < 0) throw const SaleValidationException('المخزن غير موجود.');
+      final warehouse = WarehouseRecord(id: id ?? 'wh_${DateTime.now().microsecondsSinceEpoch}',
+        name: name.trim(), details: details.trim(), isDefault: isDefault || next.isEmpty ||
+          (index >= 0 && next[index].isDefault));
+      if (warehouse.isDefault) {
+        for (var i = 0; i < next.length; i++) {
+          final w = next[i];
+          if (w.isDefault) next[i] = WarehouseRecord(id: w.id, name: w.name, details: w.details);
+        }
+      }
+      if (index < 0) { next.add(warehouse); } else { next[index] = warehouse; }
+      if (_usesPersistentStore) await _saveCurrentSnapshot(nextWarehouses: next);
+      warehouses..clear()..addAll(next);
+      if (!_disposed) notifyListeners();
+    } finally { _editingWorkspace = false; }
   }
 
   Future<int> postLocalEntry({

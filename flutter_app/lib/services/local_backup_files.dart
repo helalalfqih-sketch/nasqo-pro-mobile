@@ -135,6 +135,8 @@ class LocalBackupFiles {
     return utf8.decode(bytes);
   }
 
+  Future<void> restoreLocal(String id) async => _core.restoreLocal(await _read(id));
+
   Future<LocalBackupCheck> verifyBackup(String id) async {
     final info = await _core.inspectBackup(await _read(id));
     return LocalBackupCheck(

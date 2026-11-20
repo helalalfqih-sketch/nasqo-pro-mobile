@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../state/erp_controller.dart';
+import '../models/erp_models.dart';
+import 'home_account_views.dart';
 
 class HomeNavigation extends StatelessWidget {
   const HomeNavigation({super.key, required this.onHome, required this.onServices,
@@ -67,4 +70,34 @@ class HomeReportsView extends StatelessWidget {
       Card(child: ListTile(title: Text(title), leading: Icon(icon),
         trailing: const Icon(Icons.chevron_left), onTap: () => onOpenModule(route))),
   ]);
+}
+
+class LocalAlertsView extends StatelessWidget {
+  const LocalAlertsView({super.key, required this.controller, required this.open});
+  final ErpController controller;
+  final ValueChanged<String> open;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(listenable: controller, builder: (context, _) {
+    final low = controller.inventory.where((i) => i.minThreshold > 0 && i.quantity < i.minThreshold);
+    final debts = <(AccountRecord, double)>[];
+    for (final a in controller.accounts.where((a) => a.creditLimit > 0)) {
+      final balance = LocalAccountStatement(a, controller.ledger, a.currency).closing;
+      if (balance > a.creditLimit) debts.add((a, balance));
+    }
+    return ListView(padding: const EdgeInsets.all(12), children: [
+      if (low.isEmpty && debts.isEmpty) const ListTile(title: Text('لا توجد تنبيهات للمخزون أو سقف المديونية.')),
+      for (final item in low)
+        Card(child: ListTile(leading: const Icon(Icons.inventory_2_outlined),
+          title: Text('انخفاض مخزون: ${item.name}'),
+          subtitle: Text('المتوفر ${item.quantity} ${item.unit} · الحد الأدنى ${item.minThreshold}'),
+          onTap: () => open('inventory'))),
+      for (final (account, balance) in debts)
+        Card(child: ListTile(leading: const Icon(Icons.account_balance_wallet_outlined),
+          title: Text('تجاوز سقف المديونية: ${account.name}'),
+          subtitle: Text('الرصيد $balance ${account.currency.label} · السقف ${account.creditLimit}'),
+          onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) =>
+            HomeAccountStatementView(controller: controller, accountId: account.id, initialCurrency: account.currency))))),
+    ]);
+  });
 }

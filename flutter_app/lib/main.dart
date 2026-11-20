@@ -316,6 +316,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       'post-voucher' || 'post-exchange' => ('عملية جديدة', LocalEntryView(
         controller: widget.controller, exchange: moduleId == 'post-exchange',
         openDrafts: () => _openModulePage(moduleId == 'post-exchange' ? 'fx-drafts' : 'vouchers'))),
+      'notifications' => ('التنبيهات', LocalAlertsView(controller: widget.controller, open: _openModulePage)),
       'reports' => ('التقارير', HomeReportsView(onOpenModule: _openModulePage)),
       'qr-scanner' || 'item-new' => ('الأصناف', StockScannerView(
         controller: widget.controller, createOnOpen: moduleId == 'item-new')),
@@ -362,6 +363,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           'النسخ المحلية واختبار الاستعادة',
           LocalBackupWorkspaceView(
             restoreWeb: widget.controller.restoreWebBackup,
+            restoreLocal: widget.controller.restoreLocalBackup,
             loadBackups: widget.controller.loadLocalBackups,
             createBackup: widget.controller.createLocalBackup,
             verifyBackup: widget.controller.verifyLocalBackup,
@@ -533,8 +535,8 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           const SizedBox(width: 5),
           const NasqoBrandMark(size: 26),
           const SizedBox(width: 5),
-          const Flexible(
-            child: Text('نسقو برو',
+          Flexible(
+            child: Text(widget.controller.companyName == 'نسقو برو ERP' ? 'نسقو برو' : widget.controller.companyName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
@@ -555,8 +557,9 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
               onPressed: () => _openModulePage('quick-search'),
             ),
           ),
-          const _UnavailableHeader(
-              icon: Icons.notifications_none, label: 'التنبيهات غير متاحة'),
+          SizedBox(width: 34, child: IconButton(tooltip: 'التنبيهات', iconSize: 19,
+            padding: EdgeInsets.zero, onPressed: () => _openModulePage('notifications'),
+            icon: const Icon(Icons.notifications_none))),
           PopupMenuButton<String>(
             tooltip: 'إضافة',
             icon: const Icon(Icons.add),

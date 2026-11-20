@@ -1018,6 +1018,9 @@ class LocalDatabase {
   }
 
   Future<void> _clearTables(DatabaseExecutor txn) async {
+      if ((await txn.rawQuery("SELECT 1 FROM sqlite_master WHERE type='table' AND name='customer_measurements'")).isNotEmpty) {
+        await txn.delete('customer_measurements');
+      }
       await txn.delete('accounts');
       await txn.delete('ledger_entries');
       await txn.delete('warehouses');

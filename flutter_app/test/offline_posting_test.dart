@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nasqo_pro_erp/services/customer_measurement_repository.dart';
 import 'package:nasqo_pro_erp/models/erp_models.dart';
 import 'package:nasqo_pro_erp/services/local_database.dart';
 import 'package:nasqo_pro_erp/state/erp_controller.dart';
@@ -20,6 +21,10 @@ void main() {
     await first.receiveStock(existingId: item.id, quantity: 2);
     first.addEmployee(name: 'موظف اختبار', roleTitle: 'محاسب', department: 'المالية',
       basicSalary: 1000, allowances: 200, deductions: 50);
+    await first.renameCompany('شركة محلية');
+    await first.saveWarehouse(name: 'فرع محلي', details: 'مخزن', isDefault: true);
+    await CustomerMeasurementRepository(store).count();
+    final backup = await first.createLocalBackup();
     final voucher = await first.postLocalEntry(accountId: account.id, kind: LedgerKind.voucher,
       direction: EntryDirection.debit, payment: PaymentMethod.balance,
       amount: 25, currency: account.currency);
@@ -34,10 +39,15 @@ void main() {
     final second = ErpController(autoInitDb: false, localDatabase: reopened);
     addTearDown(() async { second.dispose(); await reopened.close(); });
     await second.initDatabase();
+    expect(second.companyName, 'شركة محلية');
+    expect(second.warehouses.singleWhere((w) => w.isDefault).name, 'فرع محلي');
     expect(second.employees.singleWhere((e) => e.name == 'موظف اختبار').allowances, 200);
     expect(second.inventory.singleWhere((i) => i.id == item.id).quantity, qty + 2);
     expect(second.ledger.singleWhere((e) => e.entryNumber == voucher).amount, 25);
     expect(second.ledger.singleWhere((e) => e.entryNumber == exchange).amount, 18.75);
     expect(second.ledger.singleWhere((e) => e.entryNumber == exchange).currency, CurrencyCode.sar);
+    await second.restoreLocalBackup(backup.id);
+    expect(second.ledger.where((e) => e.entryNumber == voucher), isEmpty);
+    expect(second.employees.singleWhere((e) => e.name == 'موظف اختبار').allowances, 200);
   });
 }
