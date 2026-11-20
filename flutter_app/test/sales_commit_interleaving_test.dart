@@ -43,6 +43,7 @@ class _GatedStore extends LocalDatabase {
     required bool isDarkMode,
     required int nextEntryNumber,
     SaleFacts? appendedSaleFacts,
+    String? restoredWebExport,
   }) async {
     final waiting = gate;
     if (waiting != null && !entered.isCompleted) {
@@ -59,6 +60,7 @@ class _GatedStore extends LocalDatabase {
       isDarkMode: isDarkMode,
       nextEntryNumber: nextEntryNumber,
       appendedSaleFacts: appendedSaleFacts,
+      restoredWebExport: restoredWebExport,
     );
   }
 }
