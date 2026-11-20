@@ -27,6 +27,7 @@ class LocalDbSnapshot {
     this.companyName,
     this.isDarkMode,
     this.nextEntryNumber,
+    this.erpData,
   });
 
   final List<AccountRecord> accounts;
@@ -37,6 +38,7 @@ class LocalDbSnapshot {
   final String? companyName;
   final bool? isDarkMode;
   final int? nextEntryNumber;
+  final Map<String, dynamic>? erpData;
 }
 
 class LocalDatabase {
@@ -292,7 +294,7 @@ class LocalDatabase {
     return db.transaction((txn) async {
       final headers = await txn.query('ledger_entries',
           where:
-              'deleted = 0 AND kind = ? AND direction = ? AND typeLabel IN (?, ?)',
+              "deleted = 0 AND ((kind = ? AND direction = ? AND typeLabel IN (?, ?)) OR (kind = 'returnEntry' AND direction = 'credit' AND EXISTS (SELECT 1 FROM erp_state WHERE stateKey = 'return_detail/' || ledger_entries.id)))",
           whereArgs: ['invoice', 'debit', 'ف.مبيعات نقدية', 'ف.مبيعات آجل'],
           orderBy: 'entryDate DESC, entryNumber DESC, id');
       final result = <SaleTaxRegisterRow>[];
@@ -323,6 +325,28 @@ class LocalDatabase {
           unknown[currency] = unknown[currency]! + 1;
         }
 
+        if (h['kind'] == 'returnEntry') {
+          final detail = (await txn.query('erp_state', where: 'stateKey = ?',
+              whereArgs: ['return_detail/${h['id']}'])).single;
+          final data = jsonDecode(detail['payloadJson'] as String) as Map<String,dynamic>;
+          final n = number(data['net']), t = number(data['tax']), v = number(data['total']);
+          final original = await _readSaleFacts(txn, data['sourceEntryId'] as String);
+          if (n == null || t == null || v == null || original == null ||
+              !close(n+t,v) || h['amount'] != v) {
+            unavailable();
+            continue;
+          }
+          known[currency] = known[currency]! + 1;
+          net[currency] = net[currency]! - n;
+          tax[currency] = tax[currency]! - t;
+          total[currency] = total[currency]! - v;
+          result.add(SaleTaxRegisterRow(entryId:h['id'] as String,
+              entryNumber:h['entryNumber'] as int, documentNumber:h['documentNumber'] as String,
+              date:date,accountName:h['accountName'] as String,currency:currency,
+              preTaxTotal:-n,taxAmount:-t,finalTotal:-v,taxEnabled:original.taxEnabled,
+              appliedTaxRate:original.appliedTaxRate));
+          continue;
+        }
         final fRows = await txn
             .query('sale_facts', where: 'entryId = ?', whereArgs: [h['id']]);
         if (fRows.length != 1) {
@@ -603,6 +627,91 @@ class LocalDatabase {
     });
   }
 
+  Future<int> postReturnDraft(int id, int revision) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final rows = await txn.query('sales_return_drafts',
+          where: 'id = ? AND revision = ?', whereArgs: [id, revision]);
+      if (rows.length != 1) throw StateError('تغيرت المسودة أو سبق ترحيلها.');
+      final draft = await _readReturnDraft(txn, rows.single);
+      final headers = await txn.query('ledger_entries',
+          where: 'id = ?', whereArgs: [draft.sourceEntryId]);
+      if (headers.isEmpty) throw StateError('الفاتورة الأصلية غير موجودة.');
+      final source = _ledgerFromMap(headers.single);
+      final facts = await _readSaleFacts(txn, source.id);
+      if (!isEligibleSalesReturnSource(source) || facts == null ||
+          source.accountId != draft.accountId || source.currency != draft.currency ||
+          source.warehouseId != draft.warehouseId || facts.preTaxTotal <= 0 ||
+          (facts.finalTotal - source.amount).abs() > 0.005 || draft.lines.isEmpty) {
+        throw StateError('تعذر التحقق من بيانات الفاتورة وضريبتها الأصلية.');
+      }
+      final sourceLines = await txn.query('sale_lines',
+          where: 'entryId = ?', whereArgs: [source.id]);
+      final byPosition = {for (final line in sourceLines) line['position']: line};
+      final stateKey = 'sale_returns/${source.id}';
+      final states = await txn.query('erp_state', where: 'stateKey = ?', whereArgs: [stateKey]);
+      final prior = states.isEmpty ? <String,dynamic>{} :
+          jsonDecode(states.single['payloadJson'] as String) as Map<String,dynamic>;
+      final quantities = Map<String,dynamic>.from(prior['quantities'] ?? {});
+      final previousNet = (prior['net'] as num?)?.toDouble() ?? 0;
+      final previousTax = (prior['tax'] as num?)?.toDouble() ?? 0;
+      var net = previousNet;
+      for (final line in draft.lines) {
+        final original = byPosition[line.position];
+        final key = line.position.toString();
+        final total = ((quantities[key] as num?) ?? 0) + line.quantity;
+        if (original == null || original['itemId'] != line.itemId ||
+            original['unitPrice'] != line.unitPrice || line.quantity <= 0 ||
+            total > (original['quantity'] as num) + 1e-9) {
+          throw StateError('تجاوزت كمية المرتجع المتبقي في الفاتورة.');
+        }
+        quantities[key] = total;
+        net += line.quantity * line.unitPrice;
+        final changed = await txn.rawUpdate(
+            'UPDATE inventory_items SET quantity = quantity + ? WHERE id = ? AND warehouseId = ?',
+            [line.quantity, line.itemId, source.warehouseId]);
+        if (changed != 1) throw StateError('الصنف غير موجود في المستودع الأصلي.');
+      }
+      double money(double number) => (number * 100).round() / 100;
+      if (!net.isFinite || net > facts.preTaxTotal + 1e-7) throw StateError('تجاوز المرتجع أصل الفاتورة.');
+      final tax = money(facts.taxAmount * net / facts.preTaxTotal);
+      final returnedNet = net - previousNet;
+      final returnedTax = money(tax - previousTax);
+      final amount = returnedNet + returnedTax;
+      final settings = (await txn.query('erp_state', where: 'stateKey = ?', whereArgs: ['settings'])).single;
+      final config = jsonDecode(settings['payloadJson'] as String) as Map<String,dynamic>;
+      final highest = Sqflite.firstIntValue(await txn.rawQuery('SELECT MAX(entryNumber) FROM ledger_entries')) ?? 0;
+      final last = config['nextEntryNumber'] as int;
+      final number = (last > highest ? last : highest) + 1;
+      final entry = LedgerEntryRecord(id: 'local-return-$number', accountId: source.accountId,
+          accountName: source.accountName, kind: LedgerKind.returnEntry, typeLabel: 'مرتجع مبيعات',
+          payment: source.payment, direction: EntryDirection.credit, amount: amount,
+          currency: source.currency, exchangeRate: source.exchangeRate,
+          details: draft.reason, documentNumber: source.documentNumber,
+          warehouseId: source.warehouseId, warehouseName: source.warehouseName,
+          entryNumber: number, entryDate: draft.date);
+      await txn.insert('ledger_entries', _ledgerToMap(entry));
+      for (final line in draft.lines) {
+        await txn.insert('sale_lines', {'entryId':entry.id,'position':line.position,
+          'itemId':line.itemId,'itemName':line.itemName,'unit':line.unit,
+          'quantity':line.quantity,'unitPrice':line.unitPrice});
+      }
+      final now = DateTime.now().toIso8601String();
+      await txn.insert('erp_state', {'stateKey':stateKey,
+        'payloadJson':jsonEncode({'quantities':quantities,'net':net,'tax':tax}),
+        'updatedAt':now}, conflictAlgorithm:ConflictAlgorithm.replace);
+      await txn.insert('erp_state', {'stateKey':'return_detail/${entry.id}',
+        'payloadJson':jsonEncode({'sourceEntryId':source.id,'net':returnedNet,
+          'tax':returnedTax,'total':amount}), 'updatedAt':now});
+      config['nextEntryNumber'] = number;
+      await txn.update('erp_state', {'payloadJson':jsonEncode(config),'updatedAt':now},
+          where:'stateKey = ?', whereArgs:['settings']);
+      await txn.delete('sales_return_draft_lines',where:'draftId = ?',whereArgs:[id]);
+      await txn.delete('sales_return_drafts',where:'id = ?',whereArgs:[id]);
+      return number;
+    });
+  }
+
   Future<SalesReturnDraft> _readReturnDraft(
       DatabaseExecutor db, Map<String, Object?> row) async {
     final lines = await db.query('sales_return_draft_lines',
@@ -879,7 +988,18 @@ class LocalDatabase {
       }
     }
 
+    final modules = await db.query('erp_state', where: 'stateKey = ?', whereArgs: ['erp_modules']);
+    Map<String, dynamic>? erpData;
+    if (modules.isNotEmpty) {
+      erpData = jsonDecode(modules.single['payloadJson'] as String) as Map<String, dynamic>;
+    } else {
+      // Earlier restores kept the web export while clearing the mobile ERP lists.
+      final archived = await db.query('erp_state', columns: ['stateKey'],
+        where: 'stateKey = ?', whereArgs: ['original_web_export']);
+      if (archived.isNotEmpty) erpData = {};
+    }
     return LocalDbSnapshot(
+      erpData: erpData,
       accounts: accRows.map(_accountFromMap).toList(),
       ledger: ledRows.map(_ledgerFromMap).toList(),
       warehouses: whRows.map(_warehouseFromMap).toList(),
@@ -889,6 +1009,13 @@ class LocalDatabase {
       isDarkMode: isDarkMode,
       nextEntryNumber: nextEntryNumber,
     );
+  }
+
+  Future<Map<String,dynamic>?> readOriginalWebExport() async {
+    final rows = await (await database).query('erp_state',columns:['payloadJson'],
+        where:'stateKey = ?',whereArgs:['original_web_export']);
+    if (rows.isEmpty) return null;
+    return jsonDecode(rows.single['payloadJson'] as String) as Map<String,dynamic>;
   }
 
   Future<void> saveSnapshot({
@@ -901,9 +1028,19 @@ class LocalDatabase {
     required bool isDarkMode,
     required int nextEntryNumber,
     SaleFacts? appendedSaleFacts,
+    String? restoredWebExport,
+    Map<String, Object?>? erpData,
   }) async {
     final db = await database;
     await db.transaction((txn) async {
+      if (restoredWebExport != null) {
+        await _clearTables(txn);
+        await txn.insert('erp_state', {
+          'stateKey': 'original_web_export',
+          'payloadJson': restoredWebExport,
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+      }
       await txn.delete('accounts');
       for (final a in accounts) {
         await txn.insert('accounts', _accountToMap(a),
@@ -941,6 +1078,12 @@ class LocalDatabase {
         });
       }
 
+      if (erpData != null) {
+        await txn.insert('erp_state', {
+          'stateKey': 'erp_modules', 'payloadJson': jsonEncode(erpData),
+          'updatedAt': DateTime.now().toIso8601String(),
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
       if (appendedSaleFacts != null) {
         await _appendSaleFacts(txn, appendedSaleFacts);
       }
@@ -985,7 +1128,13 @@ class LocalDatabase {
 
   Future<void> clearAll() async {
     final db = await database;
-    await db.transaction((txn) async {
+    await db.transaction(_clearTables);
+  }
+
+  Future<void> _clearTables(DatabaseExecutor txn) async {
+      if ((await txn.rawQuery("SELECT 1 FROM sqlite_master WHERE type='table' AND name='customer_measurements'")).isNotEmpty) {
+        await txn.delete('customer_measurements');
+      }
       await txn.delete('accounts');
       await txn.delete('ledger_entries');
       await txn.delete('warehouses');
@@ -1002,7 +1151,7 @@ class LocalDatabase {
       await CashTransferDraftRepository.clearDrafts(txn);
       await SimpleJournalDraftRepository.clearDrafts(txn);
       await FxDraftRepository.clearDrafts(txn);
-    });
+
   }
 
   Map<String, Object?> _accountToMap(AccountRecord a) => {

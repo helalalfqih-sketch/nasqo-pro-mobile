@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/erp_models.dart';
 import '../models/sales_return_draft.dart';
 import 'original_sale_facts_view.dart';
+import 'purchase_invoice_view.dart';
 import '../state/erp_controller.dart';
 
 String _number(double value) => value.isFinite
@@ -123,6 +124,24 @@ class WorkspaceSettingsScreen extends StatelessWidget {
   final ErpController controller;
   final VoidCallback? openLocalBackups;
 
+  Future<void> _editName(BuildContext context) async {
+    var name = controller.companyName;
+    final value = await showDialog<String>(context: context, builder: (context) =>
+      AlertDialog(title: const Text('اسم المنشأة'), content: TextFormField(
+        initialValue: name, maxLength: 100, autofocus: true, onChanged: (v) => name = v),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(context, name.trim()), child: const Text('حفظ')),
+        ]));
+    if (value == null || !context.mounted) return;
+    try {
+      await controller.renameCompany(value);
+    } catch (error) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error is SaleValidationException ? error.message : 'تعذر حفظ الاسم.')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: controller,
@@ -135,9 +154,7 @@ class WorkspaceSettingsScreen extends StatelessWidget {
                 'إعدادات مساحة العمل',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
-              _notice(
-                'هذه شاشة معلومات للقراءة فقط. لا تغيّر الإعدادات ولا تتصل بخدمة خارجية.',
-              ),
+
               if (openLocalBackups != null)
                 OutlinedButton.icon(
                   key: const ValueKey('settings-open-backup-workspace'),
@@ -148,12 +165,14 @@ class WorkspaceSettingsScreen extends StatelessWidget {
               ListTile(
                 title: const Text('اسم المنشأة'),
                 subtitle: Text(controller.companyName),
+                trailing: const Icon(Icons.edit_outlined), onTap: () => _editName(context),
               ),
               ListTile(
                 title: const Text('العملة الافتراضية'),
                 subtitle: Text(controller.defaultCurrency.label),
               ),
-              ListTile(
+              SwitchListTile(
+                value: controller.isDarkMode, onChanged: (_) => controller.toggleTheme(),
                 title: const Text('المظهر المحدد'),
                 subtitle: Text(controller.isDarkMode ? 'داكن' : 'فاتح'),
               ),
@@ -253,6 +272,8 @@ class _InventoryCatalogScreenState extends State<InventoryCatalogScreen> {
                     'متوسط التكلفة المسجل',
                     'حد التنبيه',
                   ],
+                  firstCellAction:(index)=>Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder:(_)=>CatalogItemEditor(controller:controller,item:items[index]))),
                   rows: items
                       .map(
                         (item) => [

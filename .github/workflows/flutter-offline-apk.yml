@@ -7,6 +7,9 @@ on:
     paths:
       - 'flutter_app/**'
       - '.github/workflows/flutter-offline-apk.yml'
+  pull_request:
+    paths:
+      - 'flutter_app/**'
   workflow_dispatch:
 
 permissions:
@@ -36,15 +39,46 @@ jobs:
         run: flutter pub get
       - name: Static analysis
         working-directory: flutter_app
-        run: flutter analyze --no-fatal-infos || true
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Unit tests
         working-directory: flutter_app
         run: flutter test
       - name: Build Android APK
+        if: github.event_name == 'workflow_dispatch'
         working-directory: flutter_app
         run: flutter build apk --debug --android-skip-build-dependency-validation
       - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch'
         with:
           name: nasqo-pro-android-apk
           path: flutter_app/build/app/outputs/flutter-apk/*.apk
           retention-days: 14
+
+  offline-device:
+    if: github.event_name == 'workflow_dispatch'
+    needs: offline-apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-pro-android-apk
+          path: offline-apk
+      - name: Enable KVM for the Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Exercise the APK in airplane mode
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_4
+          script: python3 flutter_app/test/android_offline_smoke.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: offline-screen-checks
+          path: offline-check/*.png

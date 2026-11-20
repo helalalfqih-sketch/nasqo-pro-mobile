@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'local_database.dart';
+import 'customer_measurement_repository.dart';
+import '../models/erp_workspace_snapshot.dart';
 
 class LocalBackupQaResult {
   LocalBackupQaResult(
@@ -57,7 +59,8 @@ class LocalBackupService {
     final names = await db.rawQuery(
         "SELECT name FROM sqlite_master WHERE type='table' AND name <> 'android_metadata' ORDER BY name");
     final actual = names.map((r) => r['name']).toSet();
-    if (actual.length != _tables.length || !_tables.every(actual.contains)) {
+    final tables = [..._tables, if (actual.contains('customer_measurements')) 'customer_measurements'];
+    if (actual.length != tables.length || !tables.every(actual.contains)) {
       throw StateError(
           'Unsupported database tables; QA backup requires exact v9 schema');
     }
@@ -67,7 +70,7 @@ class LocalBackupService {
       throw StateError('Custom triggers/views/indexes are not supported');
     }
     return {
-      for (final table in _tables)
+      for (final table in tables)
         table: {
           'columns': await db.rawQuery('PRAGMA table_info("$table")'),
           'sql': (await db.rawQuery(
@@ -96,7 +99,7 @@ class LocalBackupService {
     var count = 0;
     var encodedBytes = 0;
     final data = <String, Object?>{};
-    for (final table in _tables) {
+    for (final table in schema.keys) {
       // Bounded reads: refuse instead of silently truncating a large database.
       final rows = await db.query(table, limit: maxRows + 1 - count);
       count += rows.length;
@@ -153,27 +156,18 @@ class LocalBackupService {
     final scratch = LocalDatabase.withFactory(_factory, path);
     try {
       final db = await scratch.database;
+      if (schema.containsKey('customer_measurements')) await CustomerMeasurementRepository.createSchema(db);
       final actualSchema = await _schema(db);
       if (_canonical(actualSchema) != _canonical(schema)) {
         throw const FormatException('Schema differs from installed v9');
       }
       await db.transaction((txn) async {
-        for (final table in _tables) {
+        for (final table in schema.keys) {
           if ((await txn.query(table, limit: 1)).isNotEmpty) {
             throw StateError('Scratch database was not empty');
           }
         }
-        for (final table in _tables.where((t) => t != 'sqlite_sequence')) {
-          for (final raw in data[table] as List) {
-            await txn.insert(table, Map<String, Object?>.from(raw as Map));
-          }
-        }
-        // Restore exact AUTOINCREMENT state, including sequences above max ID.
-        await txn.delete('sqlite_sequence');
-        for (final raw in data['sqlite_sequence'] as List) {
-          await txn.insert(
-              'sqlite_sequence', Map<String, Object?>.from(raw as Map));
-        }
+        await _insertRows(txn, data);
       });
       final integrity = await db.rawQuery('PRAGMA integrity_check');
       if (integrity.length != 1 ||
@@ -181,6 +175,8 @@ class LocalBackupService {
           (await db.rawQuery('PRAGMA foreign_key_check')).isNotEmpty) {
         throw StateError('QA integrity verification failed');
       }
+      final snapshot = await scratch.loadSnapshot();
+      if (snapshot.erpData != null) ErpWorkspaceSnapshot.fromJson(snapshot.erpData!);
       final restored = await db.transaction((txn) => _payload(txn));
       if (_sha(_canonical(restored)) != expectedChecksum) {
         throw StateError('QA roundtrip checksum mismatch');
@@ -189,12 +185,45 @@ class LocalBackupService {
           scratchPath: path,
           checksum: expectedChecksum,
           tableCounts: {
-            for (final table in _tables) table: (data[table] as List).length
+            for (final table in data.keys.cast<String>()) table: (data[table] as List).length
           });
     } finally {
       await scratch.close();
       await scratchDir.delete(recursive: true);
     }
+  }
+
+  Future<void> _insertRows(DatabaseExecutor txn, Map<String, dynamic> data) async {
+    for (final table in data.keys.where((t) => t != 'sqlite_sequence')) {
+      for (final raw in data[table] as List) {
+        await txn.insert(table, Map<String, Object?>.from(raw as Map));
+      }
+    }
+    // Restore exact AUTOINCREMENT state, including sequences above max ID.
+    await txn.delete('sqlite_sequence');
+    for (final raw in data['sqlite_sequence'] as List) {
+      await txn.insert(
+          'sqlite_sequence', Map<String, Object?>.from(raw as Map));
+    }
+  }
+
+  Future<void> restoreLocal(String envelope) async {
+    // Validate in an isolated database before replacing the current workspace.
+    await verifyRestore(envelope);
+    final payload = _validateEnvelope(envelope);
+    final data = payload['data'] as Map<String, dynamic>;
+    final db = await source.database;
+    await db.transaction((txn) async {
+      if (data.containsKey('customer_measurements')) await CustomerMeasurementRepository.createSchema(txn);
+      final schema = await _schema(txn);
+      for (final table in schema.keys.toList().reversed) {
+        await txn.delete(table);
+      }
+      if (!data.containsKey('customer_measurements')) schema.remove('customer_measurements');
+      if (_canonical(schema) != _canonical(payload['schema'])) throw const FormatException('Schema mismatch');
+      await _insertRows(txn, data);
+      if ((await txn.rawQuery('PRAGMA foreign_key_check')).isNotEmpty) throw StateError('Invalid references');
+    });
   }
 
   Map<String, dynamic> _validateEnvelope(String envelope) {
@@ -221,11 +250,12 @@ class LocalBackupService {
     }
     final schema = payload['schema'] as Map<String, dynamic>;
     final data = payload['data'] as Map<String, dynamic>;
-    if (!_keys(schema, _tables.toSet()) || !_keys(data, _tables.toSet())) {
+    final tables = {..._tables, if (schema.containsKey('customer_measurements')) 'customer_measurements'};
+    if (!_keys(schema, tables) || !_keys(data, tables)) {
       throw const FormatException('Unexpected tables');
     }
     var rowCount = 0;
-    for (final table in _tables) {
+    for (final table in tables) {
       if (data[table] is! List ||
           schema[table] is! Map<String, dynamic> ||
           !_keys(schema[table] as Map, {'columns', 'sql'}) ||
@@ -251,7 +281,7 @@ class LocalBackupService {
           throw const FormatException('Invalid data row');
         }
         if (table == 'sqlite_sequence' &&
-            (!_sequenceTables.contains(row['name']) ||
+            (!(_sequenceTables.contains(row['name']) || (tables.contains('customer_measurements') && row['name'] == 'customer_measurements')) ||
                 row['seq'] is! int ||
                 row['seq'] < 0)) {
           throw const FormatException('Invalid sequence');
@@ -266,6 +296,7 @@ class LocalBackupService {
     final payload = _validateEnvelope(envelope);
     final db = await source.database;
     final schema = await db.transaction((txn) => _schema(txn));
+    if (!(payload['schema'] as Map).containsKey('customer_measurements')) schema.remove('customer_measurements');
     if (_canonical(schema) != _canonical(payload['schema'])) {
       throw const FormatException('Schema differs from installed v9');
     }
@@ -274,7 +305,7 @@ class LocalBackupService {
         scratchPath: '',
         checksum: _sha(_canonical(payload)),
         tableCounts: {
-          for (final table in _tables) table: (data[table] as List).length
+          for (final table in data.keys.cast<String>()) table: (data[table] as List).length
         });
   }
 

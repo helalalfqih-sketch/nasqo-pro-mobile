@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/account_tools.dart';
+import 'screens/purchase_invoice_view.dart';
+import 'screens/stock_scanner_view.dart';
+import 'screens/home_navigation.dart';
+import 'screens/local_report_detail.dart';
+import 'screens/local_entry_view.dart';
 import 'screens/customer_list_sheet.dart';
 import 'screens/invoice_form_sheet.dart';
 import 'screens/nasqo_web_drawer.dart';
@@ -68,8 +74,9 @@ class _NasqoProErpAppState extends State<NasqoProErpApp> {
       listenable: _controller,
       builder: (context, _) {
         final colorScheme = ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0B5CA8),
-          secondary: const Color(0xFFF39A16),
+          seedColor: const Color(0xFF4338CA),
+          primary: _controller.isDarkMode ? const Color(0xFFB9B4FF) : const Color(0xFF4338CA),
+          secondary: const Color(0xFF0891B2),
           brightness:
               _controller.isDarkMode ? Brightness.dark : Brightness.light,
         );
@@ -87,8 +94,9 @@ class _NasqoProErpAppState extends State<NasqoProErpApp> {
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: colorScheme,
+            scaffoldBackgroundColor: _controller.isDarkMode ? null : const Color(0xFFF5F7FF),
             appBarTheme: const AppBarTheme(
-              backgroundColor: Color(0xFF0B5CA8),
+              backgroundColor: Color(0xFF4338CA),
               foregroundColor: Colors.white,
               centerTitle: false,
             ),
@@ -118,7 +126,24 @@ class NasqoMainShell extends StatefulWidget {
 
 class _NasqoMainShellState extends State<NasqoMainShell> {
   final _shellKey = GlobalKey<ScaffoldState>();
+  final _homeScroll = ScrollController();
   String? _activeModule;
+
+  @override
+  void dispose() {
+    _homeScroll.dispose();
+    super.dispose();
+  }
+
+  Future<void> _quickActions() async {
+    final route = await showHomeQuickActions(context);
+    if (!mounted || route == null) return;
+    if (route == 'invoice') {
+      _openInvoice();
+    } else {
+      _openModulePage(route);
+    }
+  }
 
   Widget _documents(NonpostingDocumentType type, {bool createOnOpen = false}) {
     final controller = widget.controller;
@@ -170,7 +195,10 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       return;
     }
     if (_activeModule == moduleId) return;
+    final category = AccountCategory.values.where((c) => moduleId == 'group-${c.name}').firstOrNull;
     final (title, Widget page) = switch (moduleId) {
+      _ when category != null => (category.label, HomeAccountsView(
+        controller: widget.controller, category: category, onOpenModule: _openModulePage)),
       'measurements' => (
           'التمييز والمقاسات',
           CustomerMeasurementsView(controller: widget.controller),
@@ -253,6 +281,12 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
             saveDraft: widget.controller.saveFxDraft,
           ),
         ),
+      'purchase-register' => ('سجل فواتير المشتريات',PurchasesRegister(controller:widget.controller,
+          openNew:()=>_openModulePage('purchase-new'))),
+      'purchase-new' => ('فاتورة مشتريات جديدة',PurchaseInvoiceView(controller:widget.controller)),
+      'account-new' => ('إضافة حساب',AccountEditor(controller:widget.controller)),
+      'account-import' => ('استيراد الحسابات',AccountImportView(controller:widget.controller)),
+      'message-settings' => ('إعدادات إشعارات واتساب',MessageSettingsView(controller:widget.controller)),
       'accounts' => (
           'جميع الحسابات',
           ListView(
@@ -278,6 +312,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
             loadSales: _salesReturnSources,
             loadFacts: widget.controller.loadOriginalSaleFacts,
             saveDraft: widget.controller.saveSalesReturnDraft,
+            postDraft: widget.controller.postSalesReturn,
           )
         ),
       'chart-accounts' => (
@@ -288,6 +323,16 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           'سلة المحذوفات',
           HomeTrashView(controller: widget.controller),
         ),
+      'post-voucher' || 'post-exchange' || 'post-journal' || 'post-transfer' => ('عملية جديدة', LocalEntryView(
+        controller: widget.controller, kind: switch (moduleId) { 'post-exchange' => LedgerKind.currency, 'post-journal' => LedgerKind.simpleEntry, 'post-transfer' => LedgerKind.transfer, _ => LedgerKind.voucher },
+        openDrafts: () => _openModulePage(switch (moduleId) { 'post-exchange' => 'fx-drafts', 'post-journal' => 'simple-journal-drafts', 'post-transfer' => 'cash-transfer-drafts', _ => 'vouchers' }))),
+      'notifications' => ('التنبيهات', LocalAlertsView(controller: widget.controller, open: _openModulePage)),
+      'report-profit' || 'report-movement' || 'report-closing' || 'report-category' || 'report-stock' || 'report-expiry' || 'report-services' => (
+          LocalReport.values.byName(moduleId.substring(7)).title,
+          LocalReportDetail(controller:widget.controller,report:LocalReport.values.byName(moduleId.substring(7)))),
+      'reports' => ('التقارير', HomeReportsView(onOpenModule: _openModulePage)),
+      'qr-scanner' || 'item-new' => ('الأصناف', StockScannerView(
+        controller: widget.controller, createOnOpen: moduleId == 'item-new')),
       'quick-search' => (
           'البحث السريع',
           HomeQuickSearchScreen(controller: widget.controller)
@@ -302,7 +347,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         ),
       'account-statement' => (
           'كشف حساب',
-          HomeAccountsView(controller: widget.controller, category: null)
+          HomeAccountsView(controller: widget.controller, category: null, onOpenModule: _openModulePage)
         ),
       'warehouses' => (
           'المخازن',
@@ -330,6 +375,15 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       'local-backups' => (
           'النسخ المحلية واختبار الاستعادة',
           LocalBackupWorkspaceView(
+            onRestored: (message) {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+              if (_homeScroll.hasClients) _homeScroll.jumpTo(0);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+            },
+            restoreWeb: widget.controller.restoreWebBackup,
+            restoreLocal: widget.controller.restoreLocalBackup,
+            importLocal: widget.controller.importLocalBackup,
+            exportLocal: widget.controller.exportLocalBackup,
             loadBackups: widget.controller.loadLocalBackups,
             createBackup: widget.controller.createLocalBackup,
             verifyBackup: widget.controller.verifyLocalBackup,
@@ -388,7 +442,8 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       MaterialPageRoute(
         builder: (_) => Directionality(
           textDirection: TextDirection.rtl,
-          child: const {
+          child: category != null || const {
+            'post-journal', 'post-transfer', 'post-voucher', 'post-exchange', 'qr-scanner', 'item-new', 'account-statement', 'cashboxes',
             'warehouses',
             'currencies',
             'sales-overview',
@@ -451,8 +506,8 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
 
   @override
   Widget build(BuildContext context) {
-    const blue = Color(0xFF0B5CA8);
-    const navy = Color(0xFF073B68);
+    const blue = Color(0xFF4338CA);
+    const navy = Color(0xFF312E81);
     return Scaffold(
       key: _shellKey,
       appBar: AppBar(
@@ -500,18 +555,19 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           const SizedBox(width: 5),
           const NasqoBrandMark(size: 26),
           const SizedBox(width: 5),
-          const Flexible(
-            child: Text('نسقو برو',
+          Flexible(
+            child: Text(widget.controller.companyName == 'نسقو برو ERP' ? 'نسقو برو' : widget.controller.companyName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           ),
         ]),
         actions: [
-          const _UnavailableHeader(
-              icon: Icons.chat_outlined, label: 'واتساب غير متاح'),
-          const _UnavailableHeader(
-              icon: Icons.delete_outline, label: 'سلة المحذوفات غير متاحة'),
+          SizedBox(width:34,child:IconButton(tooltip:'إعدادات واتساب',iconSize:19,padding:EdgeInsets.zero,
+            onPressed:()=>_openModulePage('message-settings'),icon:const Icon(Icons.chat_outlined))),
+          SizedBox(width: 34, child: IconButton(
+            tooltip: 'سلة المحذوفات', iconSize: 19, padding: EdgeInsets.zero,
+            onPressed: () => _openModulePage('trash'), icon: const Icon(Icons.delete_outline))),
           SizedBox(
             width: 34,
             child: IconButton(
@@ -521,8 +577,9 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
               onPressed: () => _openModulePage('quick-search'),
             ),
           ),
-          const _UnavailableHeader(
-              icon: Icons.notifications_none, label: 'التنبيهات غير متاحة'),
+          SizedBox(width: 34, child: IconButton(tooltip: 'التنبيهات', iconSize: 19,
+            padding: EdgeInsets.zero, onPressed: () => _openModulePage('notifications'),
+            icon: const Icon(Icons.notifications_none))),
           PopupMenuButton<String>(
             tooltip: 'إضافة',
             icon: const Icon(Icons.add),
@@ -533,13 +590,14 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
             },
             itemBuilder: (_) => const [
               PopupMenuItem(
-                  value: 'customer', child: Text('إضافة حساب جديد')),
+                  value: 'account-new', child: Text('إضافة حساب جديد')),
               PopupMenuItem(
-                  value: 'vouchers', child: Text('سند جديد')),
+                  value: 'post-voucher', child: Text('سند جديد')),
               PopupMenuItem(
-                  value: 'cash-transfer-drafts', child: Text('حوالة جديدة')),
+                  value: 'post-transfer', child: Text('حوالة جديدة')),
               PopupMenuItem(
                   value: 'invoice', child: Text('فاتورة مبيعات جديدة')),
+              PopupMenuItem(value:'purchase-new',child:Text('فاتورة مشتريات جديدة')),
               PopupMenuItem(
                   value: 'sales-return-drafts', child: Text('مردود مبيعات جديد')),
               PopupMenuItem(
@@ -547,48 +605,33 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
               PopupMenuItem(
                   value: 'order-new', child: Text('طلبية بيع جديدة')),
               PopupMenuItem(
-                  value: 'simple-journal-drafts', child: Text('قيد بسيط جديد')),
+                  value: 'post-journal', child: Text('قيد بسيط جديد')),
               PopupMenuItem(
-                  value: 'inventory', child: Text('إضافة صنف للمخزن')),
+                  value: 'item-new', child: Text('إضافة صنف للمخزن')),
             ],
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        key: const ValueKey('home-fab-invoice'),
-        tooltip: 'فاتورة جديدة',
-        backgroundColor: const Color(0xFF0B5CA8),
-        foregroundColor: Colors.white,
-        onPressed: _openInvoice,
-        child: const Icon(Icons.add, size: 28),
+      bottomNavigationBar: HomeNavigation(
+        onHome: () {
+          if (_homeScroll.hasClients) {
+            _homeScroll.animateTo(0, duration: const Duration(milliseconds: 240), curve: Curves.easeOut);
+          }
+        },
+        onServices: () => _openModulePage('hub'),
+        onQuickActions: _quickActions,
+        onReports: () => _openModulePage('reports'),
+        onProfile: () => _openModulePage('settings'),
       ),
       drawer: NasqoWebDrawer(
         companyName: widget.controller.companyName,
         onOpen: _openFromDrawer,
       ),
       body: DashboardScreen(
+        scrollController: _homeScroll,
         controller: widget.controller,
         onOpenModule: _openModulePage,
       ),
     );
   }
-}
-
-class _UnavailableHeader extends StatelessWidget {
-  const _UnavailableHeader({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-        message: label,
-        child: Semantics(
-          enabled: false,
-          label: label,
-          child: SizedBox(
-            width: 34,
-            child: Icon(icon, color: Colors.white60, size: 19),
-          ),
-        ),
-      );
 }

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:nasqo_pro_erp/models/sales_return_draft.dart';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -43,6 +45,8 @@ class _GatedStore extends LocalDatabase {
     required bool isDarkMode,
     required int nextEntryNumber,
     SaleFacts? appendedSaleFacts,
+    String? restoredWebExport,
+    Map<String, Object?>? erpData,
   }) async {
     final waiting = gate;
     if (waiting != null && !entered.isCompleted) {
@@ -59,6 +63,8 @@ class _GatedStore extends LocalDatabase {
       isDarkMode: isDarkMode,
       nextEntryNumber: nextEntryNumber,
       appendedSaleFacts: appendedSaleFacts,
+      restoredWebExport: restoredWebExport,
+      erpData: erpData,
     );
   }
 }
@@ -85,6 +91,56 @@ Future<void> _sale(ErpController controller) {
 }
 
 void main() {
+  test('partial returns reverse stock and tax once and reject surplus', () async {
+    final dir = await Directory.systemTemp.createTemp('nasqo-return-');
+    final store = _GatedStore(p.join(dir.path, 'return.db'));
+    final c = ErpController(autoInitDb: false, localDatabase: store);
+    addTearDown(() async { c.dispose(); await store.close(); await dir.delete(recursive:true); });
+    await c.initDatabase();
+    final item = c.inventory.first;
+    await c.submitSalesInvoice(accountId:c.accounts.first.id, customerName:'اختبار',
+      warehouse:c.warehouses.firstWhere((w) => w.id == item.warehouseId),
+      payment:PaymentMethod.credit, includeVat:true,
+      rows:[InvoiceItemRow(id:'row',itemId:item.id,productName:item.name,quantity:2,unitPrice:10)]);
+    final source = c.saleLines.single;
+    Future<SalesReturnDraft> draft(double qty) => c.saveSalesReturnDraft(
+        sourceEntryId:source.entryId,date:'2026-11-20',reason:'اختبار',
+        selections:[SalesReturnSelection(position:source.position,quantity:qty)]);
+    final one = await draft(1);
+    final surplus = await draft(2);
+    final number = await c.postSalesReturn(one.id,one.revision);
+    final entry = c.ledger.singleWhere((e) => e.entryNumber == number);
+    expect(entry.amount,11.5);
+    expect(entry.direction,EntryDirection.credit);
+    await expectLater(c.postSalesReturn(one.id,one.revision),throwsStateError);
+    await expectLater(c.postSalesReturn(surplus.id,surplus.revision),throwsStateError);
+    await store.close();
+    final snap = await store.loadSnapshot();
+    expect(snap.inventory.singleWhere((i) => i.id == item.id).quantity,item.quantity-1);
+    expect(snap.ledger.where((e) => e.id == entry.id),hasLength(1));
+    final register = await store.loadSaleTaxRegister();
+    final reversal = register.rows.singleWhere((r) => r.entryId == entry.id);
+    expect(reversal.taxAmount, -1.5);
+    expect(reversal.finalTotal, -11.5);
+    final sql = await store.database;
+    final tax = await sql.query('erp_state',where:'stateKey = ?',whereArgs:['return_detail/${entry.id}']);
+    expect(jsonDecode(tax.single['payloadJson'] as String)['tax'],1.5);
+    final remaining = await draft(1);
+    await sql.execute("CREATE TRIGGER reject_return BEFORE INSERT ON ledger_entries "
+        "WHEN NEW.kind = 'returnEntry' BEGIN SELECT RAISE(ABORT,'synthetic'); END");
+    await expectLater(c.postSalesReturn(remaining.id, remaining.revision),throwsA(anything));
+    final rolledBack = await store.loadSnapshot();
+    expect(rolledBack.inventory.singleWhere((i) => i.id == item.id).quantity,item.quantity-1);
+    expect(await store.getSalesReturnDraft(remaining.id),isNotNull);
+    await sql.execute('DROP TRIGGER reject_return');
+    await c.postSalesReturn(remaining.id, remaining.revision);
+    expect(c.inventory.singleWhere((i) => i.id == item.id).quantity,item.quantity);
+    final settled = await store.loadSaleTaxRegister();
+    expect(settled.rows.where((r) => r.documentNumber == entry.documentNumber)
+        .fold<double>(0,(sum,row) => sum + row.finalTotal),0);
+
+  });
+
   test(
       'pending SQLite commit blocks another writer and changes neither stock nor ledger yet',
       () async {

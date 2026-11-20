@@ -22,7 +22,8 @@ class MainActivity : FlutterActivity() {
         invoicePrinter = InvoicePdfPrintBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         csvChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         csvChannel?.setMethodCallHandler { call, result ->
-            if (call.method != "saveCsv") {
+            val backup = call.method == "saveBackup"
+            if (!backup && call.method != "saveCsv") {
                 result.notImplemented()
                 return@setMethodCallHandler
             }
@@ -33,17 +34,19 @@ class MainActivity : FlutterActivity() {
             val arguments = call.arguments as? Map<*, *>
             val bytes = arguments?.get("bytes") as? ByteArray
             val name = arguments?.get("suggestedName") as? String
-            if (bytes == null || bytes.isEmpty() || bytes.size > CSV_LIMIT ||
-                name == null || !FILE_NAME.matches(name)
+            val limit = if (backup) 16 * 1024 * 1024 else CSV_LIMIT
+            val pattern = if (backup) BACKUP_NAME else FILE_NAME
+            if (bytes == null || bytes.isEmpty() || bytes.size > limit ||
+                name == null || !pattern.matches(name)
             ) {
-                result.error("EXPORT_INVALID", "Invalid CSV export.", null)
+                result.error("EXPORT_INVALID", "Invalid export.", null)
                 return@setMethodCallHandler
             }
 
             pending = CsvRequest(bytes, result)
             val chooser = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
-                type = "text/csv"
+                type = if (backup) "application/json" else "text/csv"
                 putExtra(Intent.EXTRA_TITLE, name)
                 putExtra(Intent.EXTRA_LOCAL_ONLY, true)
             }
@@ -95,7 +98,7 @@ class MainActivity : FlutterActivity() {
                 if (pending === request) {
                     pending = null
                     if (success) request.result.success(true)
-                    else request.result.error("EXPORT_FAILED", "Could not confirm CSV save.", null)
+                    else request.result.error("EXPORT_FAILED", "Could not confirm file save.", null)
                 }
             }
         }
@@ -117,6 +120,7 @@ class MainActivity : FlutterActivity() {
         private const val CHANNEL = "com.indexesstore.nasqo_qa/csv_export"
         private const val CREATE_CSV = 28714
         private const val CSV_LIMIT = 8 * 1024 * 1024
+        private val BACKUP_NAME = Regex("^nasqo-[0-9]{13,18}-[0-9a-f]{24}\\.json$")
         private val FILE_NAME = Regex("^[A-Za-z0-9][A-Za-z0-9_-]{0,95}\\.csv$")
     }
 }

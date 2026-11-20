@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/erp_models.dart';
 import '../state/erp_controller.dart';
 import 'cash_supplier_statement_view.dart';
+import 'account_tools.dart';
 
 /// Nominal local-ledger statement, never a mixed-currency or converted balance.
 class LocalAccountStatement {
@@ -48,10 +49,11 @@ class HomeAccountsView extends StatefulWidget {
       {super.key,
       required this.controller,
       this.category = AccountCategory.clients,
-      this.cashOnly = false});
+      this.cashOnly = false, this.onOpenModule});
   final ErpController controller;
   final AccountCategory? category;
   final bool cashOnly;
+  final ValueChanged<String>? onOpenModule;
 
   @override
   State<HomeAccountsView> createState() => _HomeAccountsViewState();
@@ -83,9 +85,7 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
               appBar: AppBar(
                   title: Text(widget.cashOnly
                       ? 'الصناديق المحلية'
-                      : widget.category == AccountCategory.clients
-                          ? 'العملاء'
-                          : 'الحسابات')),
+                      : widget.category?.label ?? 'الحسابات')),
               body: ListView(padding: const EdgeInsets.all(16), children: [
                 Text(widget.cashOnly
                     ? 'حسابات مميزة كنقدية في الدفتر المحلي، وليست سجلات صناديق مستقلة. للقراءة فقط.'
@@ -102,6 +102,10 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
                 for (final account in accounts)
                   Card(
                       child: ListTile(
+                    leading: widget.onOpenModule==null ? null : IconButton(icon:const Icon(Icons.edit_outlined),
+                      tooltip:'تعديل الحساب',onPressed:()=>Navigator.of(context).push(MaterialPageRoute<bool>(
+                        builder:(_)=>Scaffold(appBar:AppBar(title:const Text('تعديل الحساب')),
+                          body:AccountEditor(controller:widget.controller,account:account))))),
                     title: Text(account.name),
                     subtitle:
                         Text('رقم ${account.codeNumber} • ${currency.label}'),
@@ -111,14 +115,14 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
                             .closing,
                         currency)),
                     onTap: () {
-                      if (account.isCashAccount ||
-                          account.category == AccountCategory.purchases) {
+                      if (widget.onOpenModule != null && (account.isCashAccount ||
+                          account.category == AccountCategory.purchases)) {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => CashSupplierStatementView(
                               controller: widget.controller,
                               account: account,
-                              onOpenModule: (_) {},
+                              onOpenModule: widget.onOpenModule!,
                             ),
                           ),
                         );

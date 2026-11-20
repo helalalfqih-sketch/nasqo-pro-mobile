@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.indexesstore.nasqo_qa"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

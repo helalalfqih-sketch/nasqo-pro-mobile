@@ -37,11 +37,13 @@ class SalesReturnDraftsView extends StatefulWidget {
       required this.loadDraft,
       required this.loadSales,
       required this.saveDraft,
+      this.postDraft,
       this.loadFacts});
   final Future<List<SalesReturnDraft>> Function() loadDrafts;
   final Future<SalesReturnDraft?> Function(int id) loadDraft;
   final Future<List<SalesReturnSource>> Function() loadSales;
   final SalesReturnSave saveDraft;
+  final Future<int> Function(int, int)? postDraft;
   final Future<SaleFacts?> Function(String)? loadFacts;
   @override
   State<SalesReturnDraftsView> createState() => _SalesReturnDraftsViewState();
@@ -83,6 +85,29 @@ class _SalesReturnDraftsViewState extends State<SalesReturnDraftsView> {
       if (mounted) {
         setState(() => _error = 'تعذر فتح البيانات المحلية. حاول مجدداً.');
       }
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
+
+  Future<void> _post(SalesReturnDraft draft) async {
+    if (_opening) return;
+    final confirm = await showDialog<bool>(context: context, builder: (dialog) =>
+      AlertDialog(title: const Text('ترحيل مرتجع المبيعات؟'),
+        content: Text('ستعود الكميات إلى المستودع ويُسجل المبلغ على حساب ${draft.accountName}.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('ترحيل')),
+        ]));
+    if (!mounted || confirm != true) return;
+    setState(() { _opening = true; _error = null; });
+    try {
+      final number = await widget.postDraft!(draft.id, draft.revision);
+      if (!mounted) return;
+      _refresh();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم ترحيل المرتجع رقم $number')));
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
     } finally {
       if (mounted) setState(() => _opening = false);
     }
@@ -130,7 +155,11 @@ class _SalesReturnDraftsViewState extends State<SalesReturnDraftsView> {
               icon: const Icon(Icons.add),
               label: const Text('إنشاء مسودة مرتجع')),
           body: Column(children: [
-            const _DraftNotice(),
+            if (widget.postDraft == null)
+              const _DraftNotice()
+            else
+              const Padding(padding: EdgeInsets.all(12), child: Text(
+                'احفظ مسودة المرتجع وراجع الكميات والضريبة، ثم اختر ترحيل المرتجع لإعادة الكمية وتسجيل المبلغ في الحساب.')),
             if (_opening) const LinearProgressIndicator(),
             if (_error != null)
               Semantics(liveRegion: true, child: Text(_error!)),
@@ -171,6 +200,10 @@ class _SalesReturnDraftsViewState extends State<SalesReturnDraftsView> {
                                         onTap: _opening
                                             ? null
                                             : () => _open(d.id)),
+                                    if (widget.postDraft != null)
+                                      TextButton.icon(onPressed: _opening ? null : () => _post(d),
+                                        icon: const Icon(Icons.assignment_return),
+                                        label: const Text('ترحيل المرتجع')),
                                     TextButton.icon(
                                         key: Key('estimate-draft-${d.id}'),
                                         onPressed: _opening

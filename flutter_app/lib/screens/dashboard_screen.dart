@@ -14,7 +14,10 @@ class DashboardScreen extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onOpenModule,
+    this.scrollController,
   });
+
+  final ScrollController? scrollController;
 
   final ErpController controller;
   final ValueChanged<String> onOpenModule;
@@ -30,20 +33,28 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 9 Compact Quick Actions according to mobile reference specification
     final quickActions = [
       _Tile('سند جديد', Icons.receipt_outlined,
-          id: 'vouchers', action: () => onOpenModule('vouchers')),
+          id: 'vouchers', action: () => onOpenModule('post-voucher')),
       _Tile('حوالة جديدة', Icons.send_outlined,
           id: 'cash-transfer-drafts',
-          action: () => onOpenModule('cash-transfer-drafts')),
-      _Tile('كشف حساب', Icons.fact_check_outlined,
-          id: 'account-statement',
-          action: () => onOpenModule('account-statement')),
+          action: () => onOpenModule('post-transfer')),
+      _Tile('فاتورة جديدة', Icons.receipt_long_outlined,
+          id: 'invoice-new', action: () => _openInvoice(context)),
+      _Tile('مردود جديد', Icons.keyboard_return,
+          id: 'sales-return-drafts',
+          action: () => onOpenModule('sales-return-drafts')),
       _Tile('قيد بسيط', Icons.category_outlined,
           id: 'simple-journal-drafts',
-          highlight: true,
-          action: () => onOpenModule('simple-journal-drafts')),
+          action: () => onOpenModule('post-journal')),
+      _Tile('عرض سعر', Icons.description_outlined,
+          id: 'quote-new', action: () => onOpenModule('quote-new')),
+      _Tile('صرف عملات', Icons.currency_exchange,
+          id: 'fx-drafts', action: () => onOpenModule('post-exchange')),
+      _Tile('طلبية جديدة', Icons.playlist_add,
+          id: 'order-new', action: () => onOpenModule('order-new')),
+      _Tile('البحث السريع', Icons.search,
+          highlight: true, id: 'quick-search', action: () => onOpenModule('quick-search')),
       _Tile('الحركة اليومية', Icons.list_alt,
           id: 'daily-movement',
           highlight: true,
@@ -52,23 +63,15 @@ class DashboardScreen extends StatelessWidget {
           id: 'cashboxes',
           highlight: true,
           action: () => onOpenModule('cashboxes')),
-      _Tile('فاتورة جديدة', Icons.receipt_long_outlined,
-          id: 'invoice-new', action: () => _openInvoice(context)),
-      _Tile('صرف عملات', Icons.currency_exchange,
-          id: 'fx-drafts', action: () => onOpenModule('fx-drafts')),
-      _Tile('البحث السريع', Icons.search,
-          id: 'quick-search', action: () => onOpenModule('quick-search')),
+      _Tile('كشف حساب', Icons.fact_check_outlined,
+          highlight: true, id: 'account-statement',
+          action: () => onOpenModule('account-statement')),
+      _Tile('مسح رمز QR', Icons.qr_code_scanner,
+          id: 'qr-scanner', action: () => onOpenModule('qr-scanner')),
     ];
 
     // Additional administration and advanced tools (for mobile administration list)
     final administration = [
-      _Tile('عرض سعر', Icons.description_outlined,
-          id: 'quote-new', action: () => onOpenModule('quote-new')),
-      _Tile('طلبية جديدة', Icons.playlist_add,
-          id: 'order-new', action: () => onOpenModule('order-new')),
-      _Tile('مسودة مرتجع بيع', Icons.keyboard_return,
-          id: 'sales-return-drafts',
-          action: () => onOpenModule('sales-return-drafts')),
       _Tile('العملات', Icons.payments_outlined,
           id: 'currencies', action: () => onOpenModule('currencies')),
       _Tile('دليل الحسابات', Icons.account_tree_outlined,
@@ -173,10 +176,10 @@ class DashboardScreen extends StatelessWidget {
 
     // Mobile Reference Brand Plaque
     final brandPlaque = Card(
-      color: colors.surface,
+      color: Theme.of(context).brightness == Brightness.dark ? colors.surface : const Color(0xFFEEF2FF),
       elevation: 0.5,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(26),
         side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.5)),
       ),
       margin: EdgeInsets.zero,
@@ -191,12 +194,12 @@ class DashboardScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    controller.companyName.trim().isEmpty
+                    (controller.companyName.trim().isEmpty || controller.companyName == 'نسقو برو ERP')
                         ? 'نسقو برو'
                         : controller.companyName,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0B5CA8),
+                          color: colors.primary,
                         ),
                   ),
                   const Text(
@@ -207,9 +210,9 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
             IconButton(
-              tooltip: 'البحث السريع',
-              icon: const Icon(Icons.qr_code_2, color: Color(0xFF0B5CA8)),
-              onPressed: () => onOpenModule('quick-search'),
+              tooltip: 'مسح رمز QR',
+              icon: const Icon(Icons.qr_code_2, color: Color(0xFF4338CA)),
+              onPressed: () => onOpenModule('qr-scanner'),
             ),
           ],
         ),
@@ -221,6 +224,7 @@ class DashboardScreen extends StatelessWidget {
       final balance = GroupBalancesPanel(controller: controller);
 
       return ListView(
+        controller: scrollController,
         key: const PageStorageKey('nasqo-home-scroll'),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         children: [
@@ -262,7 +266,8 @@ class DashboardScreen extends StatelessWidget {
             brandPlaque,
             const SizedBox(height: 12),
 
-            // 9 Compact Quick Actions (3 columns x 3 rows)
+            balance,
+            const SizedBox(height: 14),
             _QuickActionsGrid(tiles: quickActions),
             const SizedBox(height: 14),
 
@@ -275,9 +280,7 @@ class DashboardScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
 
-            // Live Group Balances Audit Table
-            balance,
-            const SizedBox(height: 14),
+
 
             // Administration & Advanced Tools Grid
             const _SectionHeader(title: 'لوحة التحكم والعمليات المتقدمة'),
@@ -285,7 +288,6 @@ class DashboardScreen extends StatelessWidget {
             _AdministrationGrid(tiles: administration),
           ],
           const SizedBox(height: 16),
-          _DashboardFooter(onOpenModule: onOpenModule),
           const SizedBox(height: 8),
         ],
       );
@@ -306,7 +308,7 @@ class _SectionHeader extends StatelessWidget {
         style: const TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.bold,
-          color: Color(0xFF073B68),
+          color: Color(0xFF312E81),
         ),
       ),
     );
@@ -331,27 +333,27 @@ class _QuickActionsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
-      final itemWidth = (constraints.maxWidth - 12) / 3;
+      final itemWidth = (constraints.maxWidth - 9) / 2;
       return Wrap(
-        spacing: 6,
-        runSpacing: 6,
+        spacing: 9,
+        runSpacing: 9,
         children: [
           for (final tile in tiles)
             SizedBox(
               width: itemWidth,
-              height: 38,
+              height: 48,
               child: Tooltip(
                 message: tile.action == null
                     ? '${tile.title} · غير متاح'
                     : tile.title,
                 child: Material(
                   color: tile.highlight
-                      ? const Color(0xFFF39A16)
-                      : const Color(0xFF0B5CA8),
-                  borderRadius: BorderRadius.circular(10),
+                      ? const Color(0xFF0891B2)
+                      : const Color(0xFF4338CA),
+                  borderRadius: BorderRadius.circular(24),
                   child: InkWell(
                     key: tile.id == null ? null : ValueKey('home-${tile.id}'),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(24),
                     onTap: tile.action,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -455,42 +457,42 @@ class _MetricCardsGridState extends State<_MetricCardsGrid> {
         title: 'المبيعات',
         category: AccountCategory.sales,
         icon: Icons.shopping_cart_outlined,
-        route: 'sales-overview',
+        route: 'group-sales',
         group: groupMap[AccountCategory.sales],
       ),
       _MetricCardData(
         title: 'المشتريات',
         category: AccountCategory.purchases,
         icon: Icons.local_shipping_outlined,
-        route: 'accounts',
+        route: 'group-purchases',
         group: groupMap[AccountCategory.purchases],
       ),
       _MetricCardData(
         title: 'العملاء',
         category: AccountCategory.clients,
         icon: Icons.people_alt_outlined,
-        route: 'accounts',
+        route: 'group-clients',
         group: groupMap[AccountCategory.clients],
       ),
       _MetricCardData(
         title: 'الموظفين',
         category: AccountCategory.employees,
         icon: Icons.badge_outlined,
-        route: 'hr',
+        route: 'group-employees',
         group: groupMap[AccountCategory.employees],
       ),
       _MetricCardData(
         title: 'الحوالات',
         category: AccountCategory.transfers,
         icon: Icons.swap_horiz_outlined,
-        route: 'cash-transfer-drafts',
+        route: 'group-transfers',
         group: groupMap[AccountCategory.transfers],
       ),
       _MetricCardData(
         title: 'المحل',
         category: AccountCategory.shop,
         icon: Icons.storefront_outlined,
-        route: 'accounts',
+        route: 'group-shop',
         group: groupMap[AccountCategory.shop],
       ),
       _MetricCardData(
@@ -587,7 +589,7 @@ class _MetricCardItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E293B) : Colors.white,
-          border: Border.all(color: const Color(0xFF0B5CA8), width: 2),
+          border: Border.all(color: const Color(0xFF4338CA), width: 2),
           borderRadius: BorderRadius.circular(11),
           boxShadow: const [
             BoxShadow(
@@ -603,10 +605,10 @@ class _MetricCardItem extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: const Color(0xFF0B5CA8).withValues(alpha: 0.1),
+                color: const Color(0xFF4338CA).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(data.icon, color: const Color(0xFF0B5CA8), size: 19),
+              child: Icon(data.icon, color: const Color(0xFF4338CA), size: 19),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -621,7 +623,7 @@ class _MetricCardItem extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF073B68),
+                      color: Color(0xFF312E81),
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -667,7 +669,7 @@ class _AdministrationGrid extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(0, 36),
                   backgroundColor: tile.highlight
-                      ? const Color(0xFF0B5CA8).withValues(alpha: 0.85)
+                      ? const Color(0xFF4338CA).withValues(alpha: 0.85)
                       : Theme.of(context).colorScheme.surfaceContainerHighest,
                   foregroundColor: tile.highlight
                       ? Colors.white
@@ -726,11 +728,49 @@ class GroupBalancesPanel extends StatefulWidget {
 class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
   final _filters = <AccountCategory, String>{};
   static const _all = 'all';
+  final _groupCurrencies = <int, CurrencyCode>{};
 
   @override
   Widget build(BuildContext context) {
     final accounts = widget.controller.accounts;
     final ledger = widget.controller.ledger;
+    final restored = widget.controller.restoredGroups;
+    if (restored != null && restored.groups.isNotEmpty) {
+      final fallback = widget.controller.defaultCurrency;
+      final totals = restored.balances(accounts,ledger,_groupCurrencies,fallback);
+      final counts = <int,int>{};
+      for (final a in accounts) {
+        final id = restored.membership[a.id];
+        if (id != null) counts[id] = (counts[id] ?? 0) + 1;
+      }
+      final scheme = Theme.of(context).colorScheme;
+      return Table(
+        columnWidths: const {0:FlexColumnWidth(0.6),1:FlexColumnWidth(2.25),
+          2:FlexColumnWidth(1.5),3:FlexColumnWidth(1.05)},
+        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+        border:TableBorder.all(color:scheme.outlineVariant),
+        children:[
+          TableRow(decoration:BoxDecoration(color:scheme.surfaceContainerLow),children:[
+            for (final title in ['الرقم','الاسم','الرصيد','العملة'])
+              Padding(padding:const EdgeInsets.symmetric(vertical:10),child:Text(title,textAlign:TextAlign.center,
+                  style:const TextStyle(fontWeight:FontWeight.bold)))
+          ]),
+          for (final (index,g) in restored.groups.indexed)
+            TableRow(decoration:BoxDecoration(color:index.isEven ? scheme.surface : scheme.surfaceContainerHighest),
+              children:[
+                Center(child:Text('${g.number}')),
+                Padding(padding:const EdgeInsets.all(6),child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+                  children:[Text(g.name,style:const TextStyle(fontWeight:FontWeight.bold)),
+                    Text('${counts[g.id] ?? 0} حساب',style:Theme.of(context).textTheme.labelSmall)])),
+                Text(AccountingEngine.formatAmount(totals[g.id] ?? 0),textAlign:TextAlign.center,
+                  textDirection:TextDirection.ltr,style:TextStyle(fontWeight:FontWeight.bold,
+                    color:(totals[g.id] ?? 0)<0 ? scheme.error : scheme.primary)),
+                DropdownButton<CurrencyCode>(isExpanded:true,value:_groupCurrencies[g.id] ?? fallback,
+                  items:[for(final c in CurrencyCode.values) DropdownMenuItem(value:c,child:Text(c.label))],
+                  onChanged:(c){if(c!=null) setState(()=>_groupCurrencies[g.id]=c);})
+              ])
+        ]);
+    }
     final cats = _orderedCategories
         .where((c) => accounts.any((a) => a.category == c))
         .toList();
@@ -758,7 +798,7 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
           Text('مجموعات الحسابات والأرصدة',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF073B68),
+                    color: const Color(0xFF312E81),
                   )),
           const SizedBox(height: 3),
           const Text(
@@ -940,98 +980,3 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
   }
 }
 
-/// Small version and link footer matching reference prototype
-class _DashboardFooter extends StatelessWidget {
-  const _DashboardFooter({required this.onOpenModule});
-  final ValueChanged<String> onOpenModule;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const Divider(height: 24, thickness: 0.5),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const NasqoBrandMark(size: 20),
-            const SizedBox(width: 6),
-            Text(
-              'نسقو برو ERP · الإصدار 1.0.17+18',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 12,
-          runSpacing: 4,
-          alignment: WrapAlignment.center,
-          children: [
-            _FooterLink(
-              label: 'الموقع الرسمي',
-              icon: Icons.language,
-              onTap: () => onOpenModule('settings'),
-            ),
-            _FooterLink(
-              label: 'واتساب الدعم',
-              icon: Icons.chat_bubble_outline,
-              onTap: () => onOpenModule('settings'),
-            ),
-            _FooterLink(
-              label: 'قناة تيليجرام',
-              icon: Icons.send_outlined,
-              onTap: () => onOpenModule('settings'),
-            ),
-            _FooterLink(
-              label: 'شروحات الفيديو',
-              icon: Icons.play_circle_outline,
-              onTap: () => onOpenModule('settings'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _FooterLink extends StatelessWidget {
-  const _FooterLink({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: const Color(0xFF0B5CA8)),
-            const SizedBox(width: 3),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFF0B5CA8),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

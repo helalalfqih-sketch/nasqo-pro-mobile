@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+import '../services/account_csv.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import '../models/erp_models.dart';
+import '../models/erp_workspace_snapshot.dart';
 import '../models/invoice_print_snapshot.dart';
 import '../models/nonposting_document.dart';
 import '../models/sales_return_draft.dart';
@@ -15,6 +18,7 @@ import '../models/sale_tax_register.dart';
 import '../services/accounting_engine.dart';
 import '../services/local_database.dart';
 import '../services/local_backup_service.dart';
+import '../services/web_backup.dart';
 import '../services/local_backup_files.dart';
 import '../services/voucher_draft_repository.dart';
 import '../services/cash_transfer_draft_repository.dart';
@@ -39,10 +43,11 @@ class ErpController extends ChangeNotifier {
   Future<void> _writeTail = Future<void>.value();
   bool _salesPosting = false;
   bool _resetting = false;
+  bool _editingWorkspace = false;
   bool _disposed = false;
 
   void _requireAvailableMutation() {
-    if (_salesPosting || _resetting) {
+    if (_salesPosting || _resetting || _editingWorkspace) {
       throw const SaleValidationException(
           'توجد عملية حفظ جارية؛ انتظر اكتمالها.');
     }
@@ -54,7 +59,21 @@ class ErpController extends ChangeNotifier {
     super.dispose();
   }
 
+  RestoredGroups? restoredGroups;
   String companyName = 'نسقو برو ERP';
+  String messageProvider = 'nasqo';
+  String messagePhone = '';
+  bool instantMessages = false;
+
+  Map<String,dynamic> get _workspaceModuleData => {
+    ..._modules.toJson(),
+    'messagePreferences':{'provider':messageProvider,'phone':messagePhone,'instant':instantMessages}
+  };
+  void _loadMessagePreferences(dynamic prefs) {
+    messageProvider = prefs is Map && prefs['provider']=='external' ? 'external' : 'nasqo';
+    messagePhone = prefs is Map && prefs['phone'] is String ? prefs['phone'] : '';
+    instantMessages = prefs is Map && prefs['instant']==true;
+  }
   CurrencyCode defaultCurrency = CurrencyCode.sar;
   bool isDarkMode = false;
   bool dbReady = false;
@@ -101,6 +120,26 @@ class ErpController extends ChangeNotifier {
   final List<ErpBomRecipe> boms = [];
   final List<ErpProductionOrder> productionOrders = [];
   final List<ErpCostCenter> costCenters = [];
+
+  ErpWorkspaceSnapshot get _modules => ErpWorkspaceSnapshot(
+    employees: employees,
+    leaveRequests: leaveRequests,
+    deals: deals,
+    purchaseOrders: purchaseOrders,
+    boms: boms,
+    productionOrders: productionOrders,
+    costCenters: costCenters,
+  );
+
+  void _loadModules(ErpWorkspaceSnapshot modules) {
+    employees..clear()..addAll(modules.employees);
+    leaveRequests..clear()..addAll(modules.leaveRequests);
+    deals..clear()..addAll(modules.deals);
+    purchaseOrders..clear()..addAll(modules.purchaseOrders);
+    boms..clear()..addAll(modules.boms);
+    productionOrders..clear()..addAll(modules.productionOrders);
+    costCenters..clear()..addAll(modules.costCenters);
+  }
 
   int _nextEntryNumber = 1200;
 
@@ -430,6 +469,21 @@ class ErpController extends ChangeNotifier {
   ) =>
       _localDatabase.saveNonpostingDocument(document);
 
+  Future<int> postSalesReturn(int id, int revision) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      await initDatabase();
+      if (!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+      await _writeTail;
+      final number = await _localDatabase.postReturnDraft(id, revision);
+      await _loadOrCreateDatabase();
+      return number;
+    } finally {
+      _editingWorkspace = false;
+    }
+  }
+
   Future<List<SalesReturnDraft>> loadSalesReturnDrafts() =>
       _localDatabase.listSalesReturnDrafts();
 
@@ -545,6 +599,15 @@ class ErpController extends ChangeNotifier {
   Future<List<LocalBackupFile>> loadLocalBackups() async =>
       (await _openLocalBackupFiles()).loadBackups();
 
+  Future<LocalBackupFile> importLocalBackup(String envelope) async =>
+      (await _openLocalBackupFiles()).importBackup(envelope);
+
+  Future<bool> exportLocalBackup(String id) async {
+    final bytes = await (await _openLocalBackupFiles()).exportBytes(id);
+    const channel = MethodChannel('com.indexesstore.nasqo_qa/csv_export');
+    return await channel.invokeMethod<bool>('saveBackup', {'suggestedName': id, 'bytes': Uint8List.fromList(bytes)}) ?? false;
+  }
+
   Future<LocalBackupFile> createLocalBackup() async =>
       (await _openLocalBackupFiles()).createBackup();
 
@@ -572,6 +635,10 @@ class ErpController extends ChangeNotifier {
       final hasData = await _localDatabase.hasSeededData();
       if (hasData) {
         final snap = await _localDatabase.loadSnapshot();
+        final original = await _localDatabase.readOriginalWebExport();
+        restoredGroups = original == null ? null : RestoredGroups.fromJson(original);
+        _loadMessagePreferences(snap.erpData?['messagePreferences']);
+        if (snap.erpData != null) _loadModules(ErpWorkspaceSnapshot.fromJson(snap.erpData!));
         accounts
           ..clear()
           ..addAll(snap.accounts);
@@ -616,6 +683,10 @@ class ErpController extends ChangeNotifier {
   }
 
   Future<void> _saveCurrentSnapshot({
+    List<AccountRecord>? nextAccounts,
+    Map<String,dynamic>? nextModuleData,
+    String? nextCompany,
+    List<WarehouseRecord>? nextWarehouses,
     List<LedgerEntryRecord>? nextLedger,
     List<InventoryItemRecord>? nextInventory,
     List<SavedSaleLine>? nextSaleLines,
@@ -623,15 +694,16 @@ class ErpController extends ChangeNotifier {
     SaleFacts? appendedSaleFacts,
   }) =>
       _localDatabase.saveSnapshot(
-        accounts: List.of(accounts),
+        accounts: List.of(nextAccounts ?? accounts),
         ledger: List.of(nextLedger ?? ledger),
-        warehouses: List.of(warehouses),
+        warehouses: List.of(nextWarehouses ?? warehouses),
         inventory: List.of(nextInventory ?? inventory),
         saleLines: List.of(nextSaleLines ?? saleLines),
-        companyName: companyName,
+        companyName: nextCompany ?? companyName,
         isDarkMode: isDarkMode,
         nextEntryNumber: nextEntryNumber ?? _nextEntryNumber,
         appendedSaleFacts: appendedSaleFacts,
+        erpData: nextModuleData ?? _workspaceModuleData,
       );
 
   Future<void> _persistToDb() {
@@ -645,6 +717,7 @@ class ErpController extends ChangeNotifier {
     final snapshotCompany = companyName;
     final snapshotTheme = isDarkMode;
     final snapshotNumber = _nextEntryNumber;
+    final snapshotModules = _workspaceModuleData;
     _writeTail = _writeTail.then((_) async {
       try {
         if (!dbReady && !_resetting) return;
@@ -657,6 +730,7 @@ class ErpController extends ChangeNotifier {
           companyName: snapshotCompany,
           isDarkMode: snapshotTheme,
           nextEntryNumber: snapshotNumber,
+          erpData: snapshotModules,
         );
       } catch (_) {
         // Legacy screen behavior: it does not expose the write result.
@@ -664,6 +738,54 @@ class ErpController extends ChangeNotifier {
       }
     });
     return _writeTail;
+  }
+
+  Future<void> restoreLocalBackup(String id) async {
+    _requireAvailableMutation();
+    _resetting = true;
+    try {
+      final files = await _openLocalBackupFiles();
+      await _writeTail;
+      await files.createBackup();
+      await files.restoreLocal(id);
+      _nextEntryNumber = 0;
+      _loadModules(const ErpWorkspaceSnapshot());
+      await _loadOrCreateDatabase();
+      if (!dbReady) throw StateError('تعذر فتح النسخة المستعادة.');
+    } finally { _resetting = false; }
+  }
+
+  Future<void> restoreWebBackup(WebBackup backup) async {
+    _requireAvailableMutation();
+    _resetting = true;
+    try {
+      final files = await _openLocalBackupFiles();
+      await _writeTail;
+      await files.createBackup();
+      final workspace = jsonDecode(backup.original)['workspace'];
+      final preferences = {'provider':workspace['whatsappProvider'],'phone':workspace['whatsappPhone'],
+        'instant':workspace['whatsappInstantEnabled']};
+      await _localDatabase.saveSnapshot(
+        accounts: backup.accounts, ledger: backup.ledger, warehouses: backup.warehouses,
+        inventory: backup.inventory, saleLines: backup.lines, companyName: backup.company,
+        isDarkMode: isDarkMode, nextEntryNumber: backup.lastNumber,
+        restoredWebExport: backup.original,
+        erpData: {...backup.modules.toJson(),'messagePreferences':preferences},
+      );
+      accounts..clear()..addAll(backup.accounts);
+      ledger..clear()..addAll(backup.ledger);
+      warehouses..clear()..addAll(backup.warehouses);
+      inventory..clear()..addAll(backup.inventory);
+      saleLines..clear()..addAll(backup.lines);
+      restoredGroups = backup.groupData;
+      _loadMessagePreferences(preferences);
+      _loadModules(backup.modules);
+      companyName = backup.company;
+      _nextEntryNumber = backup.lastNumber;
+      if (!_disposed) notifyListeners();
+    } finally {
+      _resetting = false;
+    }
   }
 
   Future<void> resetLocalDatabase() async {
@@ -691,12 +813,320 @@ class ErpController extends ChangeNotifier {
       boms.clear();
       productionOrders.clear();
       costCenters.clear();
+      restoredGroups = null;
+      _loadMessagePreferences(null);
       _nextEntryNumber = 1200;
       _seedInitialData();
       await _persistToDb();
       if (!_disposed) notifyListeners();
     } finally {
       _resetting = false;
+    }
+  }
+
+  Future<void> saveMessagePreferences(String provider,String phone,bool instant) async {
+    _requireAvailableMutation();
+    _editingWorkspace=true;
+    try {
+      if(provider!='nasqo' && provider!='external') throw ArgumentError.value(provider);
+      final prefs={'provider':provider,'phone':phone.trim(),'instant':instant};
+      if(_usesPersistentStore) {
+        await initDatabase();
+        if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+        await _saveCurrentSnapshot(nextModuleData:{..._workspaceModuleData,'messagePreferences':prefs});
+      }
+      _loadMessagePreferences(prefs);
+      if(!_disposed) notifyListeners();
+    } finally { _editingWorkspace=false; }
+  }
+
+  Future<void> importAccountRows(List<ImportedAccount> rows) =>
+    saveAccountRows(rows,category:AccountCategory.purchases,currency:defaultCurrency,
+      direction:EntryDirection.credit);
+
+  Future<void> saveAccountRows(List<ImportedAccount> rows,{required AccountCategory category,
+      required CurrencyCode currency,required EntryDirection direction,String note='',double creditLimit=0,
+      bool cash=false,String? editId}) async {
+    _requireAvailableMutation();
+    _editingWorkspace=true;
+    try {
+      if(_usesPersistentStore) {
+        await initDatabase();
+        if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      if(rows.isEmpty || (editId!=null && rows.length!=1)) throw ArgumentError('بيانات الحساب غير صالحة.');
+      final next=List<AccountRecord>.of(accounts);
+      final index=editId==null ? -1 : next.indexWhere((a)=>a.id==editId);
+      if(editId!=null && index<0) throw StateError('الحساب غير موجود.');
+      var number=next.fold<int>(0,(n,a)=>n>a.codeNumber?n:a.codeNumber);
+      final prefix=DateTime.now().microsecondsSinceEpoch;
+      for(final row in rows) {
+        if(row.name.trim().isEmpty || row.opening<0 || !row.opening.isFinite || creditLimit<0 || !creditLimit.isFinite) {
+          throw const FormatException('بيانات الحساب أو الرصيد غير صالحة.');
+        }
+        final code=index<0 ? ++number : next[index].codeNumber;
+        final account=AccountRecord(id:editId ?? 'acc_${prefix}_$code',name:row.name.trim(),
+          phone:row.phone.trim(),openingBalance:row.opening,category:category,currency:currency,
+          openingDirection:direction,note:note.trim(),creditLimit:creditLimit,isCashAccount:cash,codeNumber:code);
+        if(index<0) {next.add(account);} else {next[index]=account;}
+      }
+      if(_usesPersistentStore) await _saveCurrentSnapshot(nextAccounts:next);
+      accounts..clear()..addAll(next);
+      if(!_disposed) notifyListeners();
+    } finally { _editingWorkspace=false; }
+  }
+
+  Future<void> renameCompany(String name) async {
+    if (name.trim().isEmpty || name.trim().length > 100) {
+      throw const SaleValidationException('أدخل اسم منشأة من 1 إلى 100 حرف.');
+    }
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw const SaleValidationException('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+        await _saveCurrentSnapshot(nextCompany: name.trim());
+      }
+      companyName = name.trim();
+      if (!_disposed) notifyListeners();
+    } finally { _editingWorkspace = false; }
+  }
+
+  Future<void> saveWarehouse({String? id, required String name, required String details,
+      required bool isDefault}) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw const SaleValidationException('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      if (name.trim().isEmpty || name.trim().length > 100 ||
+          warehouses.any((w) => w.id != id && w.name.trim() == name.trim())) {
+        throw const SaleValidationException('أدخل اسم مخزن صالحًا وغير مكرر.');
+      }
+      final next = List.of(warehouses);
+      final index = next.indexWhere((w) => w.id == id);
+      if (id != null && index < 0) throw const SaleValidationException('المخزن غير موجود.');
+      final warehouse = WarehouseRecord(id: id ?? 'wh_${DateTime.now().microsecondsSinceEpoch}',
+        name: name.trim(), details: details.trim(), isDefault: isDefault || next.isEmpty ||
+          (index >= 0 && next[index].isDefault));
+      if (warehouse.isDefault) {
+        for (var i = 0; i < next.length; i++) {
+          final w = next[i];
+          if (w.isDefault) next[i] = WarehouseRecord(id: w.id, name: w.name, details: w.details);
+        }
+      }
+      if (index < 0) { next.add(warehouse); } else { next[index] = warehouse; }
+      if (_usesPersistentStore) await _saveCurrentSnapshot(nextWarehouses: next);
+      warehouses..clear()..addAll(next);
+      if (!_disposed) notifyListeners();
+    } finally { _editingWorkspace = false; }
+  }
+
+  Future<int> postLocalEntry({
+    required String accountId,
+    required LedgerKind kind,
+    String? counterpartId,
+    String documentNumber = '',
+    required EntryDirection direction,
+    required PaymentMethod payment,
+    required double amount,
+    required CurrencyCode currency,
+    CurrencyCode? fromCurrency,
+    double exchangeRate = 1,
+    String note = '',
+  }) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw const SaleValidationException('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final account = accounts.where((a) => a.id == accountId).firstOrNull;
+      final exchange = kind == LedgerKind.currency;
+      final paired = kind == LedgerKind.simpleEntry || kind == LedgerKind.transfer;
+      final other = accounts.where((a) => a.id == counterpartId).firstOrNull;
+      if (account == null || (!exchange && !paired && kind != LedgerKind.voucher) ||
+          (paired && (other == null || other.id == accountId)) ||
+          (kind == LedgerKind.simpleEntry && payment != PaymentMethod.balance) ||
+          (kind == LedgerKind.transfer && payment != PaymentMethod.cash) ||
+          !amount.isFinite || amount <= 0 ||
+          !exchangeRate.isFinite || exchangeRate <= 0 ||
+          (exchange && (fromCurrency == null || currency == fromCurrency)) ||
+          (!exchange && exchangeRate != 1) || payment == PaymentMethod.credit) {
+        throw const SaleValidationException('تحقق من الحساب والمبلغ والعملة.');
+      }
+      final total = amount * exchangeRate;
+      if (!total.isFinite || total <= 0) throw const SaleValidationException('المبلغ خارج النطاق.');
+      final nextNumber = _nextEntryNumber + 1;
+      final label = switch (kind) {
+        LedgerKind.currency => direction == EntryDirection.credit ? 'صرف شراء' : 'صرف بيع',
+        LedgerKind.transfer => direction == EntryDirection.debit ? 'حوالة صادرة' : 'حوالة واردة',
+        LedgerKind.simpleEntry => 'قيد بسيط',
+        _ => direction == EntryDirection.credit ? 'له (سند)' : 'عليه (سند)',
+      };
+      final reference = documentNumber.trim().isEmpty && paired ? 'TX-$nextNumber' : documentNumber.trim();
+      final entry = LedgerEntryRecord(
+        id: 'local_${DateTime.now().microsecondsSinceEpoch}_$nextNumber',
+        accountId: account.id, accountName: account.name,
+        kind: kind, typeLabel: label, payment: payment, direction: direction,
+        amount: total, currency: currency, exchangeRate: exchangeRate,
+        details: [if (exchange) 'صرف $amount ${fromCurrency!.label} بسعر $exchangeRate إلى ${currency.label}',
+          if (note.trim().isNotEmpty) note.trim(), if (!exchange && note.trim().isEmpty) label].join(' · '),
+        entryNumber: nextNumber, entryDate: DateTime.now().toIso8601String().substring(0, 10),
+        warehouseId: '', warehouseName: '', documentNumber: reference,
+      );
+      final postings = [entry];
+      if (paired && other != null) {
+        postings.add(LedgerEntryRecord(id: '${entry.id}_counter', accountId: other.id, accountName: other.name,
+          kind: kind, typeLabel: label, payment: payment,
+          direction: direction == EntryDirection.credit ? EntryDirection.debit : EntryDirection.credit,
+          amount: total, currency: currency, details: entry.details, documentNumber: reference,
+          entryNumber: nextNumber, entryDate: entry.entryDate, warehouseId: '', warehouseName: ''));
+      }
+      final nextLedger = [...postings, ...ledger];
+      if (_usesPersistentStore) await _saveCurrentSnapshot(nextLedger: nextLedger, nextEntryNumber: nextNumber);
+      ledger.insertAll(0, postings);
+      _nextEntryNumber = nextNumber;
+      if (!_disposed) notifyListeners();
+      return nextNumber;
+    } finally {
+      _editingWorkspace = false;
+    }
+  }
+
+  Future<void> updateCatalogItem(String id,{required String name,required String sku,
+      required String unit,required double threshold}) async {
+    _requireAvailableMutation();
+    _editingWorkspace=true;
+    try {
+      if(_usesPersistentStore) {
+        await initDatabase();
+        if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final i=inventory.indexWhere((v)=>v.id==id);
+      if(i<0 || name.trim().isEmpty || unit.trim().isEmpty || !threshold.isFinite || threshold<0) {
+        throw const FormatException('تحقق من اسم الصنف والوحدة وحد التنبيه.');
+      }
+      final old=inventory[i], code=sku.trim();
+      if(code.isNotEmpty && inventory.any((v)=>v.id!=id && v.warehouseId==old.warehouseId &&
+        v.sku.toLowerCase()==code.toLowerCase())) throw StateError('الرمز مستخدم في هذا المستودع.');
+      final next=List.of(inventory);
+      next[i]=InventoryItemRecord(id:id,name:name.trim(),sku:code,unit:unit.trim(),warehouseId:old.warehouseId,
+        quantity:old.quantity,avgCost:old.avgCost,minThreshold:threshold);
+      if(_usesPersistentStore) await _saveCurrentSnapshot(nextInventory:next);
+      inventory..clear()..addAll(next);
+      if(!_disposed) notifyListeners();
+    } finally { _editingWorkspace=false; }
+  }
+
+  Future<int> postPurchaseInvoice({required String accountId,required String warehouseId,
+      required PaymentMethod payment,required List<InvoiceItemRow> rows, String reference=''}) async {
+    _requireAvailableMutation();
+    _editingWorkspace=true;
+    try {
+      if(_usesPersistentStore) {
+        await initDatabase();
+        if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final supplier=accounts.where((a)=>a.id==accountId && a.category==AccountCategory.purchases).firstOrNull;
+      final warehouse=warehouses.where((w)=>w.id==warehouseId).firstOrNull;
+      if(supplier==null || warehouse==null || rows.isEmpty) throw StateError('اختر المورد والمستودع وأضف بنود الفاتورة.');
+      if(supplier.currency!=defaultCurrency) throw StateError('هذه الفاتورة تتطلب موردًا بعملة المخزون الافتراضية.');
+      final number=_nextEntryNumber+1, id='purchase_${DateTime.now().microsecondsSinceEpoch}_$number';
+      final stock=List.of(inventory), lines=List.of(saleLines);
+      var total=0.0;
+      for(final (pos,row) in rows.indexed) {
+        final i=stock.indexWhere((v)=>v.id==row.itemId && v.warehouseId==warehouseId);
+        if(i<0 || !row.quantity.isFinite || row.quantity<=0 || !row.unitPrice.isFinite || row.unitPrice<0) {
+          throw const FormatException('تحقق من الأصناف والكميات والأسعار.');
+        }
+        final item=stock[i], quantity=item.quantity+row.quantity;
+        final cost=item.quantity>0 ? (item.quantity*item.avgCost+row.lineTotal)/quantity : row.unitPrice;
+        total+=row.lineTotal;
+        if(!quantity.isFinite || !cost.isFinite || !total.isFinite || quantity==item.quantity) {
+          throw const FormatException('قيمة البند خارج النطاق.');
+        }
+        stock[i]=item.copyWith(quantity:quantity,avgCost:cost);
+        lines.add(SavedSaleLine(entryId:id,position:pos,itemId:item.id,itemName:item.name,
+            unit:item.unit,quantity:row.quantity,unitPrice:row.unitPrice));
+      }
+      final entry=LedgerEntryRecord(id:id,accountId:accountId,accountName:supplier.name,kind:LedgerKind.invoice,
+        typeLabel:payment==PaymentMethod.cash?'ف.مشتريات نقدية':'ف.مشتريات آجل',payment:payment,
+        direction:EntryDirection.credit,amount:total,currency:defaultCurrency,
+        documentNumber:reference.trim().isEmpty?'PUR-$number':reference.trim(),warehouseId:warehouseId,
+        warehouseName:warehouse.name,entryNumber:number,entryDate:DateTime.now().toIso8601String().substring(0,10));
+      final posted=[entry,...ledger];
+      if(_usesPersistentStore) await _saveCurrentSnapshot(nextInventory:stock,nextLedger:posted,
+        nextSaleLines:lines,nextEntryNumber:number);
+      inventory..clear()..addAll(stock);
+      ledger..clear()..addAll(posted);
+      saleLines..clear()..addAll(lines);
+      _nextEntryNumber=number;
+      if(!_disposed) notifyListeners();
+      return number;
+    } finally { _editingWorkspace=false; }
+  }
+
+  Future<void> receiveStock({
+    String? existingId,
+    required double quantity,
+    String name = '',
+    String sku = '',
+    String unit = '',
+    String warehouseId = '',
+    double avgCost = 0,
+    double threshold = 25,
+  }) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw const SaleValidationException('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final next = List<InventoryItemRecord>.of(inventory);
+      if (!quantity.isFinite || quantity < 0) {
+        throw const SaleValidationException('أدخل كمية صالحة.');
+      }
+      if (existingId != null) {
+        final index = next.indexWhere((item) => item.id == existingId);
+        if (index < 0 || quantity <= 0) throw const SaleValidationException('تحقق من الصنف والكمية.');
+        final total = next[index].quantity + quantity;
+        if (!total.isFinite || total == next[index].quantity) {
+          throw const SaleValidationException('الكمية خارج النطاق.');
+        }
+        next[index] = next[index].copyWith(quantity: total);
+      } else {
+        if (name.trim().isEmpty || unit.trim().isEmpty ||
+            !warehouses.any((w) => w.id == warehouseId) ||
+            !avgCost.isFinite || avgCost < 0 || !threshold.isFinite || threshold < 0) {
+          throw const SaleValidationException('تحقق من الاسم والوحدة والمستودع والتكلفة.');
+        }
+        if (sku.trim().isNotEmpty && next.any((i) => i.warehouseId == warehouseId &&
+            i.sku.toLowerCase() == sku.trim().toLowerCase())) {
+          throw const SaleValidationException('رمز الصنف مسجل في هذا المستودع.');
+        }
+        next.add(InventoryItemRecord(id: 'item_${DateTime.now().microsecondsSinceEpoch}',
+          name: name.trim(), sku: sku.trim(), unit: unit.trim(), warehouseId: warehouseId,
+          quantity: quantity, avgCost: avgCost, minThreshold: threshold));
+      }
+      if (_usesPersistentStore) await _saveCurrentSnapshot(nextInventory: next);
+      inventory..clear()..addAll(next);
+      if (!_disposed) notifyListeners();
+    } finally {
+      _editingWorkspace = false;
     }
   }
 
@@ -945,6 +1375,7 @@ class ErpController extends ChangeNotifier {
     required AccountRecord client,
     required double value,
   }) {
+    _requireAvailableMutation();
     deals.insert(
       0,
       ErpDealRecord(
@@ -959,10 +1390,12 @@ class ErpController extends ChangeNotifier {
             employees.isNotEmpty ? employees.first.name : 'فريق المبيعات',
       ),
     );
+    unawaited(_persistToDb());
     notifyListeners();
   }
 
   void advanceDeal(String dealId) {
+    _requireAvailableMutation();
     final idx = deals.indexWhere((d) => d.id == dealId);
     if (idx < 0) return;
     final d = deals[idx];
@@ -974,6 +1407,7 @@ class ErpController extends ChangeNotifier {
     };
     if (next == null) return;
     deals[idx] = d.copyWith(stage: next, probability: next.defaultProbability);
+    unawaited(_persistToDb());
     notifyListeners();
   }
 
@@ -1021,6 +1455,7 @@ class ErpController extends ChangeNotifier {
     required double allowances,
     required double deductions,
   }) {
+    _requireAvailableMutation();
     employees.insert(
       0,
       ErpEmployeeProfile(
@@ -1034,6 +1469,7 @@ class ErpController extends ChangeNotifier {
         hireDate: DateTime.now().toIso8601String().substring(0, 10),
       ),
     );
+    unawaited(_persistToDb());
     notifyListeners();
   }
 
@@ -1068,8 +1504,9 @@ class ErpController extends ChangeNotifier {
   }
 
   void decideLeave(String leaveId, LeaveStatus status) {
+    _requireAvailableMutation();
     final idx = leaveRequests.indexWhere((l) => l.id == leaveId);
-    if (idx < 0) return;
+    if (idx < 0 || leaveRequests[idx].status != LeaveStatus.pending) return;
     final lv = leaveRequests[idx];
     leaveRequests[idx] = lv.copyWith(status: status);
     if (status == LeaveStatus.approved) {
@@ -1082,6 +1519,7 @@ class ErpController extends ChangeNotifier {
         );
       }
     }
+    unawaited(_persistToDb());
     notifyListeners();
   }
 
@@ -1092,6 +1530,7 @@ class ErpController extends ChangeNotifier {
     required double quantity,
     required double unitCost,
   }) {
+    _requireAvailableMutation();
     final numCode = 101 + purchaseOrders.length;
     purchaseOrders.insert(
       0,
@@ -1116,6 +1555,7 @@ class ErpController extends ChangeNotifier {
         ],
       ),
     );
+    unawaited(_persistToDb());
     notifyListeners();
   }
 
@@ -1175,7 +1615,7 @@ class ErpController extends ChangeNotifier {
   }
 
   String? completeProductionOrder(String orderId) {
-    if (_salesPosting || _resetting) {
+    if (_salesPosting || _resetting || _editingWorkspace) {
       return 'توجد عملية حفظ جارية؛ حاول مجددًا.';
     }
     final idx = productionOrders.indexWhere((o) => o.id == orderId);
@@ -1214,6 +1654,7 @@ class ErpController extends ChangeNotifier {
       status: ProductionOrderStatus.completed,
       completedDate: DateTime.now().toIso8601String().substring(0, 10),
     );
+    unawaited(_persistToDb());
     notifyListeners();
     return null;
   }
