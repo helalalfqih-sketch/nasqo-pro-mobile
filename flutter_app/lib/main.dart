@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/stock_scanner_view.dart';
 import 'screens/home_navigation.dart';
+import 'screens/local_report_detail.dart';
 import 'screens/local_entry_view.dart';
 import 'screens/customer_list_sheet.dart';
 import 'screens/invoice_form_sheet.dart';
@@ -318,6 +319,9 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         controller: widget.controller, kind: switch (moduleId) { 'post-exchange' => LedgerKind.currency, 'post-journal' => LedgerKind.simpleEntry, 'post-transfer' => LedgerKind.transfer, _ => LedgerKind.voucher },
         openDrafts: () => _openModulePage(switch (moduleId) { 'post-exchange' => 'fx-drafts', 'post-journal' => 'simple-journal-drafts', 'post-transfer' => 'cash-transfer-drafts', _ => 'vouchers' }))),
       'notifications' => ('التنبيهات', LocalAlertsView(controller: widget.controller, open: _openModulePage)),
+      'report-category' || 'report-stock' || 'report-expiry' || 'report-services' => (
+          LocalReport.values.byName(moduleId.substring(7)).title,
+          LocalReportDetail(controller:widget.controller,report:LocalReport.values.byName(moduleId.substring(7)))),
       'reports' => ('التقارير', HomeReportsView(onOpenModule: _openModulePage)),
       'qr-scanner' || 'item-new' => ('الأصناف', StockScannerView(
         controller: widget.controller, createOnOpen: moduleId == 'item-new')),
