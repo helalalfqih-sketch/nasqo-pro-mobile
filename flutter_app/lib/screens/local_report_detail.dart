@@ -7,6 +7,7 @@ import '../services/invoice_movement_report.dart';
 enum LocalReport {
   profit('أرباح الفواتير'),
   movement('حركة الأصناف والأرباح'),
+  trial('ميزان المراجعة'),
   closing('تقرير الحسابات الختامية'),
   category('تقرير إجمالي حسب التصنيف'),
   stock('المخزون المتبقي'),
@@ -29,6 +30,7 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
   String warehouse = '';
   int limit = 100;
   DateTimeRange? period;
+  String trialPeriod='الكل';
   String? itemId;
   CostBasis basis = CostBasis.average;
   String day(DateTime? d) => d?.toIso8601String().split('T').first ?? '';
@@ -136,6 +138,8 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
     var cash = 0.0, sales = 0.0, purchases = 0.0;
     for(final e in c.ledger) {
       if(e.deleted || e.currency!=currency || e.kind==LedgerKind.quote || e.kind==LedgerKind.order) continue;
+      if(widget.report==LocalReport.trial && period!=null &&
+        (e.entryDate.compareTo(day(period!.start))<0 || e.entryDate.compareTo(day(period!.end))>0)) continue;
       final debit = e.direction==EntryDirection.debit;
       final side = c.restoredGroups?.sides[e.id];
       final settled = c.restoredGroups?.settledEntries.contains(e.id) ?? false;
@@ -160,6 +164,30 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
     final credit = balances.values.where((v)=>v < -0.005).fold<double>(0,(s,v)=>s-v);
     final inventory = c.inventory.where((i)=>i.avgCost>0).fold<double>(0,(s,i)=>s+i.quantity*i.avgCost);
     return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+      if(widget.report==LocalReport.trial)...[
+        Wrap(spacing:4,children:[for(final p in ['يومي','شهري','سنوي','الكل','مخصص'])
+          ChoiceChip(label:Text(p),selected:trialPeriod==p,onSelected:(_) async {
+            if(p=='مخصص') {
+              final range=await showDateRangePicker(context:context,firstDate:DateTime(1900),lastDate:DateTime(2200),
+                  initialDateRange:period);
+              if(range!=null && mounted) setState((){period=range;trialPeriod=p;});
+              return;
+            }
+            final now=DateTime.now(),y=now.year,m=now.month;
+            setState((){
+              trialPeriod=p;
+              period=switch(p) {
+                'يومي'=>DateTimeRange(start:now,end:now),
+                'شهري'=>DateTimeRange(start:DateTime(y,m,1),end:DateTime(y,m+1,0)),
+                'سنوي'=>DateTimeRange(start:DateTime(y,1,1),end:DateTime(y,12,31)),
+                _=>null
+              };
+            });
+          })]),
+        if(period!=null) Text('${day(period!.start)} — ${day(period!.end)}'),
+        ListTile(title:const Text('نتيجة الميزان'),trailing:Text((debit-credit).abs()<0.005?'متزن':debit>credit?'فائض':'عجز')),
+        ListTile(title:const Text('نسبة السيولة'),trailing:Text('${credit>0?((cash<0?0:cash)/credit*100).toStringAsFixed(1):"0"}%'))
+      ],
       for(final (title,values) in [
         ('الأرصدة',[('إجمالي المدين (عليهم)',debit),('إجمالي الدائن (لهم)',credit),
           ('إجمالي النقدية',cash<0 ? 0.0 : cash),('صافي الرصيد',debit-credit)]),
@@ -233,7 +261,7 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
         items:[for(final v in CurrencyCode.values) DropdownMenuItem(value:v,child:Text(v.label))],
         onChanged:(v)=>setState((){if(v!=null) currency=v;limit=100;})),
       const SizedBox(height:12),
-      if(invoices) invoiceReport() else if(stock) stockReport() else if(widget.report==LocalReport.closing) closingReport() else if(widget.report==LocalReport.category) categoryReport() else servicesReport()
+      if(invoices) invoiceReport() else if(stock) stockReport() else if((widget.report==LocalReport.closing || widget.report==LocalReport.trial)) closingReport() else if(widget.report==LocalReport.category) categoryReport() else servicesReport()
     ]);
   });
 }
