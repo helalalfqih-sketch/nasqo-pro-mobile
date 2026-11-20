@@ -268,7 +268,7 @@ class DashboardScreen extends StatelessWidget {
 
             balance,
             const SizedBox(height: 14),
-            _QuickActionsGrid(tiles: quickActions),
+            _QuickActionsGrid(tiles:quickActions,controller:controller),
             const SizedBox(height: 14),
 
             // 8 Metric Cards Grid (2 columns) with 2px solid blue border
@@ -327,7 +327,8 @@ class _Tile {
 
 /// 9 Compact Quick Actions: 3 columns x 3 rows
 class _QuickActionsGrid extends StatelessWidget {
-  const _QuickActionsGrid({required this.tiles});
+  const _QuickActionsGrid({required this.tiles,required this.controller});
+  final ErpController controller;
   final List<_Tile> tiles;
 
   @override
@@ -348,12 +349,12 @@ class _QuickActionsGrid extends StatelessWidget {
                     : tile.title,
                 child: Material(
                   color: tile.highlight
-                      ? const Color(0xFF0891B2)
-                      : const Color(0xFF4338CA),
-                  borderRadius: BorderRadius.circular(24),
+                      ? Color(controller.secondaryTint)
+                      : Color(controller.primaryTint),
+                  borderRadius: BorderRadius.circular(controller.homeRadius),
                   child: InkWell(
                     key: tile.id == null ? null : ValueKey('home-${tile.id}'),
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(controller.homeRadius),
                     onTap: tile.action,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
