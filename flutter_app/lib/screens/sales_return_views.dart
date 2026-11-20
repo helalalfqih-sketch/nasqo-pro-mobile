@@ -155,7 +155,11 @@ class _SalesReturnDraftsViewState extends State<SalesReturnDraftsView> {
               icon: const Icon(Icons.add),
               label: const Text('إنشاء مسودة مرتجع')),
           body: Column(children: [
-            const _DraftNotice(),
+            if (widget.postDraft == null)
+              const _DraftNotice()
+            else
+              const Padding(padding: EdgeInsets.all(12), child: Text(
+                'احفظ مسودة المرتجع وراجع الكميات والضريبة، ثم اختر ترحيل المرتجع لإعادة الكمية وتسجيل المبلغ في الحساب.')),
             if (_opening) const LinearProgressIndicator(),
             if (_error != null)
               Semantics(liveRegion: true, child: Text(_error!)),
