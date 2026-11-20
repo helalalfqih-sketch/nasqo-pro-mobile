@@ -729,11 +729,49 @@ class GroupBalancesPanel extends StatefulWidget {
 class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
   final _filters = <AccountCategory, String>{};
   static const _all = 'all';
+  final _groupCurrencies = <int, CurrencyCode>{};
 
   @override
   Widget build(BuildContext context) {
     final accounts = widget.controller.accounts;
     final ledger = widget.controller.ledger;
+    final restored = widget.controller.restoredGroups;
+    if (restored != null && restored.groups.isNotEmpty) {
+      final fallback = widget.controller.defaultCurrency;
+      final totals = restored.balances(accounts,ledger,_groupCurrencies,fallback);
+      final counts = <int,int>{};
+      for (final a in accounts) {
+        final id = restored.membership[a.id];
+        if (id != null) counts[id] = (counts[id] ?? 0) + 1;
+      }
+      final scheme = Theme.of(context).colorScheme;
+      return Table(
+        columnWidths: const {0:FlexColumnWidth(0.6),1:FlexColumnWidth(2.25),
+          2:FlexColumnWidth(1.5),3:FlexColumnWidth(1.05)},
+        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+        border:TableBorder.all(color:scheme.outlineVariant),
+        children:[
+          TableRow(decoration:BoxDecoration(color:scheme.surfaceContainerLow),children:[
+            for (final title in ['الرقم','الاسم','الرصيد','العملة'])
+              Padding(padding:const EdgeInsets.symmetric(vertical:10),child:Text(title,textAlign:TextAlign.center,
+                  style:const TextStyle(fontWeight:FontWeight.bold)))
+          ]),
+          for (final (index,g) in restored.groups.indexed)
+            TableRow(decoration:BoxDecoration(color:index.isEven ? scheme.surface : scheme.surfaceContainerHighest),
+              children:[
+                Center(child:Text('${g.number}')),
+                Padding(padding:const EdgeInsets.all(6),child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+                  children:[Text(g.name,style:const TextStyle(fontWeight:FontWeight.bold)),
+                    Text('${counts[g.id] ?? 0} حساب',style:Theme.of(context).textTheme.labelSmall)])),
+                Text(AccountingEngine.formatAmount(totals[g.id] ?? 0),textAlign:TextAlign.center,
+                  textDirection:TextDirection.ltr,style:TextStyle(fontWeight:FontWeight.bold,
+                    color:(totals[g.id] ?? 0)<0 ? scheme.error : scheme.primary)),
+                DropdownButton<CurrencyCode>(isExpanded:true,value:_groupCurrencies[g.id] ?? fallback,
+                  items:[for(final c in CurrencyCode.values) DropdownMenuItem(value:c,child:Text(c.label))],
+                  onChanged:(c){if(c!=null) setState(()=>_groupCurrencies[g.id]=c);})
+              ])
+        ]);
+    }
     final cats = _orderedCategories
         .where((c) => accounts.any((a) => a.category == c))
         .toList();
