@@ -49,7 +49,18 @@ class HomeAccountsView extends StatefulWidget {
       {super.key,
       required this.controller,
       this.category = AccountCategory.clients,
-      this.cashOnly = false, this.onOpenModule});
+      this.cashOnly = false, this.onOpenModule})
+      : groupId = null, initialCurrency = null;
+
+  const HomeAccountsView.restoredGroup({
+    super.key,
+    required this.controller,
+    required int this.groupId,
+    required CurrencyCode this.initialCurrency,
+  }) : category = null, cashOnly = false, onOpenModule = null;
+
+  final int? groupId;
+  final CurrencyCode? initialCurrency;
   final ErpController controller;
   final AccountCategory? category;
   final bool cashOnly;
@@ -70,13 +81,16 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
         animation: widget.controller,
         builder: (context, _) {
           final currency =
-              _selectedCurrency ?? widget.controller.defaultCurrency;
+              _selectedCurrency ?? widget.initialCurrency ?? widget.controller.defaultCurrency;
+          final archive = widget.controller.restoredGroups;
+          final group = archive?.groups.where((g) => g.id == widget.groupId).firstOrNull;
           final today=DateTime.now().toIso8601String().substring(0,10);
           final from=switch(_period){'يومي'=>today,'شهري'=>'${today.substring(0,7)}-01','سنوي'=>'${today.substring(0,4)}-01-01',_=>''};
           final periodLedger=from.isEmpty?widget.controller.ledger:widget.controller.ledger.where((e)=>
               e.entryDate.compareTo(from)>=0 && e.entryDate.compareTo(today)<=0).toList();
           final accounts = widget.controller.accounts
               .where((a) =>
+                  (widget.groupId == null || archive?.membership[a.id] == widget.groupId) &&
                   (widget.cashOnly
                       ? a.isCashAccount
                       : widget.category == null ||
@@ -92,7 +106,7 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
               appBar: AppBar(
                   title: Text(widget.cashOnly
                       ? 'الصناديق المحلية'
-                      : widget.category?.label ?? 'الحسابات')),
+                      : group?.name ?? widget.category?.label ?? 'الحسابات')),
               body: ListView(padding: const EdgeInsets.all(16), children: [
                 Text(widget.cashOnly
                     ? 'حسابات مميزة كنقدية في الدفتر المحلي، وليست سجلات صناديق مستقلة. للقراءة فقط.'

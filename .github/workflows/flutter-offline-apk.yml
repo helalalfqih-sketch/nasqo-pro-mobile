@@ -43,6 +43,10 @@ jobs:
       - name: Unit tests
         working-directory: flutter_app
         run: flutter test
+      - name: Compile Android update bridge and application plugins
+        if: github.event_name == 'pull_request'
+        working-directory: flutter_app/android
+        run: bash gradlew :app:compileDebugKotlin --no-daemon
       - name: Build Android APK
         if: github.event_name == 'workflow_dispatch'
         working-directory: flutter_app

@@ -6,6 +6,7 @@ import '../services/customer_measurement_repository.dart';
 import '../services/home_balance_groups.dart';
 import '../state/erp_controller.dart';
 import 'customer_measurement_views.dart';
+import 'home_account_views.dart';
 import 'invoice_workspace.dart';
 import 'nasqo_brand_mark.dart';
 
@@ -742,6 +743,16 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
         if (id != null) counts[id] = (counts[id] ?? 0) + 1;
       }
       final scheme = Theme.of(context).colorScheme;
+      void openGroup(int groupId) {
+        Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => HomeAccountsView.restoredGroup(
+            controller: widget.controller,
+            groupId: groupId,
+            initialCurrency: _groupCurrencies[groupId] ?? fallback,
+          ),
+        ));
+      }
+
       return Table(
         columnWidths: const {0:FlexColumnWidth(0.6),1:FlexColumnWidth(2.25),
           2:FlexColumnWidth(1.5),3:FlexColumnWidth(1.05)},
@@ -757,12 +768,31 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
             TableRow(decoration:BoxDecoration(color:index.isEven ? scheme.surface : scheme.surfaceContainerHighest),
               children:[
                 Center(child:Text('${g.number}')),
-                Padding(padding:const EdgeInsets.all(6),child:Column(crossAxisAlignment:CrossAxisAlignment.start,
-                  children:[Text(g.name,style:const TextStyle(fontWeight:FontWeight.bold)),
-                    Text('${counts[g.id] ?? 0} حساب',style:Theme.of(context).textTheme.labelSmall)])),
-                Text(AccountingEngine.formatAmount(totals[g.id] ?? 0),textAlign:TextAlign.center,
-                  textDirection:TextDirection.ltr,style:TextStyle(fontWeight:FontWeight.bold,
-                    color:(totals[g.id] ?? 0)<0 ? scheme.error : scheme.primary)),
+                TextButton(
+                  onPressed: () => openGroup(g.id),
+                  style: TextButton.styleFrom(alignment: AlignmentDirectional.centerStart),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(g.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text('${counts[g.id] ?? 0} حساب', style: Theme.of(context).textTheme.labelSmall),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => openGroup(g.id),
+                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 2)),
+                  child: Text(
+                    AccountingEngine.formatAmount(totals[g.id] ?? 0),
+                    textAlign: TextAlign.center,
+                    textDirection: TextDirection.ltr,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: (totals[g.id] ?? 0) < -0.005 ? scheme.error
+                          : (totals[g.id] ?? 0) > 0.005 ? scheme.primary : scheme.onSurface,
+                    ),
+                  ),
+                ),
                 DropdownButton<CurrencyCode>(isExpanded:true,value:_groupCurrencies[g.id] ?? fallback,
                   items:[for(final c in CurrencyCode.values) DropdownMenuItem(value:c,child:Text(c.label))],
                   onChanged:(c){if(c!=null) setState(()=>_groupCurrencies[g.id]=c);})
