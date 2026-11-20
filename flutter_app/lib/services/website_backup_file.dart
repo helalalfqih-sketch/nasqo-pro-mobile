@@ -25,14 +25,29 @@ Future<String> readWebsiteBackup(Uint8List input, int limit) async {
     final file = await File('${directory.path}/source.db').writeAsBytes(bytes);
     final db = await openDatabase(file.path,readOnly:true,singleInstance:false);
     try {
-      final tables = (await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'"))
-          .map((r) => r['name']).toSet();
-      if (!tables.containsAll({'workspaces','accounts','account_groups','ledger_entries','inventory_items','warehouses'})) {
-        throw const FormatException('قاعدة SQLite من إصدار آخر. اختر تصدير JSON الموحد من الموقع.');
-      }
       final integrity = await db.rawQuery('PRAGMA quick_check(1)');
       if (integrity.length != 1 || integrity.single.values.single != 'ok') {
         throw const FormatException('لم يجتز ملف SQLite فحص السلامة.');
+      }
+      final tables = (await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'"))
+          .map((r) => r['name']).toSet();
+      if (!tables.containsAll({'workspaces','accounts','account_groups','ledger_entries','inventory_items','warehouses'})) {
+        // Recognize older website SQLite layouts without writing to the phone.
+        // Importing these directly would lose relationships and accounting fields.
+        final legacyTables = tables.containsAll({'customers', 'products', 'stores'}) &&
+            (tables.containsAll({'cboxes', 'trans_details'}) ||
+             tables.containsAll({'boxes', 'input_move'}));
+        if (legacyTables) {
+          throw const FormatException(
+            'هذه نسخة SQLite قديمة من الموقع. لم تُستبدل بيانات الهاتف. '
+            'احتفظ بالأصل وافتح نسخة منه في مساحة اختبار منفصلة على الموقع. '
+            'راجع الأرصدة وكميات الأصناف ثم اختر «إدارة السجلات والنسخ» ← '
+            '«تصدير نسخة شاملة» واستورد ملف JSON الناتج هنا.');
+        }
+        throw const FormatException(
+          'بنية SQLite غير مدعومة في هذا الإصدار. لم تُستبدل '
+          'بيانات الهاتف. استخدم تصدير JSON الموحد من الموقع، '
+          'أو احتفظ بالملف لفحص التوافق.');
       }
       final workspaces = await db.query('workspaces',limit:2);
       if (workspaces.length != 1) throw const FormatException('يجب أن تتضمن النسخة منشأة واحدة.');
