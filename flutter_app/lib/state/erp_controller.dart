@@ -788,6 +788,26 @@ class ErpController extends ChangeNotifier {
     }
   }
 
+  Future<void> resolveTrash(String id,{required bool purge}) async {
+    _requireAvailableMutation();
+    _editingWorkspace=true;
+    try {
+      await initDatabase();
+      if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+      await _writeTail;
+      final index=ledger.indexWhere((e)=>e.id==id && e.deleted);
+      if(index<0) throw StateError('القيد غير موجود في المحذوفات.');
+      final updated=await _localDatabase.resolveDeletedEntry(id,purge:purge);
+      if(updated==null) {
+        ledger.removeAt(index);
+        saleLines.removeWhere((line)=>line.entryId==id);
+      } else {
+        ledger[index]=updated;
+      }
+      if(!_disposed) notifyListeners();
+    } finally { _editingWorkspace=false; }
+  }
+
   Future<void> resetLocalDatabase() async {
     _requireAvailableMutation();
     _resetting = true;
