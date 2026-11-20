@@ -1169,7 +1169,7 @@ class ErpController extends ChangeNotifier {
   }
 
   Future<int> postPurchaseInvoice({required String accountId,required String warehouseId,
-      required PaymentMethod payment,required List<InvoiceItemRow> rows, String reference=''}) async {
+      required PaymentMethod payment,required List<InvoiceItemRow> rows, String reference='',double exchangeRate=1}) async {
     _requireAvailableMutation();
     _editingWorkspace=true;
     try {
@@ -1181,7 +1181,8 @@ class ErpController extends ChangeNotifier {
       final supplier=accounts.where((a)=>a.id==accountId && a.category==AccountCategory.purchases).firstOrNull;
       final warehouse=warehouses.where((w)=>w.id==warehouseId).firstOrNull;
       if(supplier==null || warehouse==null || rows.isEmpty) throw StateError('اختر المورد والمستودع وأضف بنود الفاتورة.');
-      if(supplier.currency!=defaultCurrency) throw StateError('هذه الفاتورة تتطلب موردًا بعملة المخزون الافتراضية.');
+      final rate=supplier.currency==defaultCurrency?1.0:exchangeRate;
+      if(!rate.isFinite || rate<=0) throw const FormatException('تحقق من سعر الصرف.');
       final number=_nextEntryNumber+1, id='purchase_${DateTime.now().microsecondsSinceEpoch}_$number';
       final stock=List.of(inventory), lines=List.of(saleLines);
       var total=0.0;
@@ -1191,7 +1192,7 @@ class ErpController extends ChangeNotifier {
           throw const FormatException('تحقق من الأصناف والكميات والأسعار.');
         }
         final item=stock[i], quantity=item.quantity+row.quantity;
-        final cost=item.quantity>0 ? (item.quantity*item.avgCost+row.lineTotal)/quantity : row.unitPrice;
+        final cost=item.quantity>0 ? (item.quantity*item.avgCost+row.lineTotal*rate)/quantity : row.unitPrice*rate;
         total+=row.lineTotal;
         if(!quantity.isFinite || !cost.isFinite || !total.isFinite || quantity==item.quantity) {
           throw const FormatException('قيمة البند خارج النطاق.');
@@ -1202,7 +1203,7 @@ class ErpController extends ChangeNotifier {
       }
       final entry=LedgerEntryRecord(id:id,accountId:accountId,accountName:supplier.name,kind:LedgerKind.invoice,
         typeLabel:payment==PaymentMethod.cash?'ف.مشتريات نقدية':'ف.مشتريات آجل',payment:payment,
-        direction:EntryDirection.credit,amount:total,currency:defaultCurrency,
+        direction:EntryDirection.credit,amount:total,currency:supplier.currency,exchangeRate:rate,
         documentNumber:reference.trim().isEmpty?'PUR-$number':reference.trim(),warehouseId:warehouseId,
         warehouseName:warehouse.name,entryNumber:number,entryDate:DateTime.now().toIso8601String().substring(0,10));
       final posted=[entry,...ledger];
