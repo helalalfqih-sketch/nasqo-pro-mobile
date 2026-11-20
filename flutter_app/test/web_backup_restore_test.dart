@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:nasqo_pro_erp/screens/home_account_views.dart';
 import 'package:nasqo_pro_erp/state/erp_controller.dart';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
@@ -76,7 +77,11 @@ void main() {
     expect(invoice.accountId, customer.id);
     expect(invoice.currency, customer.currency);
     expect(invoice.direction.name, 'debit');
-    expect(customer.openingBalance + invoice.amount, 50);
+    final statement = LocalAccountStatement(customer, snapshot.ledger, customer.currency);
+    expect(statement.opening, 20);
+    expect(statement.debit, 30);
+    expect(statement.credit, 0);
+    expect(statement.closing, 50);
     expect(invoice.exchangeRate, 3.75);
     expect(snapshot.saleLines.single.entryId, invoice.id);
     expect(snapshot.saleLines.single.quantity * snapshot.saleLines.single.unitPrice, invoice.amount);
