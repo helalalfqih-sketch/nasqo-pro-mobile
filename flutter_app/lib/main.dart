@@ -31,6 +31,9 @@ import 'screens/cash_transfer_draft_views.dart';
 import 'screens/simple_journal_draft_views.dart';
 import 'screens/fx_draft_views.dart';
 import 'screens/sales_return_views.dart';
+import 'screens/customer_measurement_views.dart';
+import 'screens/cash_supplier_statement_view.dart';
+import 'services/customer_measurement_repository.dart';
 import 'state/erp_controller.dart';
 
 void main() {
@@ -154,8 +157,49 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       );
 
   void _openModulePage(String moduleId) {
+    if (moduleId == 'measurement-new') {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => CustomerMeasurementFormSheet(
+          repository:
+              CustomerMeasurementRepository(widget.controller.database),
+          onSaved: () {},
+        ),
+      );
+      return;
+    }
     if (_activeModule == moduleId) return;
     final (title, Widget page) = switch (moduleId) {
+      'measurements' => (
+          'التمييز والمقاسات',
+          CustomerMeasurementsView(controller: widget.controller),
+        ),
+      'cash-statement' => (
+          'كشف حساب المورد النقدي',
+          CashSupplierStatementView(
+            controller: widget.controller,
+            account: widget.controller.accounts.firstWhere(
+              (a) => a.isCashAccount || a.category == AccountCategory.purchases,
+              orElse: () => widget.controller.accounts.isNotEmpty
+                  ? widget.controller.accounts.first
+                  : const AccountRecord(
+                      id: 'cash-supp-default',
+                      name: 'المورد النقدي العام',
+                      category: AccountCategory.purchases,
+                      phone: '',
+                      creditLimit: 0,
+                      currency: CurrencyCode.yer,
+                      isCashAccount: true,
+                      note: '',
+                      openingBalance: 0,
+                      openingDirection: EntryDirection.debit,
+                      codeNumber: 101,
+                    ),
+            ),
+            onOpenModule: _openModulePage,
+          ),
+        ),
       'vouchers' => (
           'مسودات السندات',
           ListView(padding: const EdgeInsets.all(16), children: [
@@ -361,6 +405,8 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
             'simple-journal-drafts',
             'fx-drafts',
             'local-backups',
+            'measurements',
+            'cash-statement',
           }.contains(moduleId)
               ? page
               : Scaffold(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/erp_models.dart';
 import '../state/erp_controller.dart';
+import 'cash_supplier_statement_view.dart';
 
 /// Nominal local-ledger statement, never a mixed-currency or converted balance.
 class LocalAccountStatement {
@@ -109,12 +110,30 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
                                 account, widget.controller.ledger, currency)
                             .closing,
                         currency)),
-                    onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
+                    onTap: () {
+                      if (account.isCashAccount ||
+                          account.category == AccountCategory.purchases) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => CashSupplierStatementView(
+                              controller: widget.controller,
+                              account: account,
+                              onOpenModule: (_) {},
+                            ),
+                          ),
+                        );
+                      } else {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
                             builder: (_) => HomeAccountStatementView(
-                                controller: widget.controller,
-                                accountId: account.id,
-                                initialCurrency: currency))),
+                              controller: widget.controller,
+                              accountId: account.id,
+                              initialCurrency: currency,
+                            ),
+                          ),
+                        );
+                      }
+                    },
                   )),
                 const SizedBox(height: 12),
                 const Text(

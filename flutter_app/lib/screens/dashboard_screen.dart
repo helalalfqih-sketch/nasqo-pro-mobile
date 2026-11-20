@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../models/erp_models.dart';
 import '../services/accounting_engine.dart';
+import '../services/customer_measurement_repository.dart';
 import '../services/home_balance_groups.dart';
 import '../state/erp_controller.dart';
+import 'customer_measurement_views.dart';
 import 'invoice_form_sheet.dart';
 import 'nasqo_brand_mark.dart';
 
@@ -326,7 +328,7 @@ class _QuickActionsGrid extends StatelessWidget {
 }
 
 /// 8 Metric Cards: 2 columns, 2px solid #0B5CA8 border, red/green balance without metadata
-class _MetricCardsGrid extends StatelessWidget {
+class _MetricCardsGrid extends StatefulWidget {
   const _MetricCardsGrid({
     required this.controller,
     required this.onOpenModule,
@@ -336,10 +338,42 @@ class _MetricCardsGrid extends StatelessWidget {
   final ValueChanged<String> onOpenModule;
 
   @override
+  State<_MetricCardsGrid> createState() => _MetricCardsGridState();
+}
+
+class _MetricCardsGridState extends State<_MetricCardsGrid> {
+  int _measurementCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMeasurementsCount();
+  }
+
+  Future<void> _loadMeasurementsCount() async {
+    try {
+      final repo = CustomerMeasurementRepository(widget.controller.database);
+      final count = await repo.count();
+      if (mounted) setState(() => _measurementCount = count);
+    } catch (_) {}
+  }
+
+  void _openMeasurementForm() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => CustomerMeasurementFormSheet(
+        repository: CustomerMeasurementRepository(widget.controller.database),
+        onSaved: _loadMeasurementsCount,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final accounts = controller.accounts;
-    final ledger = controller.ledger;
-    final defaultCurrency = controller.defaultCurrency;
+    final accounts = widget.controller.accounts;
+    final ledger = widget.controller.ledger;
+    final defaultCurrency = widget.controller.defaultCurrency;
 
     final balanceGroups = computeHomeBalanceGroups(
       accounts,
@@ -394,16 +428,16 @@ class _MetricCardsGrid extends StatelessWidget {
         route: 'accounts',
         group: groupMap[AccountCategory.shop],
       ),
-      const _MetricCardData(
+      _MetricCardData(
         title: 'تمييز ومقاسات',
         icon: Icons.straighten_outlined,
-        route: 'inventory',
-        fixedAmount: 0.0,
+        route: 'measurements',
+        fixedAmount: _measurementCount.toDouble(),
       ),
-      const _MetricCardData(
+      _MetricCardData(
         title: 'مقاس جديد',
         icon: Icons.square_foot_outlined,
-        route: 'inventory',
+        route: 'measurement-new',
         fixedAmount: 0.0,
       ),
     ];
@@ -420,7 +454,13 @@ class _MetricCardsGrid extends StatelessWidget {
               child: _MetricCardItem(
                 data: card,
                 currencyLabel: defaultCurrency.label,
-                onTap: () => onOpenModule(card.route),
+                onTap: () {
+                  if (card.route == 'measurement-new') {
+                    _openMeasurementForm();
+                  } else {
+                    widget.onOpenModule(card.route);
+                  }
+                },
               ),
             ),
         ],
