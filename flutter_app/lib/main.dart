@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/account_tools.dart';
+import 'screens/purchase_invoice_view.dart';
 import 'screens/stock_scanner_view.dart';
 import 'screens/home_navigation.dart';
 import 'screens/local_report_detail.dart';
@@ -280,6 +281,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
             saveDraft: widget.controller.saveFxDraft,
           ),
         ),
+      'purchase-new' => ('فاتورة مشتريات جديدة',PurchaseInvoiceView(controller:widget.controller)),
       'account-new' => ('إضافة حساب',AccountEditor(controller:widget.controller)),
       'account-import' => ('استيراد الحسابات',AccountImportView(controller:widget.controller)),
       'message-settings' => ('إعدادات إشعارات واتساب',MessageSettingsView(controller:widget.controller)),
@@ -586,13 +588,14 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
             },
             itemBuilder: (_) => const [
               PopupMenuItem(
-                  value: 'customer', child: Text('إضافة حساب جديد')),
+                  value: 'account-new', child: Text('إضافة حساب جديد')),
               PopupMenuItem(
                   value: 'post-voucher', child: Text('سند جديد')),
               PopupMenuItem(
                   value: 'post-transfer', child: Text('حوالة جديدة')),
               PopupMenuItem(
                   value: 'invoice', child: Text('فاتورة مبيعات جديدة')),
+              PopupMenuItem(value:'purchase-new',child:Text('فاتورة مشتريات جديدة')),
               PopupMenuItem(
                   value: 'sales-return-drafts', child: Text('مردود مبيعات جديد')),
               PopupMenuItem(
