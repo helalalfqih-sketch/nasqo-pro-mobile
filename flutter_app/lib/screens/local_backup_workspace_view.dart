@@ -192,12 +192,30 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
                 FilledButton.icon(onPressed: _busy ? null : _importWeb,
                   icon: const Icon(Icons.file_open),
                   label: const Text('استيراد نسخة الموقع أو الهاتف (.back أو .json)')),
-              const Text(
-                  'تُحفظ النسخ داخل التطبيق دون تشفير. اختر «حفظ في ملف» للاحتفاظ بالنسخة خارج التطبيق. اختبار النسخة المحلية يجري في قاعدة منفصلة.'),
-              const SizedBox(height: 12),
-              const Text(
-                  'التحقق يفحص سلامة النسخة. اختبار الاستعادة يقرأها في قاعدة مؤقتة معزولة، ولا يُعد استعادة فعلية أو ضماناً شاملاً للتعافي.'),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('معلومات النسخ الاحتياطية',
+                        style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'النسخ المحلية محفوظة داخل التطبيق. استخدم «حفظ في ملف» '
+                        'للاحتفاظ بنسخة خارج الهاتف.',
+                        softWrap: true),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'اختبار الاستعادة يعمل في قاعدة مؤقتة منفصلة، '
+                        'ولا يستبدل بياناتك الحالية.',
+                        softWrap: true),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
               Wrap(spacing: 8, runSpacing: 8, children: [
                 FilledButton.icon(
                     onPressed: _busy ? null : _create,

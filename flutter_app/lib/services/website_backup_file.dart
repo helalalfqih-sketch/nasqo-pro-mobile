@@ -28,7 +28,19 @@ Future<String> readWebsiteBackup(Uint8List input, int limit) async {
       final tables = (await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'"))
           .map((r) => r['name']).toSet();
       if (!tables.containsAll({'workspaces','accounts','account_groups','ledger_entries','inventory_items','warehouses'})) {
-        throw const FormatException('قاعدة SQLite من إصدار آخر. اختر تصدير JSON الموحد من الموقع.');
+        // Recognize older website SQLite layouts without writing to the phone.
+        // Importing these directly would lose relationships and accounting fields.
+        if (tables.containsAll({'customers', 'products', 'stores', 'cboxes', 'trans_details'})) {
+          throw const FormatException(
+            'هذه نسخة SQLite قديمة من الموقع. الملف لم يتلف، لكن بنية '
+            'جداوله تختلف عن قاعدة الهاتف. لم تُستبدل أي بيانات. '
+            'احتفظ بالملف الأصلي؛ يلزم تحويل معزول مع مطابقة '
+            'الحسابات والمخزون والفواتير قبل الاستعادة.');
+        }
+        throw const FormatException(
+          'بنية SQLite غير مدعومة في هذا الإصدار. لم تُستبدل '
+          'بيانات الهاتف. استخدم تصدير JSON الموحد من الموقع، '
+          'أو احتفظ بالملف لفحص التوافق.');
       }
       final integrity = await db.rawQuery('PRAGMA quick_check(1)');
       if (integrity.length != 1 || integrity.single.values.single != 'ok') {
