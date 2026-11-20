@@ -112,6 +112,7 @@ class RestoredGroups {
   final Map<String, int> membership;
   final Map<String, ({num? debit, num? credit, bool settled})> sides;
 
+  final documentTypes = <String,int>{};
   final counterparts = <String,String>{};
   final settledEntries = <String>{};
   final serviceInvoices = <String>{};
@@ -134,6 +135,8 @@ class RestoredGroups {
     });
     for (final e in data['ledger'] ?? []) {
       final id = e['id'] as String;
+      final type = int.tryParse(e['docType'].toString());
+      if (type != null) result.documentTypes[id] = type;
       if (e['settledOnReceipt'] == true) result.settledEntries.add(id);
       if (e['counterpartAccountId'] is String) result.counterparts[id] = e['counterpartAccountId'];
       if (e['invoiceContent'] == 'free') result.serviceInvoices.add(id);
