@@ -20,6 +20,12 @@ Future<void> _start(WidgetTester tester) async {
     tester.view.resetDevicePixelRatio();
     controller.dispose();
   });
+  final previous = FlutterError.onError!;
+  FlutterError.onError = (details) {
+    if (details.exceptionAsString().contains('overflowed')) FlutterError.dumpErrorToConsole(details, forceReport: true);
+    previous(details);
+  };
+  // Flutter test restores its error handler after this test.
   await tester.pumpWidget(NasqoProErpApp(controller: controller));
   await tester.pumpAndSettle();
 }

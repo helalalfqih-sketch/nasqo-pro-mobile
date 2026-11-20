@@ -959,14 +959,15 @@ class _DashboardFooter extends StatelessWidget {
           children: [
             const NasqoBrandMark(size: 20),
             const SizedBox(width: 6),
-            Text(
+            Flexible(child: Text(
               'نسقو برو ERP · الإصدار 1.0.17+18',
+              maxLines: 1, overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.grey.shade600,
                 fontWeight: FontWeight.w600,
               ),
-            ),
+            )),
           ],
         ),
         const SizedBox(height: 8),
