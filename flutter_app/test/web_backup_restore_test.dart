@@ -58,8 +58,8 @@ void main() {
       await dir.delete(recursive: true);
     });
     await first.initDatabase();
-    final export = {...payload, 'accounts': [
-      {'id':'customer','name':'عميل','category':'clients','currency':'USD',
+    final export = {...payload, 'accountGroups':[{'id':17,'legacyId':7,'name':'أصول المحل'}], 'accounts': [
+      {'groupId':17,'id':'customer','name':'عميل','category':'clients','currency':'USD',
        'creditLimit':500,'isCashAccount':false,'openingBalance':20,
        'openingDirection':'debit','codeNumber':1}
     ], 'ledger': [
@@ -77,6 +77,14 @@ void main() {
     expect(invoice.accountId, customer.id);
     expect(invoice.currency, customer.currency);
     expect(invoice.direction.name, 'debit');
+    final reopened = ErpController(autoInitDb:false,localDatabase:store);
+    addTearDown(reopened.dispose);
+    await reopened.initDatabase();
+    final groups = reopened.restoredGroups!;
+    expect(groups.groups.single.number,7);
+    expect(groups.groups.single.name,'أصول المحل');
+    expect(groups.membership[customer.id],17);
+    expect(groups.balances(snapshot.accounts,snapshot.ledger,{},customer.currency)[17],50);
     final statement = LocalAccountStatement(customer, snapshot.ledger, customer.currency);
     expect(statement.opening, 20);
     expect(statement.debit, 30);
