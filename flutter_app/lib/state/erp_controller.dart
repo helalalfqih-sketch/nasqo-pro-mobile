@@ -168,12 +168,60 @@ class ErpController extends ChangeNotifier {
       if(!_disposed) notifyListeners();
     } finally { _editingWorkspace=false; }
   }
+  Map<String, dynamic> _currencyDetails = {};
+  Map<String, dynamic> currencyDetails(CurrencyCode code) {
+    final data = _currencyDetails[code.name];
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  /// Rates are quoted in base currency for one unit of the selected currency.
+  double? exchangeQuote(CurrencyCode from, CurrencyCode to, EntryDirection side) {
+    if (from == to) return 1;
+    final buying = side == EntryDirection.credit;
+    double? quote(CurrencyCode code, bool buy) {
+      if (code == defaultCurrency) return 1;
+      final value = currencyDetails(code)[buy ? 'buy' : 'sell'];
+      return value is num && value.isFinite && value > 0 ? value.toDouble() : null;
+    }
+    final source = quote(from, buying);
+    final target = quote(to, !buying);
+    if (source == null || target == null) return null;
+    final rate = source / target;
+    return rate.isFinite && rate > 0 ? rate : null;
+  }
+
+  Future<void> saveCurrencyDetails(CurrencyCode code, String symbol, String subunit,
+      double buy, double sell) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      if (!buy.isFinite || !sell.isFinite || buy <= 0 || sell <= 0 ||
+          (code == defaultCurrency && (buy != 1 || sell != 1))) {
+        throw const SaleValidationException('تحقق من أسعار الشراء والبيع.');
+      }
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final next = {..._currencyDetails, code.name: {
+        'symbol': symbol.trim(), 'subunit': subunit.trim(), 'buy': buy, 'sell': sell,
+      }};
+      if (_usesPersistentStore) {
+        await _saveCurrentSnapshot(nextModuleData: {..._workspaceModuleData, 'currencyDetails': next});
+      }
+      _currencyDetails = next;
+      if (!_disposed) notifyListeners();
+    } finally { _editingWorkspace = false; }
+  }
+
   String messageProvider = 'nasqo';
   String messagePhone = '';
   bool instantMessages = false;
 
   Map<String,dynamic> get _workspaceModuleData => {
     ..._modules.toJson(),
+    'currencyDetails': _currencyDetails,
     'appearance':{'primary':primaryTint,'secondary':secondaryTint,'radius':homeRadius},
     if(groupDirectory!=null) 'groupDirectory':groupDirectory,
     'alertState':{'read':readAlerts.toList(),'dismissed':dismissedAlerts.toList()},
@@ -748,6 +796,8 @@ class ErpController extends ChangeNotifier {
         final original = await _localDatabase.readOriginalWebExport();
         restoredGroups = original == null ? null : RestoredGroups.fromJson(original);
         _applyGroupDirectory(snap.erpData?['groupDirectory'] as Map<String,dynamic>?);
+        final currencies = snap.erpData?['currencyDetails'];
+        _currencyDetails = currencies is Map ? Map<String, dynamic>.from(currencies) : {};
         _loadAppearance(snap.erpData?['appearance']);
         _loadAlertState(snap.erpData?['alertState']);
         _loadMessagePreferences(snap.erpData?['messagePreferences']);
@@ -892,6 +942,7 @@ class ErpController extends ChangeNotifier {
       saleLines..clear()..addAll(backup.lines);
       groupDirectory=null;
       restoredGroups = backup.groupData;
+      _currencyDetails = {};
       _loadAppearance(null);
       _loadAlertState(null);
       _loadMessagePreferences(preferences);
@@ -951,6 +1002,7 @@ class ErpController extends ChangeNotifier {
       costCenters.clear();
       groupDirectory=null;
       restoredGroups = null;
+      _currencyDetails = {};
       _loadAppearance(null);
       _loadAlertState(null);
       _loadMessagePreferences(null);
