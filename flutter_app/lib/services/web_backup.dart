@@ -112,6 +112,7 @@ class RestoredGroups {
   final Map<String, int> membership;
   final Map<String, ({num? debit, num? credit, bool settled})> sides;
 
+  final groupCategories=<int,String>{},groupCurrencies=<int,String>{};
   final dueDates = <String,String>{};
   final documentTypes = <String,int>{};
   final counterparts = <String,String>{};
@@ -137,6 +138,10 @@ class RestoredGroups {
           e['id'] as String: (debit:e['rawDain'] as num?, credit:e['rawMadin'] as num?,
             settled:e['settledOnReceipt'] == true)
     });
+    for(final g in data['accountGroups'] ?? []) {
+      if(g['category'] is String) result.groupCategories[g['id']]=g['category'];
+      if(g['currencyCode'] is String) result.groupCurrencies[g['id']]=g['currencyCode'];
+    }
     for (final e in data['ledger'] ?? []) {
       final id = e['id'] as String;
       final lines = (e['lines'] ?? []) as List;
