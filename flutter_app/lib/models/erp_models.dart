@@ -739,7 +739,7 @@ class ErpCostCenter {
     name: data['name'] as String,
     managerName: data['managerName'] as String,
     budget: (data['budget'] as num).toDouble(),
-    extraPostedSpend: (data['extraPostedSpend'] as num).toDouble(),
+    extraPostedSpend: ((data['extraPostedSpend'] as num?) ?? 0).toDouble(),
     linkedCategories: List<String>.from(data['linkedCategories'] as List),
   );
 
