@@ -82,12 +82,76 @@ class ErpController extends ChangeNotifier {
     } finally {_editingWorkspace=false;}
   }
 
+  Map<String,dynamic>? groupDirectory;
+
+  void _applyGroupDirectory(Map<String,dynamic>? data) {
+    groupDirectory=data;
+    if(data==null) return;
+    final target=restoredGroups ??= RestoredGroups.fromJson({});
+    final updated=RestoredGroups.fromJson(data);
+    target.groups..clear()..addAll(updated.groups);
+    target.membership..clear()..addAll(updated.membership);
+  }
+
+  Future<void> saveGroup({int? id, required String name, required AccountCategory category,
+      required CurrencyCode currency, required Set<String> members}) async {
+    _requireAvailableMutation(); _editingWorkspace=true;
+    try {
+      if(_usesPersistentStore) {
+        await initDatabase();
+        if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final archive=restoredGroups;
+      final existing=archive?.groups??[];
+      final membership=<String,int>{...?archive?.membership};
+      final definitions=<Map<String,dynamic>>[];
+      final hints={for(final g in (groupDirectory?['accountGroups'] as List? ?? [])) g['id']:g};
+      for(final g in existing) {
+        final member=accounts.where((a)=>membership[a.id]==g.id).firstOrNull;
+        definitions.add({'id':g.id,'legacyId':g.number,'sortOrder':g.order,'name':g.name,
+          'category':hints[g.id]?['category'] ?? archive?.groupCategories[g.id] ?? member?.category.name ?? 'shop',
+          'currencyCode':hints[g.id]?['currencyCode'] ?? archive?.groupCurrencies[g.id] ?? member?.currency.name ?? defaultCurrency.name});
+      }
+      if(existing.isEmpty) {
+        for(final cat in AccountCategory.values) {
+          final groupId=cat.index+1;
+          definitions.add({'id':groupId,'legacyId':groupId,'sortOrder':groupId,'name':cat.label,
+              'category':cat.name,'currencyCode':defaultCurrency.name});
+          for(final a in accounts.where((a)=>a.category==cat)) {membership[a.id]=groupId;}
+        }
+      }
+      final label=name.trim();
+      if(label.isEmpty || definitions.any((g)=>g['id']!=id && g['name']==label)) {
+        throw const FormatException('أدخل اسم مجموعة غير مكرر.');
+      }
+      final index=definitions.indexWhere((g)=>g['id']==id);
+      if(id!=null && index<0) throw StateError('المجموعة غير موجودة.');
+      final nextId=id ?? definitions.fold<int>(0,(n,g)=>n>(g['id'] as int)?n:g['id'] as int)+1;
+      final nextNumber=index>=0?definitions[index]['legacyId']:definitions.fold<int>(0,(n,g)=>n>(g['legacyId'] as int)?n:g['legacyId'] as int)+1;
+      final row={'id':nextId,'legacyId':nextNumber,'name':label,'sortOrder':index<0?nextNumber:definitions[index]['sortOrder'],
+        'category':category.name,'currencyCode':currency.name};
+      if(index<0) {definitions.add(row);} else {definitions[index]=row;}
+      membership.removeWhere((account,group)=>group==nextId && !members.contains(account));
+      final validIds=accounts.map((a)=>a.id).toSet();
+      for(final a in members) {
+        if(!validIds.contains(a)) throw StateError('أحد الحسابات غير موجود.');
+        membership[a]=nextId;
+      }
+      final data={'accountGroups':definitions,'accounts':[for(final e in membership.entries) {'id':e.key,'groupId':e.value}]};
+      if(_usesPersistentStore) await _saveCurrentSnapshot(nextModuleData:{..._workspaceModuleData,'groupDirectory':data});
+      _applyGroupDirectory(data);
+      if(!_disposed) notifyListeners();
+    } finally { _editingWorkspace=false; }
+  }
+
   String messageProvider = 'nasqo';
   String messagePhone = '';
   bool instantMessages = false;
 
   Map<String,dynamic> get _workspaceModuleData => {
     ..._modules.toJson(),
+    if(groupDirectory!=null) 'groupDirectory':groupDirectory,
     'alertState':{'read':readAlerts.toList(),'dismissed':dismissedAlerts.toList()},
     'messagePreferences':{'provider':messageProvider,'phone':messagePhone,'instant':instantMessages}
   };
@@ -659,6 +723,7 @@ class ErpController extends ChangeNotifier {
         final snap = await _localDatabase.loadSnapshot();
         final original = await _localDatabase.readOriginalWebExport();
         restoredGroups = original == null ? null : RestoredGroups.fromJson(original);
+        _applyGroupDirectory(snap.erpData?['groupDirectory'] as Map<String,dynamic>?);
         _loadAlertState(snap.erpData?['alertState']);
         _loadMessagePreferences(snap.erpData?['messagePreferences']);
         if (snap.erpData != null) _loadModules(ErpWorkspaceSnapshot.fromJson(snap.erpData!));
@@ -800,6 +865,7 @@ class ErpController extends ChangeNotifier {
       warehouses..clear()..addAll(backup.warehouses);
       inventory..clear()..addAll(backup.inventory);
       saleLines..clear()..addAll(backup.lines);
+      groupDirectory=null;
       restoredGroups = backup.groupData;
       _loadAlertState(null);
       _loadMessagePreferences(preferences);
@@ -857,6 +923,7 @@ class ErpController extends ChangeNotifier {
       boms.clear();
       productionOrders.clear();
       costCenters.clear();
+      groupDirectory=null;
       restoredGroups = null;
       _loadAlertState(null);
       _loadMessagePreferences(null);
