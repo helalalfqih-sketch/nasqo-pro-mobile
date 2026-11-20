@@ -57,6 +57,7 @@ class ErpController extends ChangeNotifier {
     super.dispose();
   }
 
+  RestoredGroups? restoredGroups;
   String companyName = 'نسقو برو ERP';
   CurrencyCode defaultCurrency = CurrencyCode.sar;
   bool isDarkMode = false;
@@ -619,6 +620,8 @@ class ErpController extends ChangeNotifier {
       final hasData = await _localDatabase.hasSeededData();
       if (hasData) {
         final snap = await _localDatabase.loadSnapshot();
+        final original = await _localDatabase.readOriginalWebExport();
+        restoredGroups = original == null ? null : RestoredGroups.fromJson(original);
         if (snap.erpData != null) _loadModules(ErpWorkspaceSnapshot.fromJson(snap.erpData!));
         accounts
           ..clear()
@@ -753,6 +756,7 @@ class ErpController extends ChangeNotifier {
       warehouses..clear()..addAll(backup.warehouses);
       inventory..clear()..addAll(backup.inventory);
       saleLines..clear()..addAll(backup.lines);
+      restoredGroups = backup.groupData;
       _loadModules(backup.modules);
       companyName = backup.company;
       _nextEntryNumber = backup.lastNumber;
@@ -787,6 +791,7 @@ class ErpController extends ChangeNotifier {
       boms.clear();
       productionOrders.clear();
       costCenters.clear();
+      restoredGroups = null;
       _nextEntryNumber = 1200;
       _seedInitialData();
       await _persistToDb();
