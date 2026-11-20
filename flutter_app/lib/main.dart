@@ -75,9 +75,9 @@ class _NasqoProErpAppState extends State<NasqoProErpApp> {
       listenable: _controller,
       builder: (context, _) {
         final colorScheme = ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4338CA),
-          primary: _controller.isDarkMode ? const Color(0xFFB9B4FF) : const Color(0xFF4338CA),
-          secondary: const Color(0xFF0891B2),
+          seedColor: Color(_controller.primaryTint),
+          primary: _controller.isDarkMode ? const Color(0xFFB9B4FF) : Color(_controller.primaryTint),
+          secondary: Color(_controller.secondaryTint),
           brightness:
               _controller.isDarkMode ? Brightness.dark : Brightness.light,
         );
@@ -96,8 +96,8 @@ class _NasqoProErpAppState extends State<NasqoProErpApp> {
             useMaterial3: true,
             colorScheme: colorScheme,
             scaffoldBackgroundColor: _controller.isDarkMode ? null : const Color(0xFFF5F7FF),
-            appBarTheme: const AppBarTheme(
-              backgroundColor: Color(0xFF4338CA),
+            appBarTheme: AppBarTheme(
+              backgroundColor: Color(_controller.primaryTint),
               foregroundColor: Colors.white,
               centerTitle: false,
             ),
@@ -508,8 +508,8 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
 
   @override
   Widget build(BuildContext context) {
-    const blue = Color(0xFF4338CA);
-    const navy = Color(0xFF312E81);
+    final blue=Color(widget.controller.primaryTint);
+    final navy=Color.lerp(blue,Colors.black,0.30)!;
     final unread=workspaceAlerts(widget.controller).where((a)=>!widget.controller.readAlerts.contains(a.id)).length;
     return Scaffold(
       key: _shellKey,
@@ -517,7 +517,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         titleSpacing: 0,
         leadingWidth: 48,
         toolbarHeight: 52,
-        flexibleSpace: const DecoratedBox(
+        flexibleSpace: DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.centerRight,
