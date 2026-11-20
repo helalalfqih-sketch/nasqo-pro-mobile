@@ -25,6 +25,9 @@ void main() {
           key:ValueKey(report),controller:c,report:report))));
       await tester.pumpAndSettle();
     }
+    await open(LocalReport.closing);
+    expect(find.text('صافي الربح'),findsOneWidget);
+    expect(find.text('52'),findsOneWidget);
     await open(LocalReport.category);
     expect(find.text('50 عليه'),findsOneWidget);
     await open(LocalReport.services);
