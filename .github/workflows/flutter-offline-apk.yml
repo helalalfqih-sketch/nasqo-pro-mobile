@@ -44,15 +44,18 @@ jobs:
         working-directory: flutter_app
         run: flutter test
       - name: Build Android APK
+        if: github.event_name == 'workflow_dispatch'
         working-directory: flutter_app
         run: flutter build apk --debug --android-skip-build-dependency-validation
       - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch'
         with:
           name: nasqo-pro-android-apk
           path: flutter_app/build/app/outputs/flutter-apk/*.apk
           retention-days: 14
 
   offline-device:
+    if: github.event_name == 'workflow_dispatch'
     needs: offline-apk
     runs-on: ubuntu-latest
     timeout-minutes: 25
