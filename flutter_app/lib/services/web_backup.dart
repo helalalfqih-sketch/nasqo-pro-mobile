@@ -36,22 +36,7 @@ class WebBackup {
       }
       return list;
     }
-    // Archived currency identifiers are retained in the export even when the
-    // mobile ledger cannot post in that currency.
-    for (final row in (data['currencies'] ?? const []) as List) {
-      if (row is! Map) continue;
-      final value = row['code'] ?? row['name'];
-      final code = CurrencyCode.values.where((c) =>
-        value == c.label || value.toString().toLowerCase() == c.name).firstOrNull;
-      if (code == null) continue;
-      final buy = row['rateSecondary'], sell = row['ratePrimary'];
-      result.currencyDetails[code.name] = {
-        'symbol': row['symbol']?.toString() ?? '',
-        'subunit': row['nameSecondary']?.toString() ?? '',
-        if (buy is num && buy.isFinite && buy > 0) 'buy': buy,
-        if (sell is num && sell.isFinite && sell > 0) 'sell': sell,
-      };
-    }
+    result.currencyDetails.addAll(readCurrencyDetails(data['currencies']));
     for (final r in rows('accounts')) {
       result.accounts.add(AccountRecord(id: r['id'], name: _required(r['name']),
         category: AccountCategory.values.byName(r['category']),
@@ -106,6 +91,28 @@ class WebBackup {
       throw const FormatException('النسخة لا تتضمن سجلات محاسبية أو مخزنية للاستعادة.');
     }
     return result;
+  }
+
+  static Map<String, dynamic> readCurrencyDetails(dynamic rows) {
+    final entries = <String, dynamic>{};
+    if (rows is! List) return entries;
+    // Archived currency identifiers are retained in the export even when the
+    // mobile ledger cannot post in that currency.
+    for (final row in rows) {
+      if (row is! Map) continue;
+      final value = row['code'] ?? row['name'];
+      final code = CurrencyCode.values.where((c) =>
+        value == c.label || value.toString().toLowerCase() == c.name).firstOrNull;
+      if (code == null) continue;
+      final buy = row['rateSecondary'], sell = row['ratePrimary'];
+      entries[code.name] = {
+        'symbol': row['symbol']?.toString() ?? '',
+        'subunit': row['nameSecondary']?.toString() ?? '',
+        if (buy is num && buy.isFinite && buy > 0) 'buy': buy,
+        if (sell is num && sell.isFinite && sell > 0) 'sell': sell,
+      };
+    }
+    return entries;
   }
 
   static String _required(dynamic value) {
