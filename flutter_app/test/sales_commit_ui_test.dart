@@ -15,6 +15,7 @@ class PendingSalesController extends ErpController {
   Future<void> submitSalesInvoice(
       {required String accountId,
       String? cashboxAccountId,
+      double? freeAmount,
       required String customerName,
       required WarehouseRecord warehouse,
       required PaymentMethod payment,

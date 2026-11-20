@@ -16,7 +16,7 @@ class _ReturnWorkspace extends ErpController {
 }
 
 void main() {
-  testWidgets('home opens only the unposted return workspace', (tester) async {
+  testWidgets('home offers purchase returns and opens sales drafts without posting', (tester) async {
     final controller = _ReturnWorkspace();
     addTearDown(controller.dispose);
     final before = controller.ledger.length;
@@ -27,6 +27,9 @@ void main() {
     await tester.pumpWidget(NasqoProErpApp(controller: controller));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('home-sales-return-drafts')));
+    await tester.pumpAndSettle();
+    expect(find.text('فاتورة الشراء الأصلية'), findsOneWidget);
+    await tester.tap(find.text('مردود بيع'));
     await tester.pumpAndSettle();
     expect(find.byType(SalesReturnDraftsView), findsOneWidget);
     expect(controller.reads, 1);

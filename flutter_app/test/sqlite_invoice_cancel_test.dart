@@ -122,6 +122,9 @@ void main() {
       await Scrollable.ensureVisible(tester.element(action), alignment: 0.5);
       await tester.pumpAndSettle();
       await tester.tap(action);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('فاتورة بيع'));
+      await tester.pumpAndSettle();
     }
 
     for (final systemBack in [false, true]) {

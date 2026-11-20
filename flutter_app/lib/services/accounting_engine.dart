@@ -290,7 +290,7 @@ class AccountingEngine {
       final acc = accountMap[entry.accountId];
       final isSale = (entry.kind == LedgerKind.returnEntry && entry.typeLabel == 'مرتجع مبيعات') ||
           acc?.category == AccountCategory.sales ||
-          entry.direction == EntryDirection.debit;
+          (entry.direction == EntryDirection.debit && entry.typeLabel != 'مردود شراء');
       if (isSale) {
         taxableSales += entry.kind == LedgerKind.returnEntry ? -amt : amt;
       } else {

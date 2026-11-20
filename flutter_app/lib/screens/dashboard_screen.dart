@@ -6,7 +6,7 @@ import '../services/customer_measurement_repository.dart';
 import '../services/home_balance_groups.dart';
 import '../state/erp_controller.dart';
 import 'customer_measurement_views.dart';
-import 'invoice_form_sheet.dart';
+import 'invoice_workspace.dart';
 import 'nasqo_brand_mark.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -23,12 +23,9 @@ class DashboardScreen extends StatelessWidget {
   final ValueChanged<String> onOpenModule;
 
   void _openInvoice(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      enableDrag: false,
-      builder: (_) => InvoiceFormSheet(controller: controller),
-    );
+    Navigator.of(context).push<void>(MaterialPageRoute(
+      builder: (_) => InvoiceWorkspace(controller: controller),
+    ));
   }
 
   @override

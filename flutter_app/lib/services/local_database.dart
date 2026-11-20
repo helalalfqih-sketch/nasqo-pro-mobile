@@ -668,6 +668,7 @@ class LocalDatabase {
         }
         quantities[key] = total;
         net += line.quantity * line.unitPrice;
+        if (source.id.startsWith('service-sale_') && line.itemId.isEmpty) continue;
         final changed = await txn.rawUpdate(
             'UPDATE inventory_items SET quantity = quantity + ? WHERE id = ? AND warehouseId = ?',
             [line.quantity, line.itemId, source.warehouseId]);
@@ -675,7 +676,7 @@ class LocalDatabase {
       }
       double money(double number) => (number * 100).round() / 100;
       if (!net.isFinite || net > facts.preTaxTotal + 1e-7) throw StateError('تجاوز المرتجع أصل الفاتورة.');
-      final tax = money(facts.taxAmount * net / facts.preTaxTotal);
+      final tax = facts.preTaxTotal == 0 ? 0.0 : money(facts.taxAmount * net / facts.preTaxTotal);
       final returnedNet = net - previousNet;
       final returnedTax = money(tax - previousTax);
       final amount = returnedNet + returnedTax;
@@ -1159,6 +1160,11 @@ class LocalDatabase {
       final linked = await txn.query('ledger_entries', columns: ['id'],
         where: "id IN (?, ?) OR id || '/cashbox' = ? OR id || '/settlement' = ?",
         whereArgs: ['$id/cashbox', '$id/settlement', id, id], limit: 1);
+      final purchaseLinks = await txn.rawQuery(
+          "SELECT 1 FROM ledger_entries WHERE instr(id, 'purchase-return/' || ? || '/') = 1 LIMIT 1", [id]);
+      if (id.startsWith('purchase-return/') || purchaseLinks.isNotEmpty) {
+        throw StateError('القيد مرتبط بمردود شراء.');
+      }
       if (linked.isNotEmpty) throw StateError('القيد مرتبط بتسوية نقدية.');
       if(drafts.isNotEmpty || posted.isNotEmpty) throw StateError('القيد مرتبط بمرتجع محفوظ.');
       for(final table in ['sale_line_cost_facts','sale_facts','sale_lines']) {
