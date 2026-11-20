@@ -508,6 +508,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
   Widget build(BuildContext context) {
     const blue = Color(0xFF4338CA);
     const navy = Color(0xFF312E81);
+    final unread=workspaceAlerts(widget.controller).where((a)=>!widget.controller.readAlerts.contains(a.id)).length;
     return Scaffold(
       key: _shellKey,
       appBar: AppBar(
@@ -579,7 +580,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           ),
           SizedBox(width: 34, child: IconButton(tooltip: 'التنبيهات', iconSize: 19,
             padding: EdgeInsets.zero, onPressed: () => _openModulePage('notifications'),
-            icon: const Icon(Icons.notifications_none))),
+            icon: Badge(isLabelVisible:unread>0,label:Text(unread>99?'99+':'$unread'),child:const Icon(Icons.notifications_none)))),
           PopupMenuButton<String>(
             tooltip: 'إضافة',
             icon: const Icon(Icons.add),
