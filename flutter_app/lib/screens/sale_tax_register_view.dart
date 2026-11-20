@@ -93,7 +93,7 @@ class _SaleTaxRegisterViewState extends State<SaleTaxRegisterView> {
               AppBar(title: const Text('الضريبة الموثقة على المبيعات المحلية')),
           body: ListView(padding: const EdgeInsets.all(16), children: [
             const Text(
-                'سجل محلي للقراءة فقط يعرض الضريبة المحفوظة كما هي، دون إعادة احتساب. ليس إقراراً ضريبياً أو تحديداً للالتزام الضريبي. لا يشمل المرتجعات أو تحويل العملات.'),
+                'سجل محلي للقراءة فقط يعرض الضريبة المحفوظة كما هي، دون إعادة احتساب. ليس إقراراً ضريبياً أو تحديداً للالتزام الضريبي. تظهر المرتجعات المحلية المرحّلة بقيم سالبة ضمن عملتها الأصلية.'),
             const SizedBox(height: 12),
             Form(
                 key: _form,
@@ -147,7 +147,7 @@ class _SaleTaxRegisterViewState extends State<SaleTaxRegisterView> {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(summary.currency.label,
                   style: Theme.of(context).textTheme.titleLarge),
-              Text('عدد المبيعات ذات الضريبة الموثقة: ${summary.knownCount}'),
+              Text('عدد العمليات ذات الضريبة الموثقة: ${summary.knownCount}'),
               if (summary.knownCount == 0)
                 const Text('لا توجد مبالغ ضريبية موثقة لهذه العملة.')
               else ...[
