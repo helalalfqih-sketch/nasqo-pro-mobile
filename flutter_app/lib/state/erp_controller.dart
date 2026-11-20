@@ -453,6 +453,21 @@ class ErpController extends ChangeNotifier {
   ) =>
       _localDatabase.saveNonpostingDocument(document);
 
+  Future<int> postSalesReturn(int id, int revision) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      await initDatabase();
+      if (!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+      await _writeTail;
+      final number = await _localDatabase.postReturnDraft(id, revision);
+      await _loadOrCreateDatabase();
+      return number;
+    } finally {
+      _editingWorkspace = false;
+    }
+  }
+
   Future<List<SalesReturnDraft>> loadSalesReturnDrafts() =>
       _localDatabase.listSalesReturnDrafts();
 
