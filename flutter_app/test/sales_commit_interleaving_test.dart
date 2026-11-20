@@ -144,11 +144,14 @@ void main() {
     final tax = await sql.query('erp_state',where:'stateKey = ?',whereArgs:['return_detail/${entry.id}']);
     expect(jsonDecode(tax.single['payloadJson'] as String)['tax'],1.5);
     final remaining = await draft(1);
+    final failWhen = cash ? "NEW.id LIKE '%/settlement'" : "NEW.kind = 'returnEntry'";
     await sql.execute("CREATE TRIGGER reject_return BEFORE INSERT ON ledger_entries "
-        "WHEN NEW.kind = 'returnEntry' BEGIN SELECT RAISE(ABORT,'synthetic'); END");
+        "WHEN $failWhen BEGIN SELECT RAISE(ABORT,'synthetic'); END");
     await expectLater(c.postSalesReturn(remaining.id, remaining.revision),throwsA(anything));
     final rolledBack = await store.loadSnapshot();
     expect(rolledBack.inventory.singleWhere((i) => i.id == item.id).quantity,item.quantity-1);
+    expect(LocalAccountStatement(account, rolledBack.ledger, account.currency).closing, before + 11.5);
+    expect(LocalAccountStatement(other, rolledBack.ledger, other.currency).closing, otherBefore);
     expect(await store.getSalesReturnDraft(remaining.id),isNotNull);
     await sql.execute('DROP TRIGGER reject_return');
     await c.postSalesReturn(remaining.id, remaining.revision);
