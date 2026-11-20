@@ -119,7 +119,8 @@ void main() {
       final action = find.byKey(const ValueKey('home-invoice-new'));
       await tester.scrollUntilVisible(action, 200,
           scrollable: find.byType(Scrollable).first);
-      await tester.ensureVisible(action);
+      await Scrollable.ensureVisible(tester.element(action), alignment: 0.5);
+      await tester.pumpAndSettle();
       await tester.tap(action);
     }
 
