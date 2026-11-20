@@ -203,7 +203,7 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
                         style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: 12),
                       const Text(
-                        'النسخ المحلية محفوظة داخل التطبيق. استخدم «حفظ في ملف» '
+                        'تُحفظ النسخ المحلية داخل التطبيق دون تشفير. استخدم «حفظ في ملف» '
                         'للاحتفاظ بنسخة خارج الهاتف.',
                         softWrap: true),
                       const SizedBox(height: 12),
