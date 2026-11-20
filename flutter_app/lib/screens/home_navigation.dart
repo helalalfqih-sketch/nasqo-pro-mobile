@@ -61,7 +61,7 @@ class HomeReportsView extends StatelessWidget {
     const groups = [
       ('التقارير المالية', [
         ('cashboxes','حركة الصندوق'),('report-closing','تقرير الحسابات الختامية'),('report-category','تقرير إجمالي حسب التصنيف'),
-        ('finance','ميزان المراجعة')
+        ('report-trial','ميزان المراجعة')
       ]),
       ('التقارير المخزنية', [
         ('report-movement','حركة الأصناف والأرباح'),('stock-movement','حركة المخزون'),('report-expiry','تقرير المخزون المتبقي وتاريخ الانتهاء'),
