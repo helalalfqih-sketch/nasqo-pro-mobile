@@ -323,8 +323,23 @@ class _SimpleJournalDraftEditorState extends State<SimpleJournalDraftEditor> {
                                     id == null ? 'اختر الحساب المدين' : null,
                                 onChanged: (id) => setState(() {
                                       _debitId = id;
-                                      _creditId = null;
+                                      if (_creditId == id) _creditId = null;
                                     })),
+                            Center(
+                              child: IconButton(
+                                key: const ValueKey('journal-swap-accounts'),
+                                tooltip: 'تبديل الحسابين (من / إلى)',
+                                icon: const Icon(Icons.swap_vert,
+                                    color: Color(0xFF0B5CA8)),
+                                onPressed: () {
+                                  setState(() {
+                                    final tmp = _debitId;
+                                    _debitId = _creditId;
+                                    _creditId = tmp;
+                                  });
+                                },
+                              ),
+                            ),
                             DropdownButtonFormField<String>(
                                 key: ValueKey(
                                     'journal-credit-${_currency.name}'),
