@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/erp_models.dart';
 import '../state/erp_controller.dart';
 import 'cash_supplier_statement_view.dart';
+import 'account_tools.dart';
 
 /// Nominal local-ledger statement, never a mixed-currency or converted balance.
 class LocalAccountStatement {
@@ -101,6 +102,10 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
                 for (final account in accounts)
                   Card(
                       child: ListTile(
+                    leading: widget.onOpenModule==null ? null : IconButton(icon:const Icon(Icons.edit_outlined),
+                      tooltip:'تعديل الحساب',onPressed:()=>Navigator.of(context).push(MaterialPageRoute<bool>(
+                        builder:(_)=>Scaffold(appBar:AppBar(title:const Text('تعديل الحساب')),
+                          body:AccountEditor(controller:widget.controller,account:account))))),
                     title: Text(account.name),
                     subtitle:
                         Text('رقم ${account.codeNumber} • ${currency.label}'),
