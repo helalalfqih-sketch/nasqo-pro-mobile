@@ -64,6 +64,7 @@ class NasqoWebDrawer extends StatelessWidget {
                         route: 'sales-overview'),
                     _item('سجل فواتير المبيعات', Icons.receipt_long_outlined,
                         route: 'sales-register'),
+                    _item('سجل فواتير المشتريات', Icons.shopping_basket_outlined, route:'purchase-register'),
                     _item('الحركة اليومية', Icons.today_outlined,
                         route: 'daily-movement'),
                     _item('الرسائل الفورية واتساب', Icons.chat_outlined, route:'message-settings'),
