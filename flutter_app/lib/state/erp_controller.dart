@@ -797,7 +797,8 @@ class ErpController extends ChangeNotifier {
         restoredGroups = original == null ? null : RestoredGroups.fromJson(original);
         _applyGroupDirectory(snap.erpData?['groupDirectory'] as Map<String,dynamic>?);
         final currencies = snap.erpData?['currencyDetails'];
-        _currencyDetails = currencies is Map ? Map<String, dynamic>.from(currencies) : {};
+        _currencyDetails = currencies is Map ? Map<String, dynamic>.from(currencies)
+            : WebBackup.readCurrencyDetails(original?['currencies']);
         _loadAppearance(snap.erpData?['appearance']);
         _loadAlertState(snap.erpData?['alertState']);
         _loadMessagePreferences(snap.erpData?['messagePreferences']);
