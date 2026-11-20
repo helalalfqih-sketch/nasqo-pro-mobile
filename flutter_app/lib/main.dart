@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/account_tools.dart';
 import 'screens/stock_scanner_view.dart';
 import 'screens/home_navigation.dart';
 import 'screens/local_report_detail.dart';
@@ -279,6 +280,9 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
             saveDraft: widget.controller.saveFxDraft,
           ),
         ),
+      'account-new' => ('إضافة حساب',AccountEditor(controller:widget.controller)),
+      'account-import' => ('استيراد الحسابات',AccountImportView(controller:widget.controller)),
+      'message-settings' => ('إعدادات إشعارات واتساب',MessageSettingsView(controller:widget.controller)),
       'accounts' => (
           'جميع الحسابات',
           ListView(
@@ -555,8 +559,8 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           ),
         ]),
         actions: [
-          const _UnavailableHeader(
-              icon: Icons.chat_outlined, label: 'واتساب غير متاح'),
+          SizedBox(width:34,child:IconButton(tooltip:'إعدادات واتساب',iconSize:19,padding:EdgeInsets.zero,
+            onPressed:()=>_openModulePage('message-settings'),icon:const Icon(Icons.chat_outlined))),
           SizedBox(width: 34, child: IconButton(
             tooltip: 'سلة المحذوفات', iconSize: 19, padding: EdgeInsets.zero,
             onPressed: () => _openModulePage('trash'), icon: const Icon(Icons.delete_outline))),
@@ -625,23 +629,4 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       ),
     );
   }
-}
-
-class _UnavailableHeader extends StatelessWidget {
-  const _UnavailableHeader({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-        message: label,
-        child: Semantics(
-          enabled: false,
-          label: label,
-          child: SizedBox(
-            width: 34,
-            child: Icon(icon, color: Colors.white60, size: 19),
-          ),
-        ),
-      );
 }
