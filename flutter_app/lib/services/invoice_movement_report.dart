@@ -13,6 +13,7 @@ class InvoiceMovementRow {
   double? lastCost;
   String lastDate = '';
   int lastNumber = -1, lastPosition = -1;
+  double invoiceNet = 0, prior = 0, incoming = 0, outgoing = 0, opening = 0, remaining = 0;
   bool active = false;
 }
 
@@ -53,18 +54,44 @@ List<InvoiceMovementRow> invoiceMovementReport({
         row.lastPosition=line.position;
       }
     }
-    if(entry.currency!=currency || (from.isNotEmpty && entry.entryDate.compareTo(from)<0) ||
-        (through.isNotEmpty && entry.entryDate.compareTo(through)>0)) continue;
-    if(purchase) {row.periodBuyQty+=qty;row.periodBuyValue+=value;}
     final wh = detail?['warehouseId'] as String?;
     final location = wh!=null && wh.isNotEmpty ? wh :
         entry.warehouseId.isNotEmpty ? entry.warehouseId : row.item.warehouseId;
+    row.invoiceNet += purchase ? qty : -qty;
+    if(from.isNotEmpty && entry.currency==currency && entry.entryDate.compareTo(from)<0 &&
+        (warehouse.isEmpty || warehouse==location)) row.prior += purchase ? qty : -qty;
+    if(entry.currency!=currency || (from.isNotEmpty && entry.entryDate.compareTo(from)<0) ||
+        (through.isNotEmpty && entry.entryDate.compareTo(through)>0)) continue;
+    if(purchase) {row.periodBuyQty+=qty;row.periodBuyValue+=value;}
     if(warehouse.isNotEmpty && location!=warehouse) continue;
     row.active = true;
     if(purchase) {row.bought+=qty;row.purchases+=value;}
     else {row.sold+=qty;row.sales+=value;}
   }
-  final result = rows.values.where((r)=>r.active).toList();
+  if(metadata!=null) {
+    for(final tx in metadata.transfers) {
+      final row = rows[tx.item];
+      if(row==null) continue;
+      final factors = metadata.unitFactors[tx.item] ?? (1.0,1.0);
+      final qty = tx.quantity*(tx.unit==3 ? factors.$1*factors.$2 : tx.unit==2 ? factors.$1 : 1.0);
+      final incoming = tx.destination.isNotEmpty && (warehouse.isEmpty || warehouse==tx.destination);
+      final outgoing = tx.source.isNotEmpty && (warehouse.isEmpty || warehouse==tx.source);
+      if(from.isNotEmpty && tx.date.compareTo(from)<0) {
+        row.prior += (incoming ? qty : 0) - (outgoing ? qty : 0);
+        continue;
+      }
+      if(through.isNotEmpty && tx.date.compareTo(through)>0) continue;
+      if(incoming) row.incoming+=qty;
+      if(outgoing) row.outgoing+=qty;
+      if(incoming || outgoing) row.active=true;
+    }
+  }
+  for(final r in rows.values) {
+    final baseline = warehouse.isEmpty || warehouse==r.item.warehouseId ? r.item.quantity-r.invoiceNet : 0;
+    r.opening=_round2(baseline+r.prior);
+    r.remaining=_round2(r.opening+_round2(r.bought)-_round2(r.sold)+_round2(r.incoming)-_round2(r.outgoing));
+  }
+  final result = rows.values.where((r)=>r.active || r.opening!=0).toList();
   for(final r in result) {
     r.sales=_round2(r.sales); r.sold=_round2(r.sold);
     r.purchases=_round2(r.purchases); r.bought=_round2(r.bought);
