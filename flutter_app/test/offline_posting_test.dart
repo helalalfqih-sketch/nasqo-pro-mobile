@@ -14,7 +14,8 @@ void main() {
     final backup = WebBackup.parse(jsonEncode({
       'format': 'nasqo-unified-sqlite-export-v2', 'version': 2,
       'workspace': {'companyName': 'منشأة تجريبية'},
-      'accounts': [], 'warehouses': [], 'inventory': [], 'ledger': [],
+      'accounts': [], 'warehouses': [{'id': 'w1', 'name': 'مخزن اختباري', 'isDefault': true}],
+      'inventory': [], 'ledger': [],
       'currencies': [
         {'code': 'دولار', 'symbol': 'USD', 'nameSecondary': 'سنت',
           'ratePrimary': 3.8, 'rateSecondary': 3.7},
