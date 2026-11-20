@@ -4,6 +4,7 @@ import '../services/accounting_engine.dart';
 import '../state/erp_controller.dart';
 
 enum LocalReport {
+  closing('تقرير الحسابات الختامية'),
   category('تقرير إجمالي حسب التصنيف'),
   stock('المخزون المتبقي'),
   expiry('تقرير المخزون المتبقي وتاريخ الانتهاء'),
@@ -78,6 +79,52 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
     return table(['التصنيف','الحسابات','عليه','له','الرصيد'],rows,'');
   }
 
+  Widget closingReport() {
+    final c = widget.controller;
+    final balances = <String,double>{
+      for(final a in c.accounts) a.id:
+        a.currency == currency && a.openingBalance>0
+          ? a.openingBalance*(a.openingDirection == EntryDirection.debit ? 1 : -1) : 0
+    };
+    var cash = 0.0, sales = 0.0, purchases = 0.0;
+    for(final e in c.ledger) {
+      if(e.deleted || e.currency!=currency || e.kind==LedgerKind.quote || e.kind==LedgerKind.order) continue;
+      final debit = e.direction==EntryDirection.debit;
+      final side = c.restoredGroups?.sides[e.id];
+      final settled = c.restoredGroups?.settledEntries.contains(e.id) ?? false;
+      if(!settled) {
+        final change = (side?.debit ?? (debit ? e.amount : 0.0)) -
+            (side?.credit ?? (debit ? 0.0 : e.amount));
+        balances[e.accountId] = (balances[e.accountId] ?? 0) + change;
+      }
+      if(e.payment==PaymentMethod.cash || settled) {
+        final type = c.restoredGroups?.documentTypes[e.id];
+        final cashDocument = [LedgerKind.voucher,LedgerKind.transfer,LedgerKind.simpleEntry].contains(e.kind);
+        final inflow = cashDocument ? !debit : type==null ? debit : [2,7,5].contains(type);
+        cash += inflow ? e.amount : -e.amount;
+      }
+      if(e.kind==LedgerKind.invoice) {
+        if(e.typeLabel.contains('بيع') || debit) {sales += e.amount;} else {purchases += e.amount;}
+      } else if(e.kind==LedgerKind.returnEntry) {
+        if(e.typeLabel.contains('مبيعات') || !debit) {sales -= e.amount;} else {purchases -= e.amount;}
+      }
+    }
+    final debit = balances.values.where((v)=>v>0.005).fold<double>(0,(s,v)=>s+v);
+    final credit = balances.values.where((v)=>v < -0.005).fold<double>(0,(s,v)=>s-v);
+    final inventory = c.inventory.where((i)=>i.avgCost>0).fold<double>(0,(s,i)=>s+i.quantity*i.avgCost);
+    return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+      for(final (title,values) in [
+        ('الأرصدة',[('إجمالي المدين (عليهم)',debit),('إجمالي الدائن (لهم)',credit),
+          ('إجمالي النقدية',cash<0 ? 0.0 : cash),('صافي الرصيد',debit-credit)]),
+        ('نتيجة النشاط',[('المبيعات',sales),('المشتريات',purchases),('قيمة المخزون',inventory),
+          ('صافي الربح',sales+inventory-purchases)])
+      ]) ...[
+        Text(title,style:Theme.of(context).textTheme.titleMedium),
+        for(final (label,value) in values) ListTile(title:Text(label),trailing:Text(format(value)))
+      ]
+    ]);
+  }
+
   Widget stockReport() {
     final c = widget.controller;
     final expiry = widget.report == LocalReport.expiry;
@@ -138,7 +185,7 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
         items:[for(final v in CurrencyCode.values) DropdownMenuItem(value:v,child:Text(v.label))],
         onChanged:(v)=>setState((){if(v!=null) currency=v;limit=100;})),
       const SizedBox(height:12),
-      if(stock) stockReport() else if(widget.report==LocalReport.category) categoryReport() else servicesReport()
+      if(stock) stockReport() else if(widget.report==LocalReport.closing) closingReport() else if(widget.report==LocalReport.category) categoryReport() else servicesReport()
     ]);
   });
 }
