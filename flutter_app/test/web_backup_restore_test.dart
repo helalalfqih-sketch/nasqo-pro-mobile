@@ -1,3 +1,4 @@
+import 'package:nasqo_pro_erp/models/erp_models.dart';
 import 'dart:typed_data';
 import 'package:nasqo_pro_erp/services/website_backup_file.dart';
 import 'dart:io';
@@ -108,6 +109,14 @@ void main() {
     expect(groups.groups.single.name,'أصول المحل');
     expect(groups.membership[customer.id],17);
     expect(groups.balances(snapshot.accounts,snapshot.ledger,{},customer.currency)[17],50);
+    final rawLedger = (export['ledger'] as List).cast<Map<String,Object>>();
+    final split = WebBackup.parse(jsonEncode({...export, 'ledger':[
+      {...rawLedger.single, 'rawDain':3, 'rawMadin':51},
+      {...rawLedger.single,'id':'settled','rawDain':30,'rawMadin':30,'settledOnReceipt':true}
+    ]}));
+    expect(split.groupData.balances(split.accounts,split.ledger,{},customer.currency)[17],-28);
+    expect(split.groupData.balances(split.accounts,split.ledger,{17:CurrencyCode.sar},customer.currency)[17] ?? 0,0);
+
     final statement = LocalAccountStatement(customer, snapshot.ledger, customer.currency);
     expect(statement.opening, 20);
     expect(statement.debit, 30);
