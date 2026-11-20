@@ -1,3 +1,5 @@
+import 'package:nasqo_pro_erp/screens/account_groups_view.dart';
+import 'package:nasqo_pro_erp/screens/workspace_views.dart';
 import 'package:nasqo_pro_erp/services/invoice_movement_report.dart';
 import 'package:nasqo_pro_erp/screens/local_report_detail.dart';
 import 'package:nasqo_pro_erp/models/erp_models.dart';
@@ -8,6 +10,22 @@ import 'package:nasqo_pro_erp/main.dart';
 import 'package:nasqo_pro_erp/state/erp_controller.dart';
 
 void main() {
+  testWidgets('group editor and appearance preview save only after confirmation',(tester) async {
+    final c=ErpController(autoInitDb:false);
+    addTearDown(c.dispose);
+    await tester.pumpWidget(MaterialApp(home:Scaffold(body:AccountGroupsView(controller:c))));
+    await tester.tap(find.text('إضافة مجموعة'));await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField,'اسم المجموعة'),'مجموعة اختبار');
+    await tester.tap(find.text('حفظ المجموعة (0 حساب)'));await tester.pumpAndSettle();
+    expect(c.restoredGroups!.groups.last.name,'مجموعة اختبار');
+    await tester.pumpWidget(MaterialApp(home:Scaffold(body:WorkspaceSettingsScreen(controller:c))));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('تخصيص الواجهة الرئيسية'));
+    await tester.tap(find.text('تخصيص الواجهة الرئيسية'));await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(find.byType(Slider)));await tester.pumpAndSettle();
+    await tester.tap(find.text('حفظ المظهر'));await tester.pumpAndSettle();
+    expect(c.homeRadius,lessThan(24));
+  });
   testWidgets('offline reports reconcile synthetic categories, free invoices and dated stock', (tester) async {
     final c = ErpController(autoInitDb:false);
     addTearDown(c.dispose);
