@@ -25,8 +25,11 @@ void main() {
     await tester.tap(addAccount);
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextFormField, 'اسم الحساب'), 'حساب صرف تجريبي');
-    final save = find.text('حفظ الحساب');
-    await tester.ensureVisible(save);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    final save = find.widgetWithText(FilledButton, 'حفظ الحساب');
+    await Scrollable.ensureVisible(tester.element(save), alignment: 0.5);
+    await tester.pumpAndSettle();
     await tester.tap(save);
     await tester.pumpAndSettle();
     final added = controller.accounts.singleWhere((a) => a.name == 'حساب صرف تجريبي');
