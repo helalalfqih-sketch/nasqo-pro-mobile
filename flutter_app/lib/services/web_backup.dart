@@ -117,6 +117,8 @@ class RestoredGroups {
   final settledEntries = <String>{};
   final serviceInvoices = <String>{};
   final expiryDates = <String,String>{};
+  final reportLines = <(String,int),Map<String,dynamic>>{};
+  final unitFactors = <String,(double,double)>{};
   final itemNumbers = <String,int>{};
 
   factory RestoredGroups.fromJson(Map<String, dynamic> data) {
@@ -135,6 +137,10 @@ class RestoredGroups {
     });
     for (final e in data['ledger'] ?? []) {
       final id = e['id'] as String;
+      final lines = (e['lines'] ?? []) as List;
+      for (var i=0;i<lines.length;i++) {
+        result.reportLines[(id,i)] = Map<String,dynamic>.from(lines[i] as Map);
+      }
       final type = int.tryParse(e['docType'].toString());
       if (type != null) result.documentTypes[id] = type;
       if (e['settledOnReceipt'] == true) result.settledEntries.add(id);
@@ -143,6 +149,11 @@ class RestoredGroups {
     }
     for (final item in data['inventory'] ?? []) {
       final id = item['id'] as String;
+      double factor(String key) {
+        final n = item[key] as num?;
+        return n == null || n == 0 ? 1 : n.toDouble();
+      }
+      result.unitFactors[id] = (factor('count2'),factor('count3'));
       if (item['expiryDate'] is String && item['expiryDate'].isNotEmpty) {
         result.expiryDates[id] = item['expiryDate'];
       }
