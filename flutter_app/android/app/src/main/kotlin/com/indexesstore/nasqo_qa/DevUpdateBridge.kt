@@ -1,6 +1,7 @@
 package com.indexesstore.nasqo_qa
 
 import android.content.ActivityNotFoundException
+import android.content.ClipData
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
@@ -81,6 +82,7 @@ class DevUpdateBridge(private val activity: FlutterActivity, messenger: BinaryMe
             val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.devupdates", file)
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, "application/vnd.android.package-archive")
+                clipData = ClipData.newUri(activity.contentResolver, "NASQO update", uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             activity.startActivity(intent)
@@ -89,8 +91,10 @@ class DevUpdateBridge(private val activity: FlutterActivity, messenger: BinaryMe
             result.error("NO_INSTALLER", "مثبّت أندرويد غير متاح.", null)
         } catch (_: SecurityException) {
             result.error("INSTALL_DENIED", "لم يسمح أندرويد بفتح المثبّت.", null)
-        } catch (_: IllegalArgumentException) {
-            result.error("INVALID_URI", "ملف التحديث غير صالح.", null)
+        } catch (_: RuntimeException) {
+            // Some AndroidX FileProvider builds throw StringIndexOutOfBoundsException
+            // while resolving a misconfigured path. Report safely to Flutter.
+            result.error("INVALID_URI", "تعذّر تجهيز ملف التحديث للمثبّت. جرّب مرة أخرى.", null)
         }
     }
 
