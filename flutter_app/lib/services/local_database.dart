@@ -657,6 +657,7 @@ class LocalDatabase {
       final previousNet = (prior['net'] as num?)?.toDouble() ?? 0;
       final previousTax = (prior['tax'] as num?)?.toDouble() ?? 0;
       var net = previousNet;
+      final values = <int,double>{};
       for (final line in draft.lines) {
         final original = byPosition[line.position];
         final key = line.position.toString();
@@ -667,7 +668,12 @@ class LocalDatabase {
           throw StateError('تجاوزت كمية المرتجع المتبقي في الفاتورة.');
         }
         quantities[key] = total;
-        net += line.quantity * line.unitPrice;
+        final value = source.id.startsWith('discount-sale_') || source.id.startsWith('service-sale_')
+            ? SavedSaleLine.returnedValue((original['quantity'] as num).toDouble(),
+                line.unitPrice, total - line.quantity, line.quantity)
+            : line.quantity * line.unitPrice;
+        values[line.position] = value;
+        net += value;
         if (source.id.startsWith('service-sale_') && line.itemId.isEmpty) continue;
         final changed = await txn.rawUpdate(
             'UPDATE inventory_items SET quantity = quantity + ? WHERE id = ? AND warehouseId = ?',
@@ -713,7 +719,7 @@ class LocalDatabase {
       for (final line in draft.lines) {
         await txn.insert('sale_lines', {'entryId':entry.id,'position':line.position,
           'itemId':line.itemId,'itemName':line.itemName,'unit':line.unit,
-          'quantity':line.quantity,'unitPrice':line.unitPrice});
+          'quantity':line.quantity,'unitPrice':values[line.position]!/line.quantity});
       }
       final now = DateTime.now().toIso8601String();
       await txn.insert('erp_state', {'stateKey':stateKey,

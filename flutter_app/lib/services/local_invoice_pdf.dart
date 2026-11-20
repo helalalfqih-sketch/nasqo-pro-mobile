@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
 
+import '../models/erp_models.dart';
 import '../models/invoice_print_snapshot.dart';
 
 class LocalInvoicePdfResult {
@@ -138,12 +139,13 @@ class LocalInvoicePdf {
     final e = data.entry;
     _box(c, 0, 0, 595, 842, const Color(0xffffffff));
     _box(c, 34, 25, 527, 3, ink);
-    _text(c, 'نسقو برو  |  فاتورة مبيعات محفوظة', 34, 35, 527, 36, size: 23);
+    final purchase = e.direction == EntryDirection.credit;
+    _text(c, purchase ? 'نسقو برو  |  فاتورة مشتريات محفوظة' : 'نسقو برو  |  فاتورة مبيعات محفوظة', 34, 35, 527, 36, size: 23);
     _text(c, 'نسخة من السجل المحلي، وليست إصدارًا جديدًا للفاتورة', 34, 73, 527,
         20,
         color: mute);
     _box(c, 34, 100, 527, 91, band);
-    _text(c, 'العميل: ${_value(e.accountName)}', 50, 103, 495, 30, lines: 2);
+    _text(c, '${purchase ? 'المورد' : 'العميل'}: ${_value(e.accountName)}', 50, 103, 495, 30, lines: 2);
     _text(c, 'المستند: ${_value(e.documentNumber)}', 291, 136, 254, 22);
     _text(c, 'التاريخ: ${_ltr(_value(e.entryDate))}', 50, 136, 230, 22);
     _text(c, 'المستودع: ${_value(e.warehouseName)}', 282, 162, 263, 24);

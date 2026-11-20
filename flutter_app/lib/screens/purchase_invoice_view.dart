@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'invoice_actions.dart';
 import '../models/erp_models.dart';
 import '../services/account_csv.dart';
 import '../services/accounting_engine.dart';
@@ -18,6 +19,7 @@ class _PurchaseInvoiceState extends State<PurchaseInvoiceView> {
   final price=TextEditingController(),quantity=TextEditingController(text:'1');
   String reference='',error='',rate='1';
   bool saving=false,free=false;
+  DateTime date=DateTime.now();
   String? cashbox;
   final discount=TextEditingController(), freeTotal=TextEditingController();
   @override
@@ -33,18 +35,21 @@ class _PurchaseInvoiceState extends State<PurchaseInvoiceView> {
         productName:product.name,quantity:qty,unitPrice:cost,discount:reduction));discount.clear();error='';});
     } catch(e){setState(()=>error=e.toString());}
   }
-  Future<void> save() async {
+  Future<void> save({bool printAfter=false}) async {
     if(saving) return;
     setState(()=>saving=true);
     widget.onSaving?.call(true);
     try {
       if(payment==PaymentMethod.cash && cashbox==null) throw const FormatException('اختر صندوق النقدية.');
       final number=await widget.controller.postPurchaseInvoice(accountId:account??'',warehouseId:warehouse??'',
-        payment:payment,rows:free?[]:rows,reference:reference,cashboxAccountId:payment==PaymentMethod.cash?cashbox:null,
+        payment:payment,rows:free?[]:rows,reference:reference,invoiceDate:date,cashboxAccountId:payment==PaymentMethod.cash?cashbox:null,
         freeAmount:free?parseAccountAmount(freeTotal.text):null,exchangeRate:parseAccountAmount(rate));
       if(!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تم ترحيل فاتورة الشراء رقم $number')));
-      Navigator.pop(context);
+      if(printAfter) {
+        final entry=widget.controller.ledger.singleWhere((e)=>e.entryNumber==number && e.kind==LedgerKind.invoice);
+        showCommittedInvoice(context,widget.controller,entry.id);
+      } else { Navigator.pop(context); }
     } catch(e){if(mounted) setState(()=>error=e.toString());}
     finally{if(mounted) {widget.onSaving?.call(false);setState(()=>saving=false);}}
   }
@@ -70,6 +75,7 @@ class _PurchaseInvoiceState extends State<PurchaseInvoiceView> {
         decoration:const InputDecoration(labelText:'صندوق النقدية'),
         items:[for(final b in boxes) DropdownMenuItem(value:b.id,child:Text(b.name))],
         onChanged:(v)=>setState(()=>cashbox=v)),
+      InvoiceDateField(value:date,onChanged:(v)=>setState(()=>date=v)),
       TextField(decoration:const InputDecoration(labelText:'رقم فاتورة المورد'),onChanged:(s)=>reference=s),
       SegmentedButton<bool>(segments:const [
         ButtonSegment(value:false,label:Text('أصناف')), ButtonSegment(value:true,label:Text('حرة')),
@@ -90,6 +96,8 @@ class _PurchaseInvoiceState extends State<PurchaseInvoiceView> {
       ],
       Text('إجمالي الفاتورة: ${AccountingEngine.formatAmount(free?AccountingEngine.parseArabicNumber(freeTotal.text):rows.fold<double>(0,(s,r)=>s+r.lineTotal))} ${cur.label}'),
       if(error.isNotEmpty) Text(error),
+      OutlinedButton.icon(onPressed:saving || (!free && rows.isEmpty)?null:()=>save(printAfter:true),
+        icon:const Icon(Icons.print_outlined),label:const Text('حفظ وطباعة')),
       FilledButton(onPressed:saving || (!free && rows.isEmpty)?null:save,child:const Text('حفظ وترحيل المشتريات'))
     ])));
   }

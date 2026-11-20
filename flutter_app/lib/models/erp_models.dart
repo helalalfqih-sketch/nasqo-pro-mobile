@@ -260,6 +260,19 @@ class SavedSaleLine {
   final String unit;
   final double quantity;
   final double unitPrice;
+
+  /// Allocate the difference of cumulative amounts so splitting a return
+  /// cannot create or lose a cent. Preserve the exact original final total.
+  static double returnedValue(double originalQuantity, double price,
+      double alreadyReturned, double nextQuantity) {
+    double cumulative(double qty) {
+      final amount = qty * price;
+      if ((originalQuantity - qty).abs() < 1e-9) return originalQuantity * price;
+      final rounded = (amount * 100).roundToDouble() / 100;
+      return rounded.clamp(0.0, originalQuantity * price).toDouble();
+    }
+    return cumulative(alreadyReturned + nextQuantity) - cumulative(alreadyReturned);
+  }
 }
 
 class SaleValidationException implements Exception {

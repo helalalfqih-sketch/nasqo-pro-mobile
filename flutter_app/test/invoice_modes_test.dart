@@ -24,7 +24,7 @@ void main() {
     final customer=c.accounts.firstWhere((a)=>a.category==AccountCategory.clients);
     Future<void> sale(List<InvoiceItemRow> rows,{double? free}) => c.submitSalesInvoice(
         accountId:customer.id, customerName:customer.name, warehouse:wh, payment:PaymentMethod.credit,
-        includeVat:true, rows:rows, freeAmount:free);
+        includeVat:true, rows:rows, freeAmount:free, invoiceDate:DateTime(2026,5,8));
     Future<void> refund(String id,double qty) async {
       final draft=await c.saveSalesReturnDraft(sourceEntryId:id,date:'2026-11-21',reason:'اختبار',
           selections:[SalesReturnSelection(position:0,quantity:qty)]);
@@ -32,6 +32,7 @@ void main() {
     }
     await sale([],free:100);
     final service=c.ledger.first;
+    expect(service.entryDate,'2026-05-08');
     expect(service.amount,115);
     expect(c.inventory.first.quantity,item.quantity);
     await refund(service.id,1);
@@ -51,6 +52,25 @@ void main() {
     expect(snapshot.saleLines.singleWhere((l)=>l.entryId==discounted.id).unitPrice,40);
   });
 
+  test('split returns allocate the original net and VAT down to the last cent', () async {
+    final item=c.inventory.first, customer=c.accounts.first;
+    await c.submitSalesInvoice(accountId:customer.id,customerName:customer.name,
+        warehouse:c.warehouses.firstWhere((w)=>w.id==item.warehouseId),payment:PaymentMethod.credit,
+        includeVat:true,rows:[InvoiceItemRow(id:'l',itemId:item.id,productName:item.name,
+          quantity:3,unitPrice:10,discount:10)]);
+    final source=c.ledger.first;
+    final refunds=<double>[];
+    for(var i=0;i<3;i++) {
+      final d=await c.saveSalesReturnDraft(sourceEntryId:source.id,date:'2026-11-21',reason:'اختبار',
+          selections:[SalesReturnSelection(position:0,quantity:1)]);
+      await c.postSalesReturn(d.id,d.revision);
+      refunds.add(c.ledger.first.amount);
+    }
+    expect(refunds.map((n)=>(n*100).round()), [767,766,767]);
+    expect(refunds.reduce((a,b)=>a+b),closeTo(source.amount,1e-8));
+    expect(c.inventory.first.quantity,item.quantity);
+  });
+
   for(final payment in [PaymentMethod.cash,PaymentMethod.credit]) {
     test('partial ${payment.name} purchase return uses discounted cost and rejects duplicate and excess after reopen', () async {
       final supplier=c.accounts.firstWhere((a)=>a.category==AccountCategory.purchases);
@@ -60,6 +80,9 @@ void main() {
         rows:[InvoiceItemRow(id:'a',itemId:item.id,productName:item.name,quantity:4,unitPrice:10,discount:8)]);
       final source=c.ledger.singleWhere((e)=>e.entryNumber==number && e.kind==LedgerKind.invoice);
       expect(source.amount,32);
+      final printable = await c.loadInvoiceForPrint(source.id);
+      expect(printable.entry.accountId,supplier.id);
+      expect(printable.lines.single.unitPrice,8);
       Future<int> refund(String key,double qty)=>c.postPurchaseReturn(sourceId:source.id,requestId:key,quantities:{0:qty});
       final ret=await refund('one',2);
       final returned=c.ledger.singleWhere((e)=>e.entryNumber==ret && e.kind==LedgerKind.returnEntry);

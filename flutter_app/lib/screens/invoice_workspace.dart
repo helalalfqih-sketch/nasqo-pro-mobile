@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/erp_models.dart';
 import '../services/account_csv.dart';
 import '../services/accounting_engine.dart';
 import '../state/erp_controller.dart';
@@ -108,8 +109,13 @@ class _PurchaseReturnFormState extends State<_PurchaseReturnForm> {
           enabled:!saving,keyboardType:const TextInputType.numberWithOptions(decimal:true),
           decoration:InputDecoration(labelText:'كمية مردود ${line.itemName}',
             helperText:'المتبقي: ${AccountingEngine.formatAmount(remaining[line.position]!)} · سعر الوحدة بعد الخصم: ${AccountingEngine.formatAmount(line.unitPrice)}'),
-          onChanged:(v)=>quantities[line.position]=v),
+          onChanged:(v)=>setState(()=>quantities[line.position]=v)),
       ],
+      if(source!=null) Text('إجمالي المردود: ${AccountingEngine.formatAmount(lines.fold<double>(0,(sum,l) {
+        final qty=AccountingEngine.parseArabicNumber(quantities[l.position]??'');
+        return qty.isFinite && qty>0 && qty<=remaining[l.position]! ?
+            sum+SavedSaleLine.returnedValue(l.quantity,l.unitPrice,l.quantity-remaining[l.position]!,qty) : sum;
+      }))} ${source.currency.label}'),
       if(error.isNotEmpty) Text(error),
       FilledButton(onPressed:saving || lines.isEmpty ? null : post, child:const Text('ترحيل مردود الشراء')),
     ]);

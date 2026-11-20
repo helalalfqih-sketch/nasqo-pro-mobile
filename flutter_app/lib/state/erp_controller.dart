@@ -1224,9 +1224,11 @@ class ErpController extends ChangeNotifier {
 
   Future<int> postPurchaseInvoice({required String accountId,required String warehouseId,
       required PaymentMethod payment,required List<InvoiceItemRow> rows, String reference='',double exchangeRate=1,
-      double? freeAmount, String? cashboxAccountId}) async {
+      double? freeAmount, String? cashboxAccountId, DateTime? invoiceDate}) async {
     _requireAvailableMutation();
     _editingWorkspace=true;
+    final draftRows = [for (final row in rows) InvoiceItemRow(id:row.id, itemId:row.itemId,
+        productName:row.productName, quantity:row.quantity, unitPrice:row.unitPrice, discount:row.discount)];
     try {
       if(_usesPersistentStore) {
         await initDatabase();
@@ -1235,10 +1237,10 @@ class ErpController extends ChangeNotifier {
       }
       final supplier=accounts.where((a)=>a.id==accountId && a.category==AccountCategory.purchases).firstOrNull;
       final warehouse=warehouses.where((w)=>w.id==warehouseId).firstOrNull;
-      if(freeAmount!=null && (!freeAmount.isFinite || freeAmount<=0 || rows.isNotEmpty)) {
+      if(freeAmount!=null && (!freeAmount.isFinite || freeAmount<=0 || draftRows.isNotEmpty)) {
         throw const FormatException('تحقق من مبلغ الفاتورة الحرة.');
       }
-      if(supplier==null || warehouse==null || (rows.isEmpty && freeAmount==null)) throw StateError('اختر المورد والمستودع وأضف بنود الفاتورة.');
+      if(supplier==null || warehouse==null || (draftRows.isEmpty && freeAmount==null)) throw StateError('اختر المورد والمستودع وأضف بنود الفاتورة.');
       final box=accounts.where((a)=>a.id==cashboxAccountId).firstOrNull;
       if(cashboxAccountId!=null && (box==null || !box.isCashAccount || box.currency!=supplier.currency || payment!=PaymentMethod.cash)) {
         throw const FormatException('اختر صندوقًا بعملة المورد.');
@@ -1251,7 +1253,7 @@ class ErpController extends ChangeNotifier {
       final stock=List.of(inventory), lines=List.of(saleLines);
       var total=freeAmount??0.0;
       if(freeAmount!=null) lines.add(SavedSaleLine(entryId:id,position:0,itemId:'',itemName:'فاتورة حرة',unit:'خدمة',quantity:1,unitPrice:freeAmount));
-      for(final (pos,row) in rows.indexed) {
+      for(final (pos,row) in draftRows.indexed) {
         final i=stock.indexWhere((v)=>v.id==row.itemId && v.warehouseId==warehouseId);
         if(i<0 || !row.quantity.isFinite || row.quantity<=0 || !row.unitPrice.isFinite || row.unitPrice<0 || !row.validDiscount) {
           throw const FormatException('تحقق من الأصناف والكميات والأسعار.');
@@ -1269,9 +1271,9 @@ class ErpController extends ChangeNotifier {
       final entry=LedgerEntryRecord(id:id,accountId:accountId,accountName:supplier.name,kind:LedgerKind.invoice,
         typeLabel:payment==PaymentMethod.cash?'ف.مشتريات نقدية':'ف.مشتريات آجل',payment:payment,
         direction:EntryDirection.credit,amount:total,currency:supplier.currency,exchangeRate:rate,
-        details:[if(freeAmount!=null) 'فاتورة حرة',for(final row in rows.where((r)=>r.discount>0)) '${row.productName} · ${row.discountNote}'].join('\n'),
+        details:[if(freeAmount!=null) 'فاتورة حرة',for(final row in draftRows.where((r)=>r.discount>0)) '${row.productName} · ${row.discountNote}'].join('\n'),
         documentNumber:reference.trim().isEmpty?'PUR-$number':reference.trim(),warehouseId:warehouseId,
-        warehouseName:warehouse.name,entryNumber:number,entryDate:DateTime.now().toIso8601String().substring(0,10));
+        warehouseName:warehouse.name,entryNumber:number,entryDate:(invoiceDate ?? DateTime.now()).toIso8601String().substring(0,10));
       final posted=[entry,if(box!=null) ...cashSaleSettlement(entry,cashboxId:box.id,cashboxName:box.name),...ledger];
       if(_usesPersistentStore) await _saveCurrentSnapshot(nextInventory:stock,nextLedger:posted,
         nextSaleLines:lines,nextEntryNumber:number);
@@ -1333,9 +1335,11 @@ class ErpController extends ChangeNotifier {
           final balance = stock[index].quantity - qty;
           stock[index] = stock[index].copyWith(quantity: balance < 0 ? 0 : balance);
         }
-        total += line.unitPrice * qty;
+        final priorQuantity = line.quantity - remaining[selection.key]!;
+        final value = SavedSaleLine.returnedValue(line.quantity, line.unitPrice, priorQuantity, qty);
+        total += value;
         lines.add(SavedSaleLine(entryId:id,position:line.position,itemId:line.itemId,
-            itemName:line.itemName,unit:line.unit,quantity:qty,unitPrice:line.unitPrice));
+            itemName:line.itemName,unit:line.unit,quantity:qty,unitPrice:value/qty));
       }
       if (!total.isFinite) throw const FormatException('مبلغ المردود خارج النطاق.');
       final number = _nextEntryNumber + 1;
@@ -1456,6 +1460,8 @@ class ErpController extends ChangeNotifier {
     required List<InvoiceItemRow> rows,
     String? cashboxAccountId,
     double? freeAmount,
+    DateTime? invoiceDate,
+    ValueChanged<String>? onCommitted,
     String documentNumber = '',
     String memo = '',
   }) async {
@@ -1585,7 +1591,7 @@ class ErpController extends ChangeNotifier {
       ].join('\n');
 
       final entryNum = _nextEntryNumber + 1;
-      final prefix = isFree ? 'service-sale' : 'led';
+      final prefix = isFree ? 'service-sale' : draftRows.any((r)=>r.discount>0) ? 'discount-sale' : 'led';
       final entryId = '${prefix}_${DateTime.now().microsecondsSinceEpoch}_$entryNum';
       final postedCurrency = defaultCurrency;
       final stagedCosts = <SaleLineCostFact>[];
@@ -1627,7 +1633,7 @@ class ErpController extends ChangeNotifier {
           warehouseId: warehouse.id,
           warehouseName: warehouse.name,
           entryNumber: entryNum,
-          entryDate: DateTime.now().toIso8601String().substring(0, 10),
+          entryDate: (invoiceDate ?? DateTime.now()).toIso8601String().substring(0, 10),
         ),
       );
       if (cashbox != null) {
@@ -1667,6 +1673,7 @@ class ErpController extends ChangeNotifier {
         ..clear()
         ..addAll(stagedLedger);
       _nextEntryNumber = entryNum;
+      onCommitted?.call(entryId);
       if (!_disposed) notifyListeners();
     } finally {
       _salesPosting = false;

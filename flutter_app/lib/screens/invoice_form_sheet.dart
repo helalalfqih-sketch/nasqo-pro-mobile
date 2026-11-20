@@ -3,6 +3,7 @@ import '../models/erp_models.dart';
 import '../services/accounting_engine.dart';
 import '../state/erp_controller.dart';
 import 'customer_list_sheet.dart';
+import 'invoice_actions.dart';
 
 class InvoiceFormSheet extends StatefulWidget {
   const InvoiceFormSheet({super.key, required this.controller, this.onSaving});
@@ -27,6 +28,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
   PaymentMethod _payment = PaymentMethod.cash;
   bool _includeVat = true;
   bool _free = false;
+  DateTime _date = DateTime.now();
   final _freeTotal = TextEditingController();
   String? _saleError;
   bool _saving = false;
@@ -130,7 +132,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
     if (!_saving) Navigator.of(context).pop();
   }
 
-  Future<void> _saveInvoice() async {
+  Future<void> _saveInvoice({bool printAfter = false}) async {
     if (_saving) return;
     if (widget.controller.accounts.isEmpty ||
         widget.controller.warehouses.isEmpty) {
@@ -162,6 +164,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
       _saleError = null;
     });
     widget.onSaving?.call(true);
+    String? committedId;
     try {
       await widget.controller.submitSalesInvoice(
         accountId: activeAcc.id,
@@ -172,6 +175,8 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
         includeVat: _includeVat,
         rows: _free ? [] : _rows,
         freeAmount: _free ? _inputNumber(_freeTotal.text) : null,
+        invoiceDate: _date,
+        onCommitted: (id) => committedId = id,
         documentNumber: _documentNumberCtrl.text,
         memo: _memoCtrl.text,
       );
@@ -179,7 +184,11 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
       final messenger = ScaffoldMessenger.of(context);
       final message =
           'تمت إضافة الفاتورة للعميل ($customerName) بقيمة ${AccountingEngine.formatAmount(_grandTotal)} ${widget.controller.defaultCurrency.label}';
-      Navigator.pop(context);
+      if (printAfter && committedId!=null) {
+        showCommittedInvoice(context, widget.controller, committedId!);
+      } else {
+        Navigator.pop(context);
+      }
       messenger.showSnackBar(SnackBar(content: Text(message)));
     } on SaleValidationException catch (error) {
       if (mounted) setState(() => _saleError = error.message);
@@ -351,6 +360,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                             DropdownMenuItem(value: box.id, child: Text(box.name))],
                           onChanged: _saving ? null : (v) => setState(() => _cashboxId = v),
                         ),
+                      InvoiceDateField(value:_date,onChanged:(v)=>setState(()=>_date=v)),
                       TextField(
                         key: const Key('invoice-document-number'),
                         controller: _documentNumberCtrl,
@@ -563,6 +573,8 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                         onPressed: _saving ? null : _cancel,
                         child: const Text('إلغاء دون حفظ'),
                       ),
+                      OutlinedButton.icon(onPressed:_saving ? null : ()=>_saveInvoice(printAfter:true),
+                        icon:const Icon(Icons.print_outlined),label:const Text('حفظ وطباعة')),
                       FilledButton.icon(
                         key: const Key('invoice-save'),
                         onPressed: _saving ||
