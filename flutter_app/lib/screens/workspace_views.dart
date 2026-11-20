@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/erp_models.dart';
 import '../models/sales_return_draft.dart';
 import 'original_sale_facts_view.dart';
+import 'purchase_invoice_view.dart';
 import '../state/erp_controller.dart';
 
 String _number(double value) => value.isFinite
@@ -271,6 +272,8 @@ class _InventoryCatalogScreenState extends State<InventoryCatalogScreen> {
                     'متوسط التكلفة المسجل',
                     'حد التنبيه',
                   ],
+                  firstCellAction:(index)=>Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder:(_)=>CatalogItemEditor(controller:controller,item:items[index]))),
                   rows: items
                       .map(
                         (item) => [
