@@ -64,6 +64,19 @@ void main() {
     final afterPurge=await store.loadSnapshot();
     expect(afterPurge.ledger.where((e)=>e.id==purchase.id),isEmpty);
     expect(afterPurge.saleLines.where((l)=>l.entryId==purchase.id),isEmpty);
+    final foreign=ErpController(autoInitDb:false,localDatabase:store);
+    addTearDown(foreign.dispose);await foreign.initDatabase();
+    await foreign.saveAccountRows([(name:'مورد دولار',phone:'',opening:0.0)],category:AccountCategory.purchases,
+      currency:CurrencyCode.usd,direction:EntryDirection.credit);
+    final beforeForeign=foreign.inventory.singleWhere((v)=>v.id==item.id);
+    final fx=await foreign.postPurchaseInvoice(accountId:foreign.accounts.last.id,warehouseId:item.warehouseId,
+      payment:PaymentMethod.credit,rows:[line(2)],exchangeRate:3.75);
+    final foreignEntry=foreign.ledger.singleWhere((e)=>e.entryNumber==fx);
+    expect(foreignEntry.currency,CurrencyCode.usd);
+    expect(foreignEntry.exchangeRate,3.75);
+    expect(foreignEntry.amount,24);
+    expect(foreign.inventory.singleWhere((v)=>v.id==item.id).avgCost,
+      (beforeForeign.quantity*beforeForeign.avgCost+90)/(beforeForeign.quantity+2));
   });
   test('stock, vouchers and exchanges survive closing and reopening SQLite', () async {
     sqfliteFfiInit();
