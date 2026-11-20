@@ -54,7 +54,15 @@ class _LocalEntryState extends State<LocalEntryView> {
     if (widget.journal || widget.exchange) { payment = PaymentMethod.balance; direction = EntryDirection.credit; }
     fromCurrency = first?.currency ?? widget.controller.defaultCurrency;
     currency = widget.exchange ? widget.controller.defaultCurrency : fromCurrency;
-    if (widget.exchange) fromCurrency = CurrencyCode.values.firstWhere((c) => c != currency);
+    if (widget.exchange) {
+      fromCurrency = CurrencyCode.values.firstWhere((c) => c != currency);
+      applyExchangeQuote();
+    }
+  }
+
+  void applyExchangeQuote() {
+    final quote = widget.controller.exchangeQuote(fromCurrency, currency, direction);
+    rate.text = quote == null ? '' : quote.toString();
   }
 
   @override
@@ -100,7 +108,10 @@ class _LocalEntryState extends State<LocalEntryView> {
         if (!widget.journal) SegmentedButton<EntryDirection>(segments: [
           ButtonSegment(value: EntryDirection.debit, label: Text(widget.exchange ? 'بيع' : widget.transfer ? 'صادرة' : 'عليه')),
           ButtonSegment(value: EntryDirection.credit, label: Text(widget.exchange ? 'شراء' : widget.transfer ? 'واردة' : 'له')),
-        ], selected: {direction}, onSelectionChanged: (v) => setState(() => direction = v.single)),
+        ], selected: {direction}, onSelectionChanged: (v) => setState(() {
+          direction = v.single;
+          if (widget.exchange) applyExchangeQuote();
+        })),
         if (widget.exchange) Row(children: [
           Expanded(child: TextField(controller: accountSearch,
             decoration: InputDecoration(labelText: 'ابحث عن الاسم هنا',
@@ -140,8 +151,8 @@ class _LocalEntryState extends State<LocalEntryView> {
           TextField(controller: recipient, decoration: const InputDecoration(labelText: 'المستلم')),
           TextField(controller: company, decoration: const InputDecoration(labelText: 'شركة التحويل')),
         ],
-        if (widget.exchange) currencyField('من عملة', fromCurrency, (c) => fromCurrency = c),
-        currencyField(widget.exchange ? 'إلى عملة' : 'العملة', currency, (c) => currency = c),
+        if (widget.exchange) currencyField('من عملة', fromCurrency, (c) { fromCurrency = c; applyExchangeQuote(); }),
+        currencyField(widget.exchange ? 'إلى عملة' : 'العملة', currency, (c) { currency = c; if (widget.exchange) applyExchangeQuote(); }),
         TextField(controller: amount, onChanged: (_) => setState(() {}),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(labelText: 'المبلغ')),
