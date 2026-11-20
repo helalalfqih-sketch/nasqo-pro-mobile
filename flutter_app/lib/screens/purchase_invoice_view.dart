@@ -23,6 +23,15 @@ class _PurchaseInvoiceState extends State<PurchaseInvoiceView> {
   String? cashbox;
   final discount=TextEditingController(), freeTotal=TextEditingController();
   @override
+  void initState() {
+    super.initState();
+    final c=widget.controller;
+    final supplier=c.accounts.where((a)=>a.category==AccountCategory.purchases).firstOrNull;
+    account=supplier?.id;
+    warehouse=(c.warehouses.where((w)=>w.isDefault).firstOrNull ?? c.warehouses.firstOrNull)?.id;
+    cashbox=c.accounts.where((a)=>a.isCashAccount && a.currency==supplier?.currency).firstOrNull?.id;
+  }
+  @override
   void dispose(){discount.dispose();freeTotal.dispose();price.dispose();quantity.dispose();super.dispose();}
   void add() {
     try {
@@ -61,17 +70,18 @@ class _PurchaseInvoiceState extends State<PurchaseInvoiceView> {
     final boxes=c.accounts.where((a)=>a.isCashAccount && a.currency==cur);
     return PopScope(canPop:!saving,child:AbsorbPointer(absorbing:saving,child:ListView(padding:const EdgeInsets.all(16),children:[
       DropdownButtonFormField<String>(value:account,isExpanded:true,decoration:const InputDecoration(labelText:'المورد'),
-        items:[for(final a in suppliers) DropdownMenuItem(value:a.id,child:Text(a.name))],onChanged:rows.isNotEmpty?null:(v)=>setState((){account=v;cashbox=null;rate='1';price.clear();item=null;})),
+        items:[for(final a in suppliers) DropdownMenuItem(value:a.id,child:Text(a.name))],onChanged:rows.isNotEmpty?null:(v)=>setState((){account=v;final currency=suppliers.where((s)=>s.id==v).firstOrNull?.currency;
+          cashbox=c.accounts.where((a)=>a.isCashAccount && a.currency==currency).firstOrNull?.id;rate='1';price.clear();item=null;})),
       if(suppliers.isEmpty) const Text('أضف حساب مورد من دليل الحسابات.'),
       if(cur!=c.defaultCurrency) TextFormField(key:ValueKey(account),initialValue:rate,keyboardType:TextInputType.number,
         onChanged:(v)=>rate=v,decoration:InputDecoration(labelText:'سعر الصرف: ${c.defaultCurrency.label} لكل ${cur.label}')),
-      DropdownButtonFormField<String>(value:warehouse,decoration:const InputDecoration(labelText:'المستودع'),
+      DropdownButtonFormField<String>(value:warehouse,isExpanded:true,decoration:const InputDecoration(labelText:'المستودع'),
         items:[for(final w in c.warehouses) DropdownMenuItem(value:w.id,child:Text(w.name))],
         onChanged:rows.isNotEmpty?null:(v)=>setState((){warehouse=v;item=null;price.clear();})),
       DropdownButtonFormField<PaymentMethod>(value:payment,decoration:const InputDecoration(labelText:'طريقة الدفع'),
         items:[for(final v in [PaymentMethod.cash,PaymentMethod.credit]) DropdownMenuItem(value:v,child:Text(v.label))],
         onChanged:(v)=>setState(()=>payment=v!)),
-      if(payment==PaymentMethod.cash) DropdownButtonFormField<String>(value:cashbox,
+      if(payment==PaymentMethod.cash) DropdownButtonFormField<String>(value:cashbox,isExpanded:true,
         decoration:const InputDecoration(labelText:'صندوق النقدية'),
         items:[for(final b in boxes) DropdownMenuItem(value:b.id,child:Text(b.name))],
         onChanged:(v)=>setState(()=>cashbox=v)),

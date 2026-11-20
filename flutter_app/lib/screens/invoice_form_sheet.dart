@@ -277,6 +277,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                       else
                         DropdownButtonFormField<String>(
                           value: _selectedAccountId,
+                          isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'العميل',
                             isDense: true,
@@ -286,7 +287,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                               .map(
                                 (a) => DropdownMenuItem(
                                   value: a.id,
-                                  child: Text(a.name),
+                                  child: Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                                 ),
                               )
                               .toList(),
@@ -297,11 +298,12 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                           },
                         ),
                       const SizedBox(height: 8),
-                      Row(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
+                          DropdownButtonFormField<String>(
                               value: _selectedWhId,
+                              isExpanded: true,
                               decoration: const InputDecoration(
                                 labelText: 'المستودع',
                                 isDense: true,
@@ -311,7 +313,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                                   .map(
                                     (w) => DropdownMenuItem(
                                       value: w.id,
-                                      child: Text(w.name),
+                                      child: Text(w.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                                     ),
                                   )
                                   .toList(),
@@ -331,8 +333,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                                 });
                               },
                             ),
-                          ),
-                          const SizedBox(width: 8),
+                          const SizedBox(height: 8),
                           SegmentedButton<PaymentMethod>(
                             segments: const [
                               ButtonSegment(
@@ -601,8 +602,9 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
   }
 
   Widget _summaryRow(String label, String value, {bool bold = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      spacing: 8, runSpacing: 2,
       children: [
         Text(
           label,

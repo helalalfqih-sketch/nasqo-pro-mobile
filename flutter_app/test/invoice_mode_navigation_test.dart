@@ -15,7 +15,7 @@ void main() {
     final supplier = c.accounts.firstWhere((a) => a.category == AccountCategory.purchases);
     final stock = {for(final i in c.inventory) i.id:i.quantity};
     final oldCount = c.ledger.length;
-    await tester.pumpWidget(MaterialApp(home:Scaffold(body:Builder(builder:(context) =>
+    await tester.pumpWidget(MaterialApp(builder:(_,child)=>Directionality(textDirection:TextDirection.rtl,child:child!),home:Scaffold(body:Builder(builder:(context) =>
       TextButton(child:const Text('فتح'), onPressed:() => Navigator.push<void>(context,
           MaterialPageRoute(builder:(_) => InvoiceWorkspace(controller:c))))))));
     Future<void> tap(Finder target) async {
