@@ -61,12 +61,34 @@ class ErpController extends ChangeNotifier {
 
   RestoredGroups? restoredGroups;
   String companyName = 'نسقو برو ERP';
+  Set<String> readAlerts={}, dismissedAlerts={};
+  void _loadAlertState(dynamic state) {
+    readAlerts=state is Map && state['read'] is List ? (state['read'] as List).whereType<String>().toSet() : {};
+    dismissedAlerts=state is Map && state['dismissed'] is List ? (state['dismissed'] as List).whereType<String>().toSet() : {};
+  }
+  Future<void> updateAlerts(Iterable<String> ids,{bool dismiss=false}) async {
+    _requireAvailableMutation();_editingWorkspace=true;
+    try {
+      if(_usesPersistentStore) {
+        await initDatabase();
+        if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final read={...readAlerts,...ids}, hidden={...dismissedAlerts,if(dismiss)...ids};
+      if(_usesPersistentStore) await _saveCurrentSnapshot(nextModuleData:{..._workspaceModuleData,
+        'alertState':{'read':read.toList(),'dismissed':hidden.toList()}});
+      readAlerts=read;dismissedAlerts=hidden;
+      if(!_disposed) notifyListeners();
+    } finally {_editingWorkspace=false;}
+  }
+
   String messageProvider = 'nasqo';
   String messagePhone = '';
   bool instantMessages = false;
 
   Map<String,dynamic> get _workspaceModuleData => {
     ..._modules.toJson(),
+    'alertState':{'read':readAlerts.toList(),'dismissed':dismissedAlerts.toList()},
     'messagePreferences':{'provider':messageProvider,'phone':messagePhone,'instant':instantMessages}
   };
   void _loadMessagePreferences(dynamic prefs) {
@@ -637,6 +659,7 @@ class ErpController extends ChangeNotifier {
         final snap = await _localDatabase.loadSnapshot();
         final original = await _localDatabase.readOriginalWebExport();
         restoredGroups = original == null ? null : RestoredGroups.fromJson(original);
+        _loadAlertState(snap.erpData?['alertState']);
         _loadMessagePreferences(snap.erpData?['messagePreferences']);
         if (snap.erpData != null) _loadModules(ErpWorkspaceSnapshot.fromJson(snap.erpData!));
         accounts
@@ -778,6 +801,7 @@ class ErpController extends ChangeNotifier {
       inventory..clear()..addAll(backup.inventory);
       saleLines..clear()..addAll(backup.lines);
       restoredGroups = backup.groupData;
+      _loadAlertState(null);
       _loadMessagePreferences(preferences);
       _loadModules(backup.modules);
       companyName = backup.company;
@@ -834,6 +858,7 @@ class ErpController extends ChangeNotifier {
       productionOrders.clear();
       costCenters.clear();
       restoredGroups = null;
+      _loadAlertState(null);
       _loadMessagePreferences(null);
       _nextEntryNumber = 1200;
       _seedInitialData();
