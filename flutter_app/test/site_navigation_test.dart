@@ -1,3 +1,4 @@
+import 'package:nasqo_pro_erp/services/invoice_movement_report.dart';
 import 'package:nasqo_pro_erp/screens/local_report_detail.dart';
 import 'package:nasqo_pro_erp/models/erp_models.dart';
 import 'package:nasqo_pro_erp/services/web_backup.dart';
@@ -52,6 +53,20 @@ void main() {
     await open(LocalReport.movement);
     expect(find.text('صافي كمية الشراء'),findsOneWidget);
     expect(find.text('إجمالي الأرباح: 15'),findsOneWidget);
+    final transferData=RestoredGroups.fromJson({
+      'stockTransfers':[{'id':1,'transferDate':'2026-02-10','fromWarehouseId':c.inventory.single.warehouseId,'toWarehouseId':'other'}],
+      'stockTransferLines':[{'transferId':1,'inventoryItemId':'i','quantity':2,'unitNum':2}],
+      'inventory':[{'id':'i','count2':3}]
+    });
+    final filtered=invoiceMovementReport(inventory:c.inventory,ledger:c.ledger,lines:c.saleLines,
+      currency:c.defaultCurrency,metadata:transferData,warehouse:'other',from:'2026-02-01',through:'2026-02-28').single;
+    expect(filtered.opening,0);
+    expect(filtered.incoming,6);
+    expect(filtered.remaining,6);
+    final later=invoiceMovementReport(inventory:c.inventory,ledger:c.ledger,lines:c.saleLines,
+      currency:c.defaultCurrency,metadata:transferData,warehouse:'other',from:'2026-03-01').single;
+    expect(later.opening,6);
+    expect(later.incoming,0);
     await open(LocalReport.expiry);
     expect(find.text('2020-01-01'),findsOneWidget);
     expect(find.textContaining('منتهي منذ'),findsOneWidget);
