@@ -294,7 +294,7 @@ class LocalDatabase {
     return db.transaction((txn) async {
       final headers = await txn.query('ledger_entries',
           where:
-              'deleted = 0 AND kind = ? AND direction = ? AND typeLabel IN (?, ?)',
+              "deleted = 0 AND ((kind = ? AND direction = ? AND typeLabel IN (?, ?)) OR (kind = 'returnEntry' AND direction = 'credit' AND EXISTS (SELECT 1 FROM erp_state WHERE stateKey = 'return_detail/' || ledger_entries.id)))",
           whereArgs: ['invoice', 'debit', 'ف.مبيعات نقدية', 'ف.مبيعات آجل'],
           orderBy: 'entryDate DESC, entryNumber DESC, id');
       final result = <SaleTaxRegisterRow>[];
@@ -325,6 +325,28 @@ class LocalDatabase {
           unknown[currency] = unknown[currency]! + 1;
         }
 
+        if (h['kind'] == 'returnEntry') {
+          final detail = (await txn.query('erp_state', where: 'stateKey = ?',
+              whereArgs: ['return_detail/${h['id']}'])).single;
+          final data = jsonDecode(detail['payloadJson'] as String) as Map<String,dynamic>;
+          final n = number(data['net']), t = number(data['tax']), v = number(data['total']);
+          final original = await _readSaleFacts(txn, data['sourceEntryId'] as String);
+          if (n == null || t == null || v == null || original == null ||
+              !close(n+t,v) || h['amount'] != v) {
+            unavailable();
+            continue;
+          }
+          known[currency] = known[currency]! + 1;
+          net[currency] = net[currency]! - n;
+          tax[currency] = tax[currency]! - t;
+          total[currency] = total[currency]! - v;
+          result.add(SaleTaxRegisterRow(entryId:h['id'] as String,
+              entryNumber:h['entryNumber'] as int, documentNumber:h['documentNumber'] as String,
+              date:date,accountName:h['accountName'] as String,currency:currency,
+              preTaxTotal:-n,taxAmount:-t,finalTotal:-v,taxEnabled:original.taxEnabled,
+              appliedTaxRate:original.appliedTaxRate));
+          continue;
+        }
         final fRows = await txn
             .query('sale_facts', where: 'entryId = ?', whereArgs: [h['id']]);
         if (fRows.length != 1) {
