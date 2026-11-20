@@ -1228,7 +1228,7 @@ class ErpController extends ChangeNotifier {
     _requireAvailableMutation();
     _editingWorkspace=true;
     final draftRows = [for (final row in rows) InvoiceItemRow(id:row.id, itemId:row.itemId,
-        productName:row.productName, quantity:row.quantity, unitPrice:row.unitPrice, discount:row.discount)];
+        productName:row.productName, quantity:row.quantity, unitPrice:row.unitPrice, discount:row.discount,roundLineTotal:row.roundLineTotal)];
     try {
       if(_usesPersistentStore) {
         await initDatabase();
@@ -1500,6 +1500,7 @@ class ErpController extends ChangeNotifier {
             quantity: row.quantity,
             unitPrice: row.unitPrice,
             discount: row.discount,
+            roundLineTotal: row.roundLineTotal,
           ),
       ];
       if (_usesPersistentStore) {

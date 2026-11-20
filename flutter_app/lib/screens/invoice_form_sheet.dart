@@ -47,6 +47,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
     final firstItem = _stockItems.firstOrNull;
     _rows.add(
       InvoiceItemRow(
+            roundLineTotal: true,
         id: 'row_${DateTime.now().millisecondsSinceEpoch}',
         itemId: firstItem?.id,
         productName: firstItem?.name ?? 'صنف افتراضي',
@@ -418,6 +419,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                               setState(() {
                                 _rows.add(
                                   InvoiceItemRow(
+            roundLineTotal: true,
                                     id: 'row_${DateTime.now().millisecondsSinceEpoch}_${_rows.length}',
                                     itemId: firstItem?.id,
                                     productName: firstItem?.name ?? 'صنف جديد',

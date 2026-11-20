@@ -40,7 +40,7 @@ class _PurchaseInvoiceState extends State<PurchaseInvoiceView> {
       if(product==null || qty<=0 || price.text.trim().isEmpty) throw const FormatException('اختر صنفًا وأدخل الكمية وسعر الشراء.');
       final reduction=discount.text.trim().isEmpty?0.0:parseAccountAmount(discount.text);
       if(reduction<0 || cost<0) throw const FormatException('تحقق من السعر والخصم.');
-      setState((){rows.add(InvoiceItemRow(id:'row_${DateTime.now().microsecondsSinceEpoch}',itemId:product.id,
+      setState((){rows.add(InvoiceItemRow(roundLineTotal:true,id:'row_${DateTime.now().microsecondsSinceEpoch}',itemId:product.id,
         productName:product.name,quantity:qty,unitPrice:cost,discount:reduction));discount.clear();error='';});
     } catch(e){setState(()=>error=e.toString());}
   }

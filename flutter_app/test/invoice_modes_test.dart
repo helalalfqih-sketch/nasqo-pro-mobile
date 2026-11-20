@@ -19,6 +19,17 @@ void main() {
   });
   tearDown(() async {c.dispose(); await store.close(); await dir.delete(recursive:true);});
 
+  test('item invoice rounds each net line like the website, including lines without a discount', () async {
+    final item=c.inventory.first;
+    InvoiceItemRow row(String id,double price,double discount)=>InvoiceItemRow(id:id,itemId:item.id,
+        productName:item.name,quantity:1,unitPrice:price,discount:discount,roundLineTotal:true);
+    await c.submitSalesInvoice(accountId:c.accounts.first.id,customerName:'اختبار',
+        warehouse:c.warehouses.firstWhere((w)=>w.id==item.warehouseId),payment:PaymentMethod.credit,
+        includeVat:false,rows:[row('a',1.119,0),row('b',4.025,1)]);
+    expect(c.ledger.first.amount,closeTo(4.15,1e-8));
+    final saved=c.saleLines.where((l)=>l.entryId==c.ledger.first.id);
+    expect(saved.map((l)=>l.unitPrice),[1.12,3.03]);
+  });
   test('free sale and refund record tax without touching inventory; discounted sale refunds net value', () async {
     final wh=c.warehouses.first, item=c.inventory.first;
     final customer=c.accounts.firstWhere((a)=>a.category==AccountCategory.clients);
