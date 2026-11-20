@@ -147,12 +147,34 @@ class ErpController extends ChangeNotifier {
     } finally { _editingWorkspace=false; }
   }
 
+  int primaryTint=0xff4338ca, secondaryTint=0xff0891b2;
+  double homeRadius=24;
+  void _loadAppearance(dynamic data) {
+    primaryTint=data is Map && data['primary'] is int?data['primary']:0xff4338ca;
+    secondaryTint=data is Map && data['secondary'] is int?data['secondary']:0xff0891b2;
+    homeRadius=data is Map && data['radius'] is num?(data['radius'] as num).clamp(0,24).toDouble():24;
+  }
+  Future<void> saveAppearance(int primary,int secondary,double radius) async {
+    _requireAvailableMutation();_editingWorkspace=true;
+    try {
+      if(_usesPersistentStore) {
+        await initDatabase();
+        if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final data={'primary':primary,'secondary':secondary,'radius':radius};
+      if(_usesPersistentStore) await _saveCurrentSnapshot(nextModuleData:{..._workspaceModuleData,'appearance':data});
+      _loadAppearance(data);
+      if(!_disposed) notifyListeners();
+    } finally { _editingWorkspace=false; }
+  }
   String messageProvider = 'nasqo';
   String messagePhone = '';
   bool instantMessages = false;
 
   Map<String,dynamic> get _workspaceModuleData => {
     ..._modules.toJson(),
+    'appearance':{'primary':primaryTint,'secondary':secondaryTint,'radius':homeRadius},
     if(groupDirectory!=null) 'groupDirectory':groupDirectory,
     'alertState':{'read':readAlerts.toList(),'dismissed':dismissedAlerts.toList()},
     'messagePreferences':{'provider':messageProvider,'phone':messagePhone,'instant':instantMessages}
@@ -726,6 +748,7 @@ class ErpController extends ChangeNotifier {
         final original = await _localDatabase.readOriginalWebExport();
         restoredGroups = original == null ? null : RestoredGroups.fromJson(original);
         _applyGroupDirectory(snap.erpData?['groupDirectory'] as Map<String,dynamic>?);
+        _loadAppearance(snap.erpData?['appearance']);
         _loadAlertState(snap.erpData?['alertState']);
         _loadMessagePreferences(snap.erpData?['messagePreferences']);
         if (snap.erpData != null) _loadModules(ErpWorkspaceSnapshot.fromJson(snap.erpData!));
@@ -869,6 +892,7 @@ class ErpController extends ChangeNotifier {
       saleLines..clear()..addAll(backup.lines);
       groupDirectory=null;
       restoredGroups = backup.groupData;
+      _loadAppearance(null);
       _loadAlertState(null);
       _loadMessagePreferences(preferences);
       _loadModules(backup.modules);
@@ -927,6 +951,7 @@ class ErpController extends ChangeNotifier {
       costCenters.clear();
       groupDirectory=null;
       restoredGroups = null;
+      _loadAppearance(null);
       _loadAlertState(null);
       _loadMessagePreferences(null);
       _nextEntryNumber = 1200;
