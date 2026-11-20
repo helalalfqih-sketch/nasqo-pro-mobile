@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import '../services/account_csv.dart';
+import '../services/cash_sale_settlement.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -61,12 +62,170 @@ class ErpController extends ChangeNotifier {
 
   RestoredGroups? restoredGroups;
   String companyName = 'نسقو برو ERP';
+  Set<String> readAlerts={}, dismissedAlerts={};
+  void _loadAlertState(dynamic state) {
+    readAlerts=state is Map && state['read'] is List ? (state['read'] as List).whereType<String>().toSet() : {};
+    dismissedAlerts=state is Map && state['dismissed'] is List ? (state['dismissed'] as List).whereType<String>().toSet() : {};
+  }
+  Future<void> updateAlerts(Iterable<String> ids,{bool dismiss=false}) async {
+    _requireAvailableMutation();_editingWorkspace=true;
+    try {
+      if(_usesPersistentStore) {
+        await initDatabase();
+        if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final read={...readAlerts,...ids}, hidden={...dismissedAlerts,if(dismiss)...ids};
+      if(_usesPersistentStore) await _saveCurrentSnapshot(nextModuleData:{..._workspaceModuleData,
+        'alertState':{'read':read.toList(),'dismissed':hidden.toList()}});
+      readAlerts=read;dismissedAlerts=hidden;
+      if(!_disposed) notifyListeners();
+    } finally {_editingWorkspace=false;}
+  }
+
+  Map<String,dynamic>? groupDirectory;
+
+  void _applyGroupDirectory(Map<String,dynamic>? data) {
+    groupDirectory=data;
+    if(data==null) return;
+    final target=restoredGroups ??= RestoredGroups.fromJson({});
+    final updated=RestoredGroups.fromJson(data);
+    target.groupCategories..clear()..addAll(updated.groupCategories);
+    target.groupCurrencies..clear()..addAll(updated.groupCurrencies);
+    target.groups..clear()..addAll(updated.groups);
+    target.membership..clear()..addAll(updated.membership);
+  }
+
+  Future<void> saveGroup({int? id, required String name, required AccountCategory category,
+      required CurrencyCode currency, required Set<String> members}) async {
+    _requireAvailableMutation(); _editingWorkspace=true;
+    try {
+      if(_usesPersistentStore) {
+        await initDatabase();
+        if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final archive=restoredGroups;
+      final existing=archive?.groups??[];
+      final membership=<String,int>{...?archive?.membership};
+      final definitions=<Map<String,dynamic>>[];
+      final hints={for(final g in (groupDirectory?['accountGroups'] as List? ?? [])) g['id']:g};
+      for(final g in existing) {
+        final member=accounts.where((a)=>membership[a.id]==g.id).firstOrNull;
+        definitions.add({'id':g.id,'legacyId':g.number,'sortOrder':g.order,'name':g.name,
+          'category':hints[g.id]?['category'] ?? archive?.groupCategories[g.id] ?? member?.category.name ?? 'shop',
+          'currencyCode':hints[g.id]?['currencyCode'] ?? archive?.groupCurrencies[g.id] ?? member?.currency.name ?? defaultCurrency.name});
+      }
+      if(existing.isEmpty) {
+        for(final cat in AccountCategory.values) {
+          final groupId=cat.index+1;
+          definitions.add({'id':groupId,'legacyId':groupId,'sortOrder':groupId,'name':cat.label,
+              'category':cat.name,'currencyCode':defaultCurrency.name});
+          for(final a in accounts.where((a)=>a.category==cat)) {membership[a.id]=groupId;}
+        }
+      }
+      final label=name.trim();
+      if(label.isEmpty || definitions.any((g)=>g['id']!=id && g['name']==label)) {
+        throw const FormatException('أدخل اسم مجموعة غير مكرر.');
+      }
+      final index=definitions.indexWhere((g)=>g['id']==id);
+      if(id!=null && index<0) throw StateError('المجموعة غير موجودة.');
+      final nextId=id ?? definitions.fold<int>(0,(n,g)=>n>(g['id'] as int)?n:g['id'] as int)+1;
+      final nextNumber=index>=0?definitions[index]['legacyId']:definitions.fold<int>(0,(n,g)=>n>(g['legacyId'] as int)?n:g['legacyId'] as int)+1;
+      final row={'id':nextId,'legacyId':nextNumber,'name':label,'sortOrder':index<0?nextNumber:definitions[index]['sortOrder'],
+        'category':category.name,'currencyCode':currency.name};
+      if(index<0) {definitions.add(row);} else {definitions[index]=row;}
+      membership.removeWhere((account,group)=>group==nextId && !members.contains(account));
+      final validIds=accounts.map((a)=>a.id).toSet();
+      for(final a in members) {
+        if(!validIds.contains(a)) throw StateError('أحد الحسابات غير موجود.');
+        membership[a]=nextId;
+      }
+      final data={'accountGroups':definitions,'accounts':[for(final e in membership.entries) {'id':e.key,'groupId':e.value}]};
+      if(_usesPersistentStore) await _saveCurrentSnapshot(nextModuleData:{..._workspaceModuleData,'groupDirectory':data});
+      _applyGroupDirectory(data);
+      if(!_disposed) notifyListeners();
+    } finally { _editingWorkspace=false; }
+  }
+
+  int primaryTint=0xff4338ca, secondaryTint=0xff0891b2;
+  double homeRadius=24;
+  void _loadAppearance(dynamic data) {
+    primaryTint=data is Map && data['primary'] is int?data['primary']:0xff4338ca;
+    secondaryTint=data is Map && data['secondary'] is int?data['secondary']:0xff0891b2;
+    homeRadius=data is Map && data['radius'] is num?(data['radius'] as num).clamp(0,24).toDouble():24;
+  }
+  Future<void> saveAppearance(int primary,int secondary,double radius) async {
+    _requireAvailableMutation();_editingWorkspace=true;
+    try {
+      if(_usesPersistentStore) {
+        await initDatabase();
+        if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final data={'primary':primary,'secondary':secondary,'radius':radius};
+      if(_usesPersistentStore) await _saveCurrentSnapshot(nextModuleData:{..._workspaceModuleData,'appearance':data});
+      _loadAppearance(data);
+      if(!_disposed) notifyListeners();
+    } finally { _editingWorkspace=false; }
+  }
+  Map<String, dynamic> _currencyDetails = {};
+  Map<String, dynamic> currencyDetails(CurrencyCode code) {
+    final data = _currencyDetails[code.name];
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  /// Rates are quoted in base currency for one unit of the selected currency.
+  double? exchangeQuote(CurrencyCode from, CurrencyCode to, EntryDirection side) {
+    if (from == to) return 1;
+    final buying = side == EntryDirection.credit;
+    double? quote(CurrencyCode code, bool buy) {
+      if (code == defaultCurrency) return 1;
+      final value = currencyDetails(code)[buy ? 'buy' : 'sell'];
+      return value is num && value.isFinite && value > 0 ? value.toDouble() : null;
+    }
+    final source = quote(from, buying);
+    final target = quote(to, !buying);
+    if (source == null || target == null) return null;
+    final rate = source / target;
+    return rate.isFinite && rate > 0 ? rate : null;
+  }
+
+  Future<void> saveCurrencyDetails(CurrencyCode code, String symbol, String subunit,
+      double buy, double sell) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      if (!buy.isFinite || !sell.isFinite || buy <= 0 || sell <= 0 ||
+          (code == defaultCurrency && (buy != 1 || sell != 1))) {
+        throw const SaleValidationException('تحقق من أسعار الشراء والبيع.');
+      }
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final next = {..._currencyDetails, code.name: {
+        'symbol': symbol.trim(), 'subunit': subunit.trim(), 'buy': buy, 'sell': sell,
+      }};
+      if (_usesPersistentStore) {
+        await _saveCurrentSnapshot(nextModuleData: {..._workspaceModuleData, 'currencyDetails': next});
+      }
+      _currencyDetails = next;
+      if (!_disposed) notifyListeners();
+    } finally { _editingWorkspace = false; }
+  }
+
   String messageProvider = 'nasqo';
   String messagePhone = '';
   bool instantMessages = false;
 
   Map<String,dynamic> get _workspaceModuleData => {
     ..._modules.toJson(),
+    'currencyDetails': _currencyDetails,
+    'appearance':{'primary':primaryTint,'secondary':secondaryTint,'radius':homeRadius},
+    if(groupDirectory!=null) 'groupDirectory':groupDirectory,
+    'alertState':{'read':readAlerts.toList(),'dismissed':dismissedAlerts.toList()},
     'messagePreferences':{'provider':messageProvider,'phone':messagePhone,'instant':instantMessages}
   };
   void _loadMessagePreferences(dynamic prefs) {
@@ -637,6 +796,12 @@ class ErpController extends ChangeNotifier {
         final snap = await _localDatabase.loadSnapshot();
         final original = await _localDatabase.readOriginalWebExport();
         restoredGroups = original == null ? null : RestoredGroups.fromJson(original);
+        _applyGroupDirectory(snap.erpData?['groupDirectory'] as Map<String,dynamic>?);
+        final currencies = snap.erpData?['currencyDetails'];
+        _currencyDetails = currencies is Map ? Map<String, dynamic>.from(currencies)
+            : WebBackup.readCurrencyDetails(original?['currencies']);
+        _loadAppearance(snap.erpData?['appearance']);
+        _loadAlertState(snap.erpData?['alertState']);
         _loadMessagePreferences(snap.erpData?['messagePreferences']);
         if (snap.erpData != null) _loadModules(ErpWorkspaceSnapshot.fromJson(snap.erpData!));
         accounts
@@ -770,14 +935,18 @@ class ErpController extends ChangeNotifier {
         inventory: backup.inventory, saleLines: backup.lines, companyName: backup.company,
         isDarkMode: isDarkMode, nextEntryNumber: backup.lastNumber,
         restoredWebExport: backup.original,
-        erpData: {...backup.modules.toJson(),'messagePreferences':preferences},
+        erpData: {...backup.modules.toJson(),'messagePreferences':preferences,'currencyDetails':backup.currencyDetails},
       );
       accounts..clear()..addAll(backup.accounts);
       ledger..clear()..addAll(backup.ledger);
       warehouses..clear()..addAll(backup.warehouses);
       inventory..clear()..addAll(backup.inventory);
       saleLines..clear()..addAll(backup.lines);
+      groupDirectory=null;
       restoredGroups = backup.groupData;
+      _currencyDetails = Map.of(backup.currencyDetails);
+      _loadAppearance(null);
+      _loadAlertState(null);
       _loadMessagePreferences(preferences);
       _loadModules(backup.modules);
       companyName = backup.company;
@@ -786,6 +955,26 @@ class ErpController extends ChangeNotifier {
     } finally {
       _resetting = false;
     }
+  }
+
+  Future<void> resolveTrash(String id,{required bool purge}) async {
+    _requireAvailableMutation();
+    _editingWorkspace=true;
+    try {
+      await initDatabase();
+      if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+      await _writeTail;
+      final index=ledger.indexWhere((e)=>e.id==id && e.deleted);
+      if(index<0) throw StateError('القيد غير موجود في المحذوفات.');
+      final updated=await _localDatabase.resolveDeletedEntry(id,purge:purge);
+      if(updated==null) {
+        ledger.removeAt(index);
+        saleLines.removeWhere((line)=>line.entryId==id);
+      } else {
+        ledger[index]=updated;
+      }
+      if(!_disposed) notifyListeners();
+    } finally { _editingWorkspace=false; }
   }
 
   Future<void> resetLocalDatabase() async {
@@ -813,7 +1002,11 @@ class ErpController extends ChangeNotifier {
       boms.clear();
       productionOrders.clear();
       costCenters.clear();
+      groupDirectory=null;
       restoredGroups = null;
+      _currencyDetails = {};
+      _loadAppearance(null);
+      _loadAlertState(null);
       _loadMessagePreferences(null);
       _nextEntryNumber = 1200;
       _seedInitialData();
@@ -1030,7 +1223,7 @@ class ErpController extends ChangeNotifier {
   }
 
   Future<int> postPurchaseInvoice({required String accountId,required String warehouseId,
-      required PaymentMethod payment,required List<InvoiceItemRow> rows, String reference=''}) async {
+      required PaymentMethod payment,required List<InvoiceItemRow> rows, String reference='',double exchangeRate=1}) async {
     _requireAvailableMutation();
     _editingWorkspace=true;
     try {
@@ -1042,7 +1235,8 @@ class ErpController extends ChangeNotifier {
       final supplier=accounts.where((a)=>a.id==accountId && a.category==AccountCategory.purchases).firstOrNull;
       final warehouse=warehouses.where((w)=>w.id==warehouseId).firstOrNull;
       if(supplier==null || warehouse==null || rows.isEmpty) throw StateError('اختر المورد والمستودع وأضف بنود الفاتورة.');
-      if(supplier.currency!=defaultCurrency) throw StateError('هذه الفاتورة تتطلب موردًا بعملة المخزون الافتراضية.');
+      final rate=supplier.currency==defaultCurrency?1.0:exchangeRate;
+      if(!rate.isFinite || rate<=0) throw const FormatException('تحقق من سعر الصرف.');
       final number=_nextEntryNumber+1, id='purchase_${DateTime.now().microsecondsSinceEpoch}_$number';
       final stock=List.of(inventory), lines=List.of(saleLines);
       var total=0.0;
@@ -1052,7 +1246,7 @@ class ErpController extends ChangeNotifier {
           throw const FormatException('تحقق من الأصناف والكميات والأسعار.');
         }
         final item=stock[i], quantity=item.quantity+row.quantity;
-        final cost=item.quantity>0 ? (item.quantity*item.avgCost+row.lineTotal)/quantity : row.unitPrice;
+        final cost=item.quantity>0 ? (item.quantity*item.avgCost+row.lineTotal*rate)/quantity : row.unitPrice*rate;
         total+=row.lineTotal;
         if(!quantity.isFinite || !cost.isFinite || !total.isFinite || quantity==item.quantity) {
           throw const FormatException('قيمة البند خارج النطاق.');
@@ -1063,7 +1257,7 @@ class ErpController extends ChangeNotifier {
       }
       final entry=LedgerEntryRecord(id:id,accountId:accountId,accountName:supplier.name,kind:LedgerKind.invoice,
         typeLabel:payment==PaymentMethod.cash?'ف.مشتريات نقدية':'ف.مشتريات آجل',payment:payment,
-        direction:EntryDirection.credit,amount:total,currency:defaultCurrency,
+        direction:EntryDirection.credit,amount:total,currency:supplier.currency,exchangeRate:rate,
         documentNumber:reference.trim().isEmpty?'PUR-$number':reference.trim(),warehouseId:warehouseId,
         warehouseName:warehouse.name,entryNumber:number,entryDate:DateTime.now().toIso8601String().substring(0,10));
       final posted=[entry,...ledger];
@@ -1171,6 +1365,7 @@ class ErpController extends ChangeNotifier {
     required PaymentMethod payment,
     required bool includeVat,
     required List<InvoiceItemRow> rows,
+    String? cashboxAccountId,
     String documentNumber = '',
     String memo = '',
   }) async {
@@ -1210,6 +1405,11 @@ class ErpController extends ChangeNotifier {
               'قاعدة البيانات المحلية غير جاهزة.');
         }
         await _writeTail;
+      }
+      final cashbox = accounts.where((a) => a.id == cashboxAccountId).firstOrNull;
+      if (cashboxAccountId != null && (payment != PaymentMethod.cash ||
+          cashbox == null || !cashbox.isCashAccount || cashbox.currency != defaultCurrency)) {
+        throw const SaleValidationException('اختر صندوقًا نقديًا بعملة الفاتورة.');
       }
       final referenceKey = _invoiceReferenceKey(reference);
       if (referenceKey.isNotEmpty &&
@@ -1331,6 +1531,10 @@ class ErpController extends ChangeNotifier {
           entryDate: DateTime.now().toIso8601String().substring(0, 10),
         ),
       );
+      if (cashbox != null) {
+        stagedLedger.insertAll(1, cashSaleSettlement(stagedLedger.first,
+            cashboxId: cashbox.id, cashboxName: cashbox.name));
+      }
       if (_usesPersistentStore) {
         try {
           await _saveCurrentSnapshot(

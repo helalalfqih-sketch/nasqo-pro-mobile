@@ -1,3 +1,4 @@
+import 'cash_sale_settlement.dart';
 import 'dart:convert';
 import 'voucher_draft_repository.dart';
 import 'cash_transfer_draft_repository.dart';
@@ -691,6 +692,23 @@ class LocalDatabase {
           warehouseId: source.warehouseId, warehouseName: source.warehouseName,
           entryNumber: number, entryDate: draft.date);
       await txn.insert('ledger_entries', _ledgerToMap(entry));
+      if (source.payment == PaymentMethod.cash) {
+        final receipts = await txn.query('ledger_entries', where: 'id = ?',
+            whereArgs: ['${source.id}/cashbox']);
+        if (receipts.isNotEmpty) {
+          final receipt = _ledgerFromMap(receipts.single);
+          if (!isCashSaleSettlement(receipt) || receipt.deleted ||
+              receipt.payment != PaymentMethod.cash || receipt.currency != source.currency ||
+              receipt.amount != source.amount || receipt.entryNumber != source.entryNumber ||
+              receipt.direction != EntryDirection.debit) {
+            throw StateError('تعذرت مطابقة حركة الصندوق بالفاتورة الأصلية.');
+          }
+          for (final movement in cashSaleSettlement(entry,
+              cashboxId: receipt.accountId, cashboxName: receipt.accountName)) {
+            await txn.insert('ledger_entries', _ledgerToMap(movement));
+          }
+        }
+      }
       for (final line in draft.lines) {
         await txn.insert('sale_lines', {'entryId':entry.id,'position':line.position,
           'itemId':line.itemId,'itemName':line.itemName,'unit':line.unit,
@@ -1124,6 +1142,31 @@ class LocalDatabase {
       'warehouses': wh,
       'inventory': inv,
     };
+  }
+
+  Future<LedgerEntryRecord?> resolveDeletedEntry(String id,{required bool purge}) async {
+    final db=await database;
+    return db.transaction((txn) async {
+      final rows=await txn.query('ledger_entries',where:'id = ? AND deleted = 1',whereArgs:[id]);
+      if(rows.length!=1) throw StateError('تغيّرت حالة القيد. أعد فتح المحذوفات.');
+      if(!purge) {
+        await txn.update('ledger_entries',{'deleted':0},where:'id = ?',whereArgs:[id]);
+        return _ledgerFromMap({...rows.single,'deleted':0});
+      }
+      final drafts=await txn.query('sales_return_drafts',columns:['id'],where:'sourceEntryId = ?',whereArgs:[id],limit:1);
+      final posted=await txn.query('erp_state',columns:['stateKey'],
+        where:'stateKey IN (?,?)',whereArgs:['sale_returns/$id','return_detail/$id'],limit:1);
+      final linked = await txn.query('ledger_entries', columns: ['id'],
+        where: "id IN (?, ?) OR id || '/cashbox' = ? OR id || '/settlement' = ?",
+        whereArgs: ['$id/cashbox', '$id/settlement', id, id], limit: 1);
+      if (linked.isNotEmpty) throw StateError('القيد مرتبط بتسوية نقدية.');
+      if(drafts.isNotEmpty || posted.isNotEmpty) throw StateError('القيد مرتبط بمرتجع محفوظ.');
+      for(final table in ['sale_line_cost_facts','sale_facts','sale_lines']) {
+        await txn.delete(table,where:'entryId = ?',whereArgs:[id]);
+      }
+      await txn.delete('ledger_entries',where:'id = ? AND deleted = 1',whereArgs:[id]);
+      return null;
+    });
   }
 
   Future<void> clearAll() async {

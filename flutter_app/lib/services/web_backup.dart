@@ -14,6 +14,7 @@ class WebBackup {
   final ledger = <LedgerEntryRecord>[];
   final lines = <SavedSaleLine>[];
   int lastNumber = 0;
+  final currencyDetails = <String, dynamic>{};
 
   static WebBackup parse(String source) {
     final data = jsonDecode(source);
@@ -35,6 +36,7 @@ class WebBackup {
       }
       return list;
     }
+    result.currencyDetails.addAll(readCurrencyDetails(data['currencies']));
     for (final r in rows('accounts')) {
       result.accounts.add(AccountRecord(id: r['id'], name: _required(r['name']),
         category: AccountCategory.values.byName(r['category']),
@@ -91,6 +93,28 @@ class WebBackup {
     return result;
   }
 
+  static Map<String, dynamic> readCurrencyDetails(dynamic rows) {
+    final entries = <String, dynamic>{};
+    if (rows is! List) return entries;
+    // Archived currency identifiers are retained in the export even when the
+    // mobile ledger cannot post in that currency.
+    for (final row in rows) {
+      if (row is! Map) continue;
+      final value = row['code'] ?? row['name'];
+      final code = CurrencyCode.values.where((c) =>
+        value == c.label || value.toString().toLowerCase() == c.name).firstOrNull;
+      if (code == null) continue;
+      final buy = row['rateSecondary'], sell = row['ratePrimary'];
+      entries[code.name] = {
+        'symbol': row['symbol']?.toString() ?? '',
+        'subunit': row['nameSecondary']?.toString() ?? '',
+        if (buy is num && buy.isFinite && buy > 0) 'buy': buy,
+        if (sell is num && sell.isFinite && sell > 0) 'sell': sell,
+      };
+    }
+    return entries;
+  }
+
   static String _required(dynamic value) {
     if (value is String && value.trim().isNotEmpty) return value;
     throw const FormatException('نص مطلوب مفقود من النسخة.');
@@ -112,6 +136,8 @@ class RestoredGroups {
   final Map<String, int> membership;
   final Map<String, ({num? debit, num? credit, bool settled})> sides;
 
+  final groupCategories=<int,String>{},groupCurrencies=<int,String>{};
+  final dueDates = <String,String>{};
   final documentTypes = <String,int>{};
   final counterparts = <String,String>{};
   final settledEntries = <String>{};
@@ -136,12 +162,17 @@ class RestoredGroups {
           e['id'] as String: (debit:e['rawDain'] as num?, credit:e['rawMadin'] as num?,
             settled:e['settledOnReceipt'] == true)
     });
+    for(final g in data['accountGroups'] ?? []) {
+      if(g['category'] is String) result.groupCategories[g['id']]=g['category'];
+      if(g['currencyCode'] is String) result.groupCurrencies[g['id']]=g['currencyCode'];
+    }
     for (final e in data['ledger'] ?? []) {
       final id = e['id'] as String;
       final lines = (e['lines'] ?? []) as List;
       for (var i=0;i<lines.length;i++) {
         result.reportLines[(id,i)] = Map<String,dynamic>.from(lines[i] as Map);
       }
+      if(e['dueDate'] is String && e['dueDate'].isNotEmpty) result.dueDates[id]=e['dueDate'];
       final type = int.tryParse(e['docType'].toString());
       if (type != null) result.documentTypes[id] = type;
       if (e['settledOnReceipt'] == true) result.settledEntries.add(id);

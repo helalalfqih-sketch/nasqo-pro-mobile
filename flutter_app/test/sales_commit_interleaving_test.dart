@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:nasqo_pro_erp/models/sales_return_draft.dart';
+import 'package:nasqo_pro_erp/screens/home_account_views.dart';
+import 'package:nasqo_pro_erp/services/accounting_engine.dart';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -91,17 +93,28 @@ Future<void> _sale(ErpController controller) {
 }
 
 void main() {
-  test('partial returns reverse stock and tax once and reject surplus', () async {
+  for (final payment in [PaymentMethod.cash, PaymentMethod.credit]) {
+    test('partial ${payment.name} returns reverse the account, stock and tax once and reject surplus', () async {
     final dir = await Directory.systemTemp.createTemp('nasqo-return-');
     final store = _GatedStore(p.join(dir.path, 'return.db'));
     final c = ErpController(autoInitDb: false, localDatabase: store);
     addTearDown(() async { c.dispose(); await store.close(); await dir.delete(recursive:true); });
     await c.initDatabase();
     final item = c.inventory.first;
-    await c.submitSalesInvoice(accountId:c.accounts.first.id, customerName:'اختبار',
+    final customer = c.accounts.firstWhere((a) => a.category == AccountCategory.clients);
+    final box = c.accounts.firstWhere((a) => a.isCashAccount);
+    final cash = payment == PaymentMethod.cash;
+    final account = cash ? box : customer;
+    final other = cash ? customer : box;
+    double balance(AccountRecord a) => LocalAccountStatement(a, c.ledger, a.currency).closing;
+    final before = balance(account), otherBefore = balance(other);
+    final originalIncome = AccountingEngine.computeIncomeStatement(c.accounts, c.ledger);
+    await c.submitSalesInvoice(accountId:customer.id, customerName:customer.name,
+      cashboxAccountId:cash ? box.id : null,
       warehouse:c.warehouses.firstWhere((w) => w.id == item.warehouseId),
-      payment:PaymentMethod.credit, includeVat:true,
+      payment:payment, includeVat:true,
       rows:[InvoiceItemRow(id:'row',itemId:item.id,productName:item.name,quantity:2,unitPrice:10)]);
+    expect(balance(account), before + 23);
     final source = c.saleLines.single;
     Future<SalesReturnDraft> draft(double qty) => c.saveSalesReturnDraft(
         sourceEntryId:source.entryId,date:'2026-11-20',reason:'اختبار',
@@ -109,8 +122,13 @@ void main() {
     final one = await draft(1);
     final surplus = await draft(2);
     final number = await c.postSalesReturn(one.id,one.revision);
-    final entry = c.ledger.singleWhere((e) => e.entryNumber == number);
+    final entry = c.ledger.singleWhere((e) => e.entryNumber == number && e.kind == LedgerKind.returnEntry);
     expect(entry.amount,11.5);
+    expect(entry.payment, payment);
+    expect(entry.accountId, customer.id);
+    expect(c.ledger.where((e) => e.entryNumber == number && e.kind == LedgerKind.voucher), hasLength(cash ? 2 : 0));
+    expect(balance(account), before + 11.5);
+    expect(balance(other), otherBefore);
     expect(entry.direction,EntryDirection.credit);
     await expectLater(c.postSalesReturn(one.id,one.revision),throwsStateError);
     await expectLater(c.postSalesReturn(surplus.id,surplus.revision),throwsStateError);
@@ -126,20 +144,29 @@ void main() {
     final tax = await sql.query('erp_state',where:'stateKey = ?',whereArgs:['return_detail/${entry.id}']);
     expect(jsonDecode(tax.single['payloadJson'] as String)['tax'],1.5);
     final remaining = await draft(1);
+    final failWhen = cash ? "NEW.id LIKE '%/settlement'" : "NEW.kind = 'returnEntry'";
     await sql.execute("CREATE TRIGGER reject_return BEFORE INSERT ON ledger_entries "
-        "WHEN NEW.kind = 'returnEntry' BEGIN SELECT RAISE(ABORT,'synthetic'); END");
+        "WHEN $failWhen BEGIN SELECT RAISE(ABORT,'synthetic'); END");
     await expectLater(c.postSalesReturn(remaining.id, remaining.revision),throwsA(anything));
     final rolledBack = await store.loadSnapshot();
     expect(rolledBack.inventory.singleWhere((i) => i.id == item.id).quantity,item.quantity-1);
+    expect(LocalAccountStatement(account, rolledBack.ledger, account.currency).closing, before + 11.5);
+    expect(LocalAccountStatement(other, rolledBack.ledger, other.currency).closing, otherBefore);
     expect(await store.getSalesReturnDraft(remaining.id),isNotNull);
     await sql.execute('DROP TRIGGER reject_return');
     await c.postSalesReturn(remaining.id, remaining.revision);
     expect(c.inventory.singleWhere((i) => i.id == item.id).quantity,item.quantity);
+    expect(balance(account), before);
+    expect(balance(other), otherBefore);
+    final finalIncome = AccountingEngine.computeIncomeStatement(c.accounts, c.ledger);
+    expect(finalIncome.netSales, originalIncome.netSales);
+    expect(finalIncome.totalOperatingExpenses, originalIncome.totalOperatingExpenses);
     final settled = await store.loadSaleTaxRegister();
     expect(settled.rows.where((r) => r.documentNumber == entry.documentNumber)
         .fold<double>(0,(sum,row) => sum + row.finalTotal),0);
 
-  });
+    });
+  }
 
   test(
       'pending SQLite commit blocks another writer and changes neither stock nor ledger yet',

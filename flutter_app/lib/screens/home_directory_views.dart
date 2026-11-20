@@ -92,6 +92,19 @@ class _HomeChartOfAccountsViewState extends State<HomeChartOfAccountsView> {
 class HomeTrashView extends StatelessWidget {
   const HomeTrashView({super.key, required this.controller});
   final ErpController controller;
+  Future<void> _apply(BuildContext context,String id,int number,bool purge) async {
+    if(purge) {
+      final confirm=await showDialog<bool>(context:context,builder:(dialog)=>AlertDialog(
+        title:Text('حذف القيد رقم $number نهائيًا؟'),content:const Text('ستُحذف بنود القيد من قاعدة الهاتف.'),
+        actions:[TextButton(onPressed:()=>Navigator.pop(dialog,false),child:const Text('إلغاء')),
+          FilledButton(onPressed:()=>Navigator.pop(dialog,true),child:const Text('حذف نهائي'))]));
+      if(confirm!=true || !context.mounted) return;
+    }
+    try {
+      await controller.resolveTrash(id,purge:purge);
+      if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(purge?'تم حذف القيد':'تمت استعادة العملية')));
+    } catch(error){if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(error.toString())));}
+  }
   @override
   Widget build(BuildContext context) => Directionality(
         textDirection: TextDirection.rtl,
@@ -109,7 +122,7 @@ class HomeTrashView extends StatelessWidget {
                 Text('المحذوفات القديمة',
                     style: Theme.of(context).textTheme.headlineSmall),
                 const Text(
-                    'قيود محلية موسومة كمحذوفة فقط. لا تشمل سجل إلغاء المستندات. العرض للقراءة فقط، دون استعادة أو حذف نهائي.'),
+                    'اختر قيدًا لاستعادته إلى الدفتر أو حذفه نهائيًا.'),
                 const SizedBox(height: 12),
                 if (deleted.isEmpty) const Text('لا توجد قيود محذوفة قديمة'),
                 for (final entry in deleted)
@@ -129,6 +142,8 @@ class HomeTrashView extends StatelessWidget {
                               'المبلغ: ${entry.amount} ${entry.currency.label}'),
                           if (entry.documentNumber.isNotEmpty)
                             Text('المستند: ${entry.documentNumber}'),
+                          Wrap(children:[TextButton(onPressed:()=>_apply(context,entry.id,entry.entryNumber,false),child:const Text('استعادة')),
+                            TextButton(onPressed:()=>_apply(context,entry.id,entry.entryNumber,true),child:const Text('حذف نهائي'))]),
                         ]),
                   )),
               ],

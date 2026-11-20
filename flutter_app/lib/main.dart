@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/account_tools.dart';
+import 'screens/account_groups_view.dart';
 import 'screens/purchase_invoice_view.dart';
 import 'screens/stock_scanner_view.dart';
 import 'screens/home_navigation.dart';
@@ -74,9 +75,9 @@ class _NasqoProErpAppState extends State<NasqoProErpApp> {
       listenable: _controller,
       builder: (context, _) {
         final colorScheme = ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4338CA),
-          primary: _controller.isDarkMode ? const Color(0xFFB9B4FF) : const Color(0xFF4338CA),
-          secondary: const Color(0xFF0891B2),
+          seedColor: Color(_controller.primaryTint),
+          primary: _controller.isDarkMode ? const Color(0xFFB9B4FF) : Color(_controller.primaryTint),
+          secondary: Color(_controller.secondaryTint),
           brightness:
               _controller.isDarkMode ? Brightness.dark : Brightness.light,
         );
@@ -95,8 +96,8 @@ class _NasqoProErpAppState extends State<NasqoProErpApp> {
             useMaterial3: true,
             colorScheme: colorScheme,
             scaffoldBackgroundColor: _controller.isDarkMode ? null : const Color(0xFFF5F7FF),
-            appBarTheme: const AppBarTheme(
-              backgroundColor: Color(0xFF4338CA),
+            appBarTheme: AppBarTheme(
+              backgroundColor: Color(_controller.primaryTint),
               foregroundColor: Colors.white,
               centerTitle: false,
             ),
@@ -284,6 +285,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       'purchase-register' => ('سجل فواتير المشتريات',PurchasesRegister(controller:widget.controller,
           openNew:()=>_openModulePage('purchase-new'))),
       'purchase-new' => ('فاتورة مشتريات جديدة',PurchaseInvoiceView(controller:widget.controller)),
+      'group-directory' => ('إدارة مجموعات الحسابات',AccountGroupsView(controller:widget.controller)),
       'account-new' => ('إضافة حساب',AccountEditor(controller:widget.controller)),
       'account-import' => ('استيراد الحسابات',AccountImportView(controller:widget.controller)),
       'message-settings' => ('إعدادات إشعارات واتساب',MessageSettingsView(controller:widget.controller)),
@@ -313,6 +315,9 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
             loadFacts: widget.controller.loadOriginalSaleFacts,
             saveDraft: widget.controller.saveSalesReturnDraft,
             postDraft: widget.controller.postSalesReturn,
+            cashboxForSale: (id) => widget.controller.ledger
+                .where((entry) => entry.id == '$id/cashbox' && !entry.deleted)
+                .firstOrNull?.accountName,
           )
         ),
       'chart-accounts' => (
@@ -327,7 +332,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         controller: widget.controller, kind: switch (moduleId) { 'post-exchange' => LedgerKind.currency, 'post-journal' => LedgerKind.simpleEntry, 'post-transfer' => LedgerKind.transfer, _ => LedgerKind.voucher },
         openDrafts: () => _openModulePage(switch (moduleId) { 'post-exchange' => 'fx-drafts', 'post-journal' => 'simple-journal-drafts', 'post-transfer' => 'cash-transfer-drafts', _ => 'vouchers' }))),
       'notifications' => ('التنبيهات', LocalAlertsView(controller: widget.controller, open: _openModulePage)),
-      'report-profit' || 'report-movement' || 'report-closing' || 'report-category' || 'report-stock' || 'report-expiry' || 'report-services' => (
+      'report-trial' || 'report-profit' || 'report-movement' || 'report-closing' || 'report-category' || 'report-stock' || 'report-expiry' || 'report-services' => (
           LocalReport.values.byName(moduleId.substring(7)).title,
           LocalReportDetail(controller:widget.controller,report:LocalReport.values.byName(moduleId.substring(7)))),
       'reports' => ('التقارير', HomeReportsView(onOpenModule: _openModulePage)),
@@ -506,15 +511,16 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
 
   @override
   Widget build(BuildContext context) {
-    const blue = Color(0xFF4338CA);
-    const navy = Color(0xFF312E81);
+    final blue=Color(widget.controller.primaryTint);
+    final navy=Color.lerp(blue,Colors.black,0.30)!;
+    final unread=workspaceAlerts(widget.controller).where((a)=>!widget.controller.readAlerts.contains(a.id)).length;
     return Scaffold(
       key: _shellKey,
       appBar: AppBar(
         titleSpacing: 0,
         leadingWidth: 48,
         toolbarHeight: 52,
-        flexibleSpace: const DecoratedBox(
+        flexibleSpace: DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.centerRight,
@@ -579,7 +585,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           ),
           SizedBox(width: 34, child: IconButton(tooltip: 'التنبيهات', iconSize: 19,
             padding: EdgeInsets.zero, onPressed: () => _openModulePage('notifications'),
-            icon: const Icon(Icons.notifications_none))),
+            icon: Badge(isLabelVisible:unread>0,label:Text(unread>99?'99+':'$unread'),child:const Icon(Icons.notifications_none)))),
           PopupMenuButton<String>(
             tooltip: 'إضافة',
             icon: const Icon(Icons.add),

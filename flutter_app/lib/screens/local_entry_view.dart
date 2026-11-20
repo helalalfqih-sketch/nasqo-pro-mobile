@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'account_tools.dart';
 import '../models/erp_models.dart';
 import '../services/accounting_engine.dart';
 import '../state/erp_controller.dart';
@@ -23,24 +24,57 @@ class _LocalEntryState extends State<LocalEntryView> {
   PaymentMethod payment = PaymentMethod.cash;
   final amount = TextEditingController(), rate = TextEditingController(text: '1'), note = TextEditingController();
   bool saving = false;
+  final accountSearch = TextEditingController();
+
+  List<AccountRecord> get matchingAccounts {
+    String normalize(String value) => value.trim().toLowerCase().replaceAllMapped(
+      RegExp('[٠-٩۰-۹]'), (m) => '0123456789'[m[0]!.codeUnitAt(0) & 15]);
+    final query = normalize(accountSearch.text);
+    final matches = widget.controller.accounts.where((a) =>
+      normalize('${a.name} ${a.codeNumber} ${a.phone}').contains(query));
+    bool exact(AccountRecord a) => query.isNotEmpty &&
+      [a.codeNumber.toString(), normalize(a.name), normalize(a.phone)].contains(query);
+    return [...matches.where(exact), ...matches.where((a) => !exact(a))];
+  }
+
+  Future<void> addExchangeAccount() async {
+    final saved = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) =>
+      Scaffold(appBar: AppBar(title: const Text('إضافة حساب للصرف')),
+        body: AccountEditor(controller: widget.controller))));
+    if (mounted && saved == true) {
+      setState(() { accountSearch.clear(); accountId = widget.controller.accounts.last.id; });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     final first = widget.controller.accounts.firstOrNull;
     accountId = first?.id;
-    if (widget.journal) { payment = PaymentMethod.balance; direction = EntryDirection.credit; }
+    if (widget.journal || widget.exchange) { payment = PaymentMethod.balance; direction = EntryDirection.credit; }
     fromCurrency = first?.currency ?? widget.controller.defaultCurrency;
-    currency = widget.exchange ? CurrencyCode.values.firstWhere((c) => c != fromCurrency) : fromCurrency;
+    currency = widget.exchange ? widget.controller.defaultCurrency : fromCurrency;
+    if (widget.exchange) {
+      fromCurrency = CurrencyCode.values.firstWhere((c) => c != currency);
+      applyExchangeQuote();
+    }
+  }
+
+  void applyExchangeQuote() {
+    final quote = widget.controller.exchangeQuote(fromCurrency, currency, direction);
+    rate.text = quote == null ? '' : quote.toString();
   }
 
   @override
-  void dispose() { document.dispose(); sender.dispose(); recipient.dispose(); company.dispose(); amount.dispose(); rate.dispose(); note.dispose(); super.dispose(); }
+  void dispose() { accountSearch.dispose(); document.dispose(); sender.dispose(); recipient.dispose(); company.dispose(); amount.dispose(); rate.dispose(); note.dispose(); super.dispose(); }
 
   Future<void> _save() async {
     if (saving) return;
     setState(() { saving = true; error = null; });
     try {
+      if (widget.exchange && accountSearch.text.trim().isNotEmpty) {
+        throw const SaleValidationException('اختر حسابًا من نتائج البحث.');
+      }
       final number = await widget.controller.postLocalEntry(accountId: accountId ?? '',
         kind: widget.kind, direction: direction, counterpartId: counterpart, documentNumber: document.text,
         payment: payment, amount: AccountingEngine.parseArabicNumber(amount.text), currency: currency,
@@ -74,12 +108,32 @@ class _LocalEntryState extends State<LocalEntryView> {
         if (!widget.journal) SegmentedButton<EntryDirection>(segments: [
           ButtonSegment(value: EntryDirection.debit, label: Text(widget.exchange ? 'بيع' : widget.transfer ? 'صادرة' : 'عليه')),
           ButtonSegment(value: EntryDirection.credit, label: Text(widget.exchange ? 'شراء' : widget.transfer ? 'واردة' : 'له')),
-        ], selected: {direction}, onSelectionChanged: (v) => setState(() => direction = v.single)),
-        DropdownButtonFormField<String>(value: accountId, isExpanded: true,
+        ], selected: {direction}, onSelectionChanged: (v) => setState(() {
+          direction = v.single;
+          if (widget.exchange) applyExchangeQuote();
+        })),
+        if (widget.exchange) Row(children: [
+          Expanded(child: TextField(controller: accountSearch,
+            decoration: InputDecoration(labelText: 'ابحث عن الاسم هنا',
+              suffixIcon: IconButton(tooltip: 'مسح البحث', icon: const Icon(Icons.clear),
+                onPressed: () => setState(accountSearch.clear))),
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (_) {
+              final match = matchingAccounts.firstOrNull;
+              if (match != null) setState(() { accountId = match.id; accountSearch.clear(); });
+            })),
+          IconButton(tooltip: 'إضافة حساب للصرف', icon: const Icon(Icons.person_add_alt),
+            onPressed: addExchangeAccount),
+        ]),
+        DropdownButtonFormField<String>(
+          value: widget.exchange && accountSearch.text.trim().isNotEmpty ? null : accountId,
+          hint: Text(widget.exchange && matchingAccounts.isEmpty ? 'لا توجد حسابات مطابقة' : 'اختر الحساب'),
+          isExpanded: true,
           decoration: InputDecoration(labelText: widget.journal ? 'إلى حساب (دائن)' : 'الحساب'),
-          items: [for (final a in widget.controller.accounts) DropdownMenuItem(value: a.id, child: Text(a.name))],
+          items: [for (final a in (widget.exchange ? matchingAccounts : widget.controller.accounts)) DropdownMenuItem(value: a.id, child: Text(a.name))],
           onChanged: (v) => setState(() {
             accountId = v;
+            if (widget.exchange) accountSearch.clear();
             if (counterpart == v) counterpart = null;
             final c = widget.controller.accounts.where((a) => a.id == v).firstOrNull?.currency;
             if (!widget.exchange && c != null) currency = c;
@@ -97,8 +151,8 @@ class _LocalEntryState extends State<LocalEntryView> {
           TextField(controller: recipient, decoration: const InputDecoration(labelText: 'المستلم')),
           TextField(controller: company, decoration: const InputDecoration(labelText: 'شركة التحويل')),
         ],
-        if (widget.exchange) currencyField('من عملة', fromCurrency, (c) => fromCurrency = c),
-        currencyField(widget.exchange ? 'إلى عملة' : 'العملة', currency, (c) => currency = c),
+        if (widget.exchange) currencyField('من عملة', fromCurrency, (c) { fromCurrency = c; applyExchangeQuote(); }),
+        currencyField(widget.exchange ? 'إلى عملة' : 'العملة', currency, (c) { currency = c; if (widget.exchange) applyExchangeQuote(); }),
         TextField(controller: amount, onChanged: (_) => setState(() {}),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(labelText: 'المبلغ')),

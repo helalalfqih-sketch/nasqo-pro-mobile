@@ -15,6 +15,7 @@ class DocumentSpy extends ErpController {
   @override
   Future<void> submitSalesInvoice({
     required String accountId,
+    String? cashboxAccountId,
     required String customerName,
     required WarehouseRecord warehouse,
     required PaymentMethod payment,

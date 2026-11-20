@@ -61,7 +61,7 @@ class HomeReportsView extends StatelessWidget {
     const groups = [
       ('التقارير المالية', [
         ('cashboxes','حركة الصندوق'),('report-closing','تقرير الحسابات الختامية'),('report-category','تقرير إجمالي حسب التصنيف'),
-        ('finance','ميزان المراجعة')
+        ('report-trial','ميزان المراجعة')
       ]),
       ('التقارير المخزنية', [
         ('report-movement','حركة الأصناف والأرباح'),('stock-movement','حركة المخزون'),('report-expiry','تقرير المخزون المتبقي وتاريخ الانتهاء'),
@@ -84,32 +84,67 @@ class HomeReportsView extends StatelessWidget {
   }
 }
 
+typedef LocalAlert = ({String id,String title,String detail,String target,String? account,IconData icon});
+
+List<LocalAlert> workspaceAlerts(ErpController c) {
+  final result=<LocalAlert>[];
+  final now=DateTime.now();
+  final today=DateTime.utc(now.year,now.month,now.day);
+  final balances=<String,double>{for(final a in c.accounts) a.id:
+    a.openingBalance*(a.openingDirection==EntryDirection.debit?1:-1)};
+  final accounts={for(final a in c.accounts)a.id:a};
+  for(final e in c.ledger) {
+    if(e.deleted || e.kind==LedgerKind.quote || e.kind==LedgerKind.order) continue;
+    if(accounts[e.accountId]?.currency==e.currency) {
+      balances[e.accountId]=(balances[e.accountId]??0)+(e.direction==EntryDirection.debit?e.amount:-e.amount);
+    }
+    if(e.kind!=LedgerKind.invoice || e.payment!=PaymentMethod.credit) continue;
+    final raw=c.restoredGroups?.dueDates[e.id];
+    final base=DateTime.tryParse(raw??e.entryDate);
+    if(base==null) continue;
+    final date=DateTime.utc(base.year,base.month,base.day).add(Duration(days:raw==null?30:0));
+    final days=date.difference(today).inDays;
+    if(days<=10) result.add((id:'due_${e.id}',title:days<0?'فاتورة آجلة متأخرة السداد (#${e.entryNumber})':'موعد استحقاق فاتورة قريب (#${e.entryNumber})',
+      detail:'${e.accountName} · ${e.amount} ${e.currency.label} · ${date.toIso8601String().substring(0,10)}',
+      target:'account',account:e.accountId,icon:Icons.event_outlined));
+  }
+  for(final a in c.accounts) {
+    final balance=balances[a.id]??0;
+    if(a.creditLimit>0 && balance>a.creditLimit) result.add((id:'limit_${a.id}',title:'تجاوز سقف المديونية: ${a.name}',
+      detail:'الرصيد $balance ${a.currency.label} · السقف ${a.creditLimit}',target:'account',account:a.id,icon:Icons.account_balance_wallet_outlined));
+  }
+  for(final i in c.inventory.where((i)=>i.minThreshold>0 && i.quantity<i.minThreshold)) {
+    result.add((id:'stock_${i.id}',title:'انخفاض مخزون: ${i.name}',detail:'المتوفر ${i.quantity} ${i.unit} · الحد الأدنى ${i.minThreshold}',
+      target:'inventory',account:null,icon:Icons.inventory_2_outlined));
+  }
+  return result.where((a)=>!c.dismissedAlerts.contains(a.id)).toList();
+}
+
 class LocalAlertsView extends StatelessWidget {
-  const LocalAlertsView({super.key, required this.controller, required this.open});
+  const LocalAlertsView({super.key,required this.controller,required this.open});
   final ErpController controller;
   final ValueChanged<String> open;
-
+  Future<bool> mark(BuildContext context,Iterable<String> ids,{bool dismiss=false}) async {
+    try {await controller.updateAlerts(ids,dismiss:dismiss);return true;}
+    catch(e){if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(e.toString())));return false;}
+  }
   @override
-  Widget build(BuildContext context) => ListenableBuilder(listenable: controller, builder: (context, _) {
-    final low = controller.inventory.where((i) => i.minThreshold > 0 && i.quantity < i.minThreshold);
-    final debts = <(AccountRecord, double)>[];
-    for (final a in controller.accounts.where((a) => a.creditLimit > 0)) {
-      final balance = LocalAccountStatement(a, controller.ledger, a.currency).closing;
-      if (balance > a.creditLimit) debts.add((a, balance));
-    }
-    return ListView(padding: const EdgeInsets.all(12), children: [
-      if (low.isEmpty && debts.isEmpty) const ListTile(title: Text('لا توجد تنبيهات للمخزون أو سقف المديونية.')),
-      for (final item in low)
-        Card(child: ListTile(leading: const Icon(Icons.inventory_2_outlined),
-          title: Text('انخفاض مخزون: ${item.name}'),
-          subtitle: Text('المتوفر ${item.quantity} ${item.unit} · الحد الأدنى ${item.minThreshold}'),
-          onTap: () => open('inventory'))),
-      for (final (account, balance) in debts)
-        Card(child: ListTile(leading: const Icon(Icons.account_balance_wallet_outlined),
-          title: Text('تجاوز سقف المديونية: ${account.name}'),
-          subtitle: Text('الرصيد $balance ${account.currency.label} · السقف ${account.creditLimit}'),
-          onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) =>
-            HomeAccountStatementView(controller: controller, accountId: account.id, initialCurrency: account.currency))))),
-    ]);
+  Widget build(BuildContext context)=>ListenableBuilder(listenable:controller,builder:(context,_) {
+    final alerts=workspaceAlerts(controller);
+    final unread=alerts.where((a)=>!controller.readAlerts.contains(a.id)).map((a)=>a.id).toList();
+    return ListView.builder(padding:const EdgeInsets.all(12),itemCount:alerts.length+1,itemBuilder:(ctx,index){
+      if(index==0) return alerts.isEmpty?const ListTile(title:Text('لا توجد تنبيهات.')):
+        TextButton(onPressed:unread.isEmpty?null:()=>mark(context,unread),child:Text('تعليم الكل كمقروء (${unread.length})'));
+      final a=alerts[index-1];
+      return Card(child:ListTile(leading:Icon(a.icon),title:Text(a.title,style:TextStyle(
+        fontWeight:controller.readAlerts.contains(a.id)?FontWeight.normal:FontWeight.bold)),subtitle:Text(a.detail),
+        trailing:IconButton(tooltip:'إخفاء التنبيه',icon:const Icon(Icons.close),onPressed:()=>mark(context,[a.id],dismiss:true)),
+        onTap:() async {
+          if(!await mark(context,[a.id]) || !context.mounted) return;
+          if(a.account!=null) {
+            Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>HomeAccountStatementView(controller:controller,accountId:a.account!)));
+          } else {open(a.target);}
+        }));
+    });
   });
 }

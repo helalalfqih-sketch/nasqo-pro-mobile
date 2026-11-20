@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'cash_sale_settlement.dart';
 import '../models/erp_models.dart';
 
 class AccountSummary {
@@ -214,7 +215,7 @@ class AccountingEngine {
     }
 
     for (final entry in entries) {
-      if (entry.deleted) continue;
+      if (entry.deleted || isCashSaleSettlement(entry)) continue;
       if (entry.kind == LedgerKind.quote || entry.kind == LedgerKind.order) {
         continue;
       }
@@ -222,7 +223,8 @@ class AccountingEngine {
       if (amt <= 0) continue;
 
       final acc = accountMap[entry.accountId];
-      final isSale = acc?.category == AccountCategory.sales ||
+      final isSale = (entry.kind == LedgerKind.returnEntry && entry.typeLabel == 'مرتجع مبيعات') ||
+          acc?.category == AccountCategory.sales ||
           (entry.kind == LedgerKind.invoice &&
               entry.direction == EntryDirection.debit);
 
@@ -286,7 +288,8 @@ class AccountingEngine {
       }
       final amt = entry.amount * entry.exchangeRate;
       final acc = accountMap[entry.accountId];
-      final isSale = acc?.category == AccountCategory.sales ||
+      final isSale = (entry.kind == LedgerKind.returnEntry && entry.typeLabel == 'مرتجع مبيعات') ||
+          acc?.category == AccountCategory.sales ||
           entry.direction == EntryDirection.debit;
       if (isSale) {
         taxableSales += entry.kind == LedgerKind.returnEntry ? -amt : amt;

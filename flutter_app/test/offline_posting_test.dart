@@ -1,5 +1,7 @@
 import 'package:nasqo_pro_erp/services/account_csv.dart';
 import 'dart:io';
+import 'dart:convert';
+import 'package:nasqo_pro_erp/services/web_backup.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nasqo_pro_erp/services/customer_measurement_repository.dart';
 import 'package:nasqo_pro_erp/models/erp_models.dart';
@@ -8,6 +10,22 @@ import 'package:nasqo_pro_erp/state/erp_controller.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  test('website JSON imports supported currency quotes without aliasing unknown codes', () {
+    final backup = WebBackup.parse(jsonEncode({
+      'format': 'nasqo-unified-sqlite-export-v2', 'version': 2,
+      'workspace': {'companyName': 'منشأة تجريبية'},
+      'accounts': [], 'warehouses': [{'id': 'w1', 'name': 'مخزن اختباري', 'isDefault': true}],
+      'inventory': [], 'ledger': [],
+      'currencies': [
+        {'code': 'دولار', 'symbol': 'USD', 'nameSecondary': 'سنت',
+          'ratePrimary': 3.8, 'rateSecondary': 3.7},
+        {'code': 'عملة خارج الدليل', 'ratePrimary': 99, 'rateSecondary': 55}
+      ],
+    }));
+    expect(backup.currencyDetails, {
+      'usd': {'symbol': 'USD', 'subunit': 'سنت', 'sell': 3.8, 'buy': 3.7}
+    });
+  });
   test('catalog, imported accounts, message settings and purchases survive a cold reopen', () async {
     sqfliteFfiInit(); databaseFactory=databaseFactoryFfi;
     final dir=await Directory.systemTemp.createTemp('nasqo-account-import');
@@ -29,7 +47,12 @@ void main() {
     expect(c.ledger.length,before);
     expect(c.inventory.first.quantity,item.quantity);
     final number=await c.postPurchaseInvoice(accountId:supplier.id,warehouseId:item.warehouseId,payment:PaymentMethod.credit,rows:[line(3)]);
+    await c.saveCurrencyDetails(CurrencyCode.usd, 'USD', 'سنت', 3.7, 3.8);
+    await expectLater(c.saveCurrencyDetails(CurrencyCode.usd, 'USD', '', 0, 1), throwsA(isA<Exception>()));
     await c.saveMessagePreferences('external','770000000',true);
+    await c.saveGroup(name:'موردون محليون',category:AccountCategory.purchases,currency:supplier.currency,members:{supplier.id});
+    await c.updateAlerts(['stock_test']);
+    await c.updateAlerts(['limit_test'],dismiss:true);
     await store.close();
     final reopened=ErpController(autoInitDb:false,localDatabase:store);
     addTearDown(reopened.dispose);
@@ -43,9 +66,41 @@ void main() {
     expect(stock.quantity,item.quantity+3);
     expect(stock.name,'صنف محرر');
     expect(stock.avgCost,(item.quantity*item.avgCost+36)/(item.quantity+3));
+    final group=reopened.restoredGroups!.groups.singleWhere((g)=>g.name=='موردون محليون');
+    expect(reopened.restoredGroups!.membership[supplier.id],group.id);
+    expect(reopened.restoredGroups!.groupCurrencies[group.id],supplier.currency.name);
+    expect(reopened.currencyDetails(CurrencyCode.usd)['subunit'], 'سنت');
+    expect(reopened.exchangeQuote(CurrencyCode.usd, CurrencyCode.sar, EntryDirection.credit), 3.7);
+    expect(reopened.exchangeQuote(CurrencyCode.sar, CurrencyCode.usd, EntryDirection.credit), 1 / 3.8);
+    expect(reopened.exchangeQuote(CurrencyCode.usd, CurrencyCode.eur, EntryDirection.debit), isNull);
     expect(reopened.messageProvider,'external');
     expect(reopened.messagePhone,'770000000');
+    expect(reopened.readAlerts,containsAll(['stock_test','limit_test']));
+    expect(reopened.dismissedAlerts,{'limit_test'});
     expect(reopened.instantMessages,isTrue);
+    final db=await store.database;
+    await db.update('ledger_entries',{'deleted':1},where:'id = ?',whereArgs:[purchase.id]);
+    final restored=await store.resolveDeletedEntry(purchase.id,purge:false);
+    expect(restored!.deleted,isFalse);
+    await expectLater(store.resolveDeletedEntry(purchase.id,purge:true),throwsStateError);
+    await db.update('ledger_entries',{'deleted':1},where:'id = ?',whereArgs:[purchase.id]);
+    await store.resolveDeletedEntry(purchase.id,purge:true);
+    final afterPurge=await store.loadSnapshot();
+    expect(afterPurge.ledger.where((e)=>e.id==purchase.id),isEmpty);
+    expect(afterPurge.saleLines.where((l)=>l.entryId==purchase.id),isEmpty);
+    final foreign=ErpController(autoInitDb:false,localDatabase:store);
+    addTearDown(foreign.dispose);await foreign.initDatabase();
+    await foreign.saveAccountRows([(name:'مورد دولار',phone:'',opening:0.0)],category:AccountCategory.purchases,
+      currency:CurrencyCode.usd,direction:EntryDirection.credit);
+    final beforeForeign=foreign.inventory.singleWhere((v)=>v.id==item.id);
+    final fx=await foreign.postPurchaseInvoice(accountId:foreign.accounts.last.id,warehouseId:item.warehouseId,
+      payment:PaymentMethod.credit,rows:[line(2)],exchangeRate:3.75);
+    final foreignEntry=foreign.ledger.singleWhere((e)=>e.entryNumber==fx);
+    expect(foreignEntry.currency,CurrencyCode.usd);
+    expect(foreignEntry.exchangeRate,3.75);
+    expect(foreignEntry.amount,24);
+    expect(foreign.inventory.singleWhere((v)=>v.id==item.id).avgCost,
+      (beforeForeign.quantity*beforeForeign.avgCost+90)/(beforeForeign.quantity+2));
   });
   test('stock, vouchers and exchanges survive closing and reopening SQLite', () async {
     sqfliteFfiInit();

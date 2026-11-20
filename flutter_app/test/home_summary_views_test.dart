@@ -42,7 +42,7 @@ void main() {
     expect(LocalSalesSummary(rows, CurrencyCode.eur).total, 0);
   });
   testWidgets(
-      'currency directory lists enum, default and counts without editing',
+      'currency directory shows counts and commits only valid confirmed quote edits',
       (tester) async {
     final c = ErpController(autoInitDb: false);
     c.accounts.clear();
@@ -59,7 +59,19 @@ void main() {
     }
     expect(find.text('الافتراضية'), findsOneWidget);
     expect(find.text('عدد الحسابات: 1'), findsOneWidget);
-    expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.text(CurrencyCode.eur.label));
+    await tester.pumpAndSettle();
+    final buy = find.widgetWithText(TextFormField, 'سعر الشراء');
+    await tester.enterText(buy, '٤٫٢');
+    await tester.tap(find.text('إلغاء'));
+    await tester.pumpAndSettle();
+    expect(c.currencyDetails(CurrencyCode.eur), isEmpty);
+    await tester.tap(find.text(CurrencyCode.eur.label));
+    await tester.pumpAndSettle();
+    await tester.enterText(buy, '٤٫٢');
+    await tester.tap(find.text('حفظ العملة'));
+    await tester.pumpAndSettle();
+    expect(c.currencyDetails(CurrencyCode.eur)['buy'], 4.2);
     c.dispose();
   });
   testWidgets(
