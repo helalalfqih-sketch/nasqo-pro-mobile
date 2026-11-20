@@ -303,6 +303,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
             loadSales: _salesReturnSources,
             loadFacts: widget.controller.loadOriginalSaleFacts,
             saveDraft: widget.controller.saveSalesReturnDraft,
+            postDraft: widget.controller.postSalesReturn,
           )
         ),
       'chart-accounts' => (
