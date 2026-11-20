@@ -319,7 +319,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         controller: widget.controller, kind: switch (moduleId) { 'post-exchange' => LedgerKind.currency, 'post-journal' => LedgerKind.simpleEntry, 'post-transfer' => LedgerKind.transfer, _ => LedgerKind.voucher },
         openDrafts: () => _openModulePage(switch (moduleId) { 'post-exchange' => 'fx-drafts', 'post-journal' => 'simple-journal-drafts', 'post-transfer' => 'cash-transfer-drafts', _ => 'vouchers' }))),
       'notifications' => ('التنبيهات', LocalAlertsView(controller: widget.controller, open: _openModulePage)),
-      'report-closing' || 'report-category' || 'report-stock' || 'report-expiry' || 'report-services' => (
+      'report-profit' || 'report-movement' || 'report-closing' || 'report-category' || 'report-stock' || 'report-expiry' || 'report-services' => (
           LocalReport.values.byName(moduleId.substring(7)).title,
           LocalReportDetail(controller:widget.controller,report:LocalReport.values.byName(moduleId.substring(7)))),
       'reports' => ('التقارير', HomeReportsView(onOpenModule: _openModulePage)),
