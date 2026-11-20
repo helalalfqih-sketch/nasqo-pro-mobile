@@ -66,7 +66,7 @@ class NasqoWebDrawer extends StatelessWidget {
                         route: 'sales-register'),
                     _item('الحركة اليومية', Icons.today_outlined,
                         route: 'daily-movement'),
-                    _item('الرسائل الفورية واتساب', Icons.chat_outlined),
+                    _item('الرسائل الفورية واتساب', Icons.chat_outlined, route:'message-settings'),
                     _item(
                       'حركة المخزون',
                       Icons.swap_horiz,
@@ -85,7 +85,7 @@ class NasqoWebDrawer extends StatelessWidget {
                         route: 'warehouses'),
                     _item('الأصناف', Icons.inventory_2_outlined,
                         route: 'inventory'),
-                    _item('إضافة صنف', Icons.add_box_outlined),
+                    _item('إضافة صنف', Icons.add_box_outlined, route:'item-new'),
                     _section(context, 'الحسابات'),
                     _item('دليل الحسابات', Icons.account_tree_outlined,
                         route: 'chart-accounts'),
@@ -96,7 +96,8 @@ class NasqoWebDrawer extends StatelessWidget {
                     _item('مسودات صرف العملات',
                         Icons.swap_horizontal_circle_outlined,
                         route: 'fx-drafts'),
-                    _item('استيراد الحسابات', Icons.file_upload_outlined),
+                    _item('إضافة حساب', Icons.person_add_outlined, route:'account-new'),
+                    _item('استيراد الحسابات', Icons.file_upload_outlined, route:'account-import'),
                     _section(context, 'نظام ERP'),
                     _item('مركز ERP', Icons.apps_outlined, route: 'hub'),
                     _item(
@@ -123,16 +124,6 @@ class NasqoWebDrawer extends StatelessWidget {
                       'التصنيع ومراكز التكلفة',
                       Icons.precision_manufacturing_outlined,
                       route: 'manufacturing',
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        'العناصر غير المتاحة ظاهرة لمطابقة القائمة المرجعية، '
-                        'ولا تفتح صفحات بديلة.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
-                            ),
-                      ),
                     ),
                   ],
                 ),
