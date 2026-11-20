@@ -30,6 +30,8 @@ void main() {
     expect(c.inventory.first.quantity,item.quantity);
     final number=await c.postPurchaseInvoice(accountId:supplier.id,warehouseId:item.warehouseId,payment:PaymentMethod.credit,rows:[line(3)]);
     await c.saveMessagePreferences('external','770000000',true);
+    await c.updateAlerts(['stock_test']);
+    await c.updateAlerts(['limit_test'],dismiss:true);
     await store.close();
     final reopened=ErpController(autoInitDb:false,localDatabase:store);
     addTearDown(reopened.dispose);
@@ -45,6 +47,8 @@ void main() {
     expect(stock.avgCost,(item.quantity*item.avgCost+36)/(item.quantity+3));
     expect(reopened.messageProvider,'external');
     expect(reopened.messagePhone,'770000000');
+    expect(reopened.readAlerts,containsAll(['stock_test','limit_test']));
+    expect(reopened.dismissedAlerts,{'limit_test'});
     expect(reopened.instantMessages,isTrue);
     final db=await store.database;
     await db.update('ledger_entries',{'deleted':1},where:'id = ?',whereArgs:[purchase.id]);
