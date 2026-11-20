@@ -1003,6 +1003,81 @@ class ErpController extends ChangeNotifier {
     }
   }
 
+  Future<void> updateCatalogItem(String id,{required String name,required String sku,
+      required String unit,required double threshold}) async {
+    _requireAvailableMutation();
+    _editingWorkspace=true;
+    try {
+      if(_usesPersistentStore) {
+        await initDatabase();
+        if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final i=inventory.indexWhere((v)=>v.id==id);
+      if(i<0 || name.trim().isEmpty || unit.trim().isEmpty || !threshold.isFinite || threshold<0) {
+        throw const FormatException('تحقق من اسم الصنف والوحدة وحد التنبيه.');
+      }
+      final old=inventory[i], code=sku.trim();
+      if(code.isNotEmpty && inventory.any((v)=>v.id!=id && v.warehouseId==old.warehouseId &&
+        v.sku.toLowerCase()==code.toLowerCase())) throw StateError('الرمز مستخدم في هذا المستودع.');
+      final next=List.of(inventory);
+      next[i]=InventoryItemRecord(id:id,name:name.trim(),sku:code,unit:unit.trim(),warehouseId:old.warehouseId,
+        quantity:old.quantity,avgCost:old.avgCost,minThreshold:threshold);
+      if(_usesPersistentStore) await _saveCurrentSnapshot(nextInventory:next);
+      inventory..clear()..addAll(next);
+      if(!_disposed) notifyListeners();
+    } finally { _editingWorkspace=false; }
+  }
+
+  Future<int> postPurchaseInvoice({required String accountId,required String warehouseId,
+      required PaymentMethod payment,required List<InvoiceItemRow> rows, String reference=''}) async {
+    _requireAvailableMutation();
+    _editingWorkspace=true;
+    try {
+      if(_usesPersistentStore) {
+        await initDatabase();
+        if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final supplier=accounts.where((a)=>a.id==accountId && a.category==AccountCategory.purchases).firstOrNull;
+      final warehouse=warehouses.where((w)=>w.id==warehouseId).firstOrNull;
+      if(supplier==null || warehouse==null || rows.isEmpty) throw StateError('اختر المورد والمستودع وأضف بنود الفاتورة.');
+      if(supplier.currency!=defaultCurrency) throw StateError('هذه الفاتورة تتطلب موردًا بعملة المخزون الافتراضية.');
+      final number=_nextEntryNumber+1, id='purchase_${DateTime.now().microsecondsSinceEpoch}_$number';
+      final stock=List.of(inventory), lines=List.of(saleLines);
+      var total=0.0;
+      for(final (pos,row) in rows.indexed) {
+        final i=stock.indexWhere((v)=>v.id==row.itemId && v.warehouseId==warehouseId);
+        if(i<0 || !row.quantity.isFinite || row.quantity<=0 || !row.unitPrice.isFinite || row.unitPrice<0) {
+          throw const FormatException('تحقق من الأصناف والكميات والأسعار.');
+        }
+        final item=stock[i], quantity=item.quantity+row.quantity;
+        final cost=item.quantity>0 ? (item.quantity*item.avgCost+row.lineTotal)/quantity : row.unitPrice;
+        total+=row.lineTotal;
+        if(!quantity.isFinite || !cost.isFinite || !total.isFinite || quantity==item.quantity) {
+          throw const FormatException('قيمة البند خارج النطاق.');
+        }
+        stock[i]=item.copyWith(quantity:quantity,avgCost:cost);
+        lines.add(SavedSaleLine(entryId:id,position:pos,itemId:item.id,itemName:item.name,
+            unit:item.unit,quantity:row.quantity,unitPrice:row.unitPrice));
+      }
+      final entry=LedgerEntryRecord(id:id,accountId:accountId,accountName:supplier.name,kind:LedgerKind.invoice,
+        typeLabel:payment==PaymentMethod.cash?'ف.مشتريات نقدية':'ف.مشتريات آجل',payment:payment,
+        direction:EntryDirection.credit,amount:total,currency:defaultCurrency,
+        documentNumber:reference.trim().isEmpty?'PUR-$number':reference.trim(),warehouseId:warehouseId,
+        warehouseName:warehouse.name,entryNumber:number,entryDate:DateTime.now().toIso8601String().substring(0,10));
+      final posted=[entry,...ledger];
+      if(_usesPersistentStore) await _saveCurrentSnapshot(nextInventory:stock,nextLedger:posted,
+        nextSaleLines:lines,nextEntryNumber:number);
+      inventory..clear()..addAll(stock);
+      ledger..clear()..addAll(posted);
+      saleLines..clear()..addAll(lines);
+      _nextEntryNumber=number;
+      if(!_disposed) notifyListeners();
+      return number;
+    } finally { _editingWorkspace=false; }
+  }
+
   Future<void> receiveStock({
     String? existingId,
     required double quantity,
