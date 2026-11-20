@@ -64,8 +64,8 @@ class HomeReportsView extends StatelessWidget {
         ('finance','ميزان المراجعة')
       ]),
       ('التقارير المخزنية', [
-        ('stock-movement','حركة المخزون'),('report-expiry','تقرير المخزون المتبقي وتاريخ الانتهاء'),
-        ('report-stock','المخزون المتبقي'),('report-services','تقارير الخدمات'),
+        ('report-movement','حركة الأصناف والأرباح'),('stock-movement','حركة المخزون'),('report-expiry','تقرير المخزون المتبقي وتاريخ الانتهاء'),
+        ('report-stock','المخزون المتبقي'),('report-profit','أرباح الفواتير'),('report-services','تقارير الخدمات'),
         ('recorded-sales-tax','التقارير الضريبية'),('sales-register','سجل فواتير المبيعات')
       ])
     ];
