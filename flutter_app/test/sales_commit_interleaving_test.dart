@@ -100,13 +100,15 @@ void main() {
     addTearDown(() async { c.dispose(); await store.close(); await dir.delete(recursive:true); });
     await c.initDatabase();
     final item = c.inventory.first;
-    final account = c.accounts.firstWhere((a) => payment == PaymentMethod.cash
-        ? a.isCashAccount : a.category == AccountCategory.clients);
-    final other = c.accounts.firstWhere((a) => payment == PaymentMethod.credit
-        ? a.isCashAccount : a.category == AccountCategory.clients);
+    final customer = c.accounts.firstWhere((a) => a.category == AccountCategory.clients);
+    final box = c.accounts.firstWhere((a) => a.isCashAccount);
+    final cash = payment == PaymentMethod.cash;
+    final account = cash ? box : customer;
+    final other = cash ? customer : box;
     double balance(AccountRecord a) => LocalAccountStatement(a, c.ledger, a.currency).closing;
     final before = balance(account), otherBefore = balance(other);
-    await c.submitSalesInvoice(accountId:account.id, customerName:account.name,
+    await c.submitSalesInvoice(accountId:customer.id, customerName:customer.name,
+      cashboxAccountId:cash ? box.id : null,
       warehouse:c.warehouses.firstWhere((w) => w.id == item.warehouseId),
       payment:payment, includeVat:true,
       rows:[InvoiceItemRow(id:'row',itemId:item.id,productName:item.name,quantity:2,unitPrice:10)]);
@@ -118,10 +120,11 @@ void main() {
     final one = await draft(1);
     final surplus = await draft(2);
     final number = await c.postSalesReturn(one.id,one.revision);
-    final entry = c.ledger.singleWhere((e) => e.entryNumber == number);
+    final entry = c.ledger.singleWhere((e) => e.entryNumber == number && e.kind == LedgerKind.returnEntry);
     expect(entry.amount,11.5);
     expect(entry.payment, payment);
-    expect(entry.accountId, account.id);
+    expect(entry.accountId, customer.id);
+    expect(c.ledger.where((e) => e.entryNumber == number && e.kind == LedgerKind.voucher), hasLength(cash ? 2 : 0));
     expect(balance(account), before + 11.5);
     expect(balance(other), otherBefore);
     expect(entry.direction,EntryDirection.credit);
