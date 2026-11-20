@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import '../services/account_csv.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -59,6 +61,19 @@ class ErpController extends ChangeNotifier {
 
   RestoredGroups? restoredGroups;
   String companyName = 'نسقو برو ERP';
+  String messageProvider = 'nasqo';
+  String messagePhone = '';
+  bool instantMessages = false;
+
+  Map<String,dynamic> get _workspaceModuleData => {
+    ..._modules.toJson(),
+    'messagePreferences':{'provider':messageProvider,'phone':messagePhone,'instant':instantMessages}
+  };
+  void _loadMessagePreferences(dynamic prefs) {
+    messageProvider = prefs is Map && prefs['provider']=='external' ? 'external' : 'nasqo';
+    messagePhone = prefs is Map && prefs['phone'] is String ? prefs['phone'] : '';
+    instantMessages = prefs is Map && prefs['instant']==true;
+  }
   CurrencyCode defaultCurrency = CurrencyCode.sar;
   bool isDarkMode = false;
   bool dbReady = false;
@@ -622,6 +637,7 @@ class ErpController extends ChangeNotifier {
         final snap = await _localDatabase.loadSnapshot();
         final original = await _localDatabase.readOriginalWebExport();
         restoredGroups = original == null ? null : RestoredGroups.fromJson(original);
+        _loadMessagePreferences(snap.erpData?['messagePreferences']);
         if (snap.erpData != null) _loadModules(ErpWorkspaceSnapshot.fromJson(snap.erpData!));
         accounts
           ..clear()
@@ -667,6 +683,8 @@ class ErpController extends ChangeNotifier {
   }
 
   Future<void> _saveCurrentSnapshot({
+    List<AccountRecord>? nextAccounts,
+    Map<String,dynamic>? nextModuleData,
     String? nextCompany,
     List<WarehouseRecord>? nextWarehouses,
     List<LedgerEntryRecord>? nextLedger,
@@ -676,7 +694,7 @@ class ErpController extends ChangeNotifier {
     SaleFacts? appendedSaleFacts,
   }) =>
       _localDatabase.saveSnapshot(
-        accounts: List.of(accounts),
+        accounts: List.of(nextAccounts ?? accounts),
         ledger: List.of(nextLedger ?? ledger),
         warehouses: List.of(nextWarehouses ?? warehouses),
         inventory: List.of(nextInventory ?? inventory),
@@ -685,7 +703,7 @@ class ErpController extends ChangeNotifier {
         isDarkMode: isDarkMode,
         nextEntryNumber: nextEntryNumber ?? _nextEntryNumber,
         appendedSaleFacts: appendedSaleFacts,
-        erpData: _modules.toJson(),
+        erpData: nextModuleData ?? _workspaceModuleData,
       );
 
   Future<void> _persistToDb() {
@@ -699,7 +717,7 @@ class ErpController extends ChangeNotifier {
     final snapshotCompany = companyName;
     final snapshotTheme = isDarkMode;
     final snapshotNumber = _nextEntryNumber;
-    final snapshotModules = _modules.toJson();
+    final snapshotModules = _workspaceModuleData;
     _writeTail = _writeTail.then((_) async {
       try {
         if (!dbReady && !_resetting) return;
@@ -744,12 +762,15 @@ class ErpController extends ChangeNotifier {
       final files = await _openLocalBackupFiles();
       await _writeTail;
       await files.createBackup();
+      final workspace = jsonDecode(backup.original)['workspace'];
+      final preferences = {'provider':workspace['whatsappProvider'],'phone':workspace['whatsappPhone'],
+        'instant':workspace['whatsappInstantEnabled']};
       await _localDatabase.saveSnapshot(
         accounts: backup.accounts, ledger: backup.ledger, warehouses: backup.warehouses,
         inventory: backup.inventory, saleLines: backup.lines, companyName: backup.company,
         isDarkMode: isDarkMode, nextEntryNumber: backup.lastNumber,
         restoredWebExport: backup.original,
-        erpData: backup.modules.toJson(),
+        erpData: {...backup.modules.toJson(),'messagePreferences':preferences},
       );
       accounts..clear()..addAll(backup.accounts);
       ledger..clear()..addAll(backup.ledger);
@@ -757,6 +778,7 @@ class ErpController extends ChangeNotifier {
       inventory..clear()..addAll(backup.inventory);
       saleLines..clear()..addAll(backup.lines);
       restoredGroups = backup.groupData;
+      _loadMessagePreferences(preferences);
       _loadModules(backup.modules);
       companyName = backup.company;
       _nextEntryNumber = backup.lastNumber;
@@ -792,6 +814,7 @@ class ErpController extends ChangeNotifier {
       productionOrders.clear();
       costCenters.clear();
       restoredGroups = null;
+      _loadMessagePreferences(null);
       _nextEntryNumber = 1200;
       _seedInitialData();
       await _persistToDb();
@@ -799,6 +822,60 @@ class ErpController extends ChangeNotifier {
     } finally {
       _resetting = false;
     }
+  }
+
+  Future<void> saveMessagePreferences(String provider,String phone,bool instant) async {
+    _requireAvailableMutation();
+    _editingWorkspace=true;
+    try {
+      if(provider!='nasqo' && provider!='external') throw ArgumentError.value(provider);
+      final prefs={'provider':provider,'phone':phone.trim(),'instant':instant};
+      if(_usesPersistentStore) {
+        await initDatabase();
+        if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+        await _saveCurrentSnapshot(nextModuleData:{..._workspaceModuleData,'messagePreferences':prefs});
+      }
+      _loadMessagePreferences(prefs);
+      if(!_disposed) notifyListeners();
+    } finally { _editingWorkspace=false; }
+  }
+
+  Future<void> importAccountRows(List<ImportedAccount> rows) =>
+    saveAccountRows(rows,category:AccountCategory.purchases,currency:defaultCurrency,
+      direction:EntryDirection.credit);
+
+  Future<void> saveAccountRows(List<ImportedAccount> rows,{required AccountCategory category,
+      required CurrencyCode currency,required EntryDirection direction,String note='',double creditLimit=0,
+      bool cash=false,String? editId}) async {
+    _requireAvailableMutation();
+    _editingWorkspace=true;
+    try {
+      if(_usesPersistentStore) {
+        await initDatabase();
+        if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      if(rows.isEmpty || (editId!=null && rows.length!=1)) throw ArgumentError('بيانات الحساب غير صالحة.');
+      final next=List<AccountRecord>.of(accounts);
+      final index=editId==null ? -1 : next.indexWhere((a)=>a.id==editId);
+      if(editId!=null && index<0) throw StateError('الحساب غير موجود.');
+      var number=next.fold<int>(0,(n,a)=>n>a.codeNumber?n:a.codeNumber);
+      final prefix=DateTime.now().microsecondsSinceEpoch;
+      for(final row in rows) {
+        if(row.name.trim().isEmpty || row.opening<0 || !row.opening.isFinite || creditLimit<0 || !creditLimit.isFinite) {
+          throw const FormatException('بيانات الحساب أو الرصيد غير صالحة.');
+        }
+        final code=index<0 ? ++number : next[index].codeNumber;
+        final account=AccountRecord(id:editId ?? 'acc_${prefix}_$code',name:row.name.trim(),
+          phone:row.phone.trim(),openingBalance:row.opening,category:category,currency:currency,
+          openingDirection:direction,note:note.trim(),creditLimit:creditLimit,isCashAccount:cash,codeNumber:code);
+        if(index<0) {next.add(account);} else {next[index]=account;}
+      }
+      if(_usesPersistentStore) await _saveCurrentSnapshot(nextAccounts:next);
+      accounts..clear()..addAll(next);
+      if(!_disposed) notifyListeners();
+    } finally { _editingWorkspace=false; }
   }
 
   Future<void> renameCompany(String name) async {
