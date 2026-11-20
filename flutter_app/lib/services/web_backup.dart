@@ -112,12 +112,18 @@ class RestoredGroups {
   final Map<String, int> membership;
   final Map<String, ({num? debit, num? credit, bool settled})> sides;
 
+  final counterparts = <String,String>{};
+  final settledEntries = <String>{};
+  final serviceInvoices = <String>{};
+  final expiryDates = <String,String>{};
+  final itemNumbers = <String,int>{};
+
   factory RestoredGroups.fromJson(Map<String, dynamic> data) {
     final groups = [for (final g in data['accountGroups'] ?? [])
       (id: g['id'] as int, number: (g['legacyId'] ?? g['id']) as int,
        order: (g['legacyId'] ?? g['sortOrder'] ?? g['id']) as int, name: g['name'] as String)];
     groups.sort((a,b) => a.order.compareTo(b.order));
-    return RestoredGroups(groups, {
+    final result = RestoredGroups(groups, {
       for (final a in data['accounts'] ?? [])
         if (a['groupId'] is int) a['id'] as String: a['groupId'] as int
     }, {
@@ -126,6 +132,20 @@ class RestoredGroups {
           e['id'] as String: (debit:e['rawDain'] as num?, credit:e['rawMadin'] as num?,
             settled:e['settledOnReceipt'] == true)
     });
+    for (final e in data['ledger'] ?? []) {
+      final id = e['id'] as String;
+      if (e['settledOnReceipt'] == true) result.settledEntries.add(id);
+      if (e['counterpartAccountId'] is String) result.counterparts[id] = e['counterpartAccountId'];
+      if (e['invoiceContent'] == 'free') result.serviceInvoices.add(id);
+    }
+    for (final item in data['inventory'] ?? []) {
+      final id = item['id'] as String;
+      if (item['expiryDate'] is String && item['expiryDate'].isNotEmpty) {
+        result.expiryDates[id] = item['expiryDate'];
+      }
+      if (item['legacyId'] is int) result.itemNumbers[id] = item['legacyId'];
+    }
+    return result;
   }
 
   Map<int, double> balances(List<AccountRecord> accounts, List<LedgerEntryRecord> ledger,
