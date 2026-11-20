@@ -90,6 +90,8 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
   Future<void> _importWeb() => _run('جارٍ قراءة ملف النسخة…', () async {
     final file = await openFile();
     if (file == null) return 'أُلغي اختيار الملف.';
+    if (!mounted) return '';
+    setState(() => _restoring = file.name);
     final buffer = BytesBuilder(copy: false);
     const limit = LocalBackupFiles.maxBackupBytes;
     if (await file.length() > limit) return 'الحد الأقصى للنسخة 16 ميبيبايت.';
@@ -113,6 +115,7 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
       return 'بنية سجلات الملف غير متوافقة مع تطبيق الهاتف.';
     }
     if (!mounted) return '';
+    setState(() => _restoring = null);
     final confirmed = await showDialog<bool>(context: context, builder: (context) =>
       AlertDialog(title: const Text('استبدال بيانات الهاتف؟'),
         content: SingleChildScrollView(child: Text(
