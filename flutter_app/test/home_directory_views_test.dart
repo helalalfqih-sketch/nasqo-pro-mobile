@@ -88,16 +88,18 @@ void main() {
     expect(tester.takeException(), isNull);
   });
   testWidgets(
-      'trash exposes only deleted legacy records and has no mutation controls',
+      'trash exposes only deleted records and cancellation leaves ledger unchanged',
       (tester) async {
     final before = List.of(controller.ledger);
     await start(tester, HomeTrashView(controller: controller));
     expect(find.text('محذوف قديم'), findsOneWidget);
     expect(find.text('قيد نشط'), findsNothing);
-    expect(find.textContaining('لا تشمل سجل إلغاء المستندات'), findsOneWidget);
-    expect(find.byType(TextButton), findsNothing);
-    expect(find.byType(ElevatedButton), findsNothing);
-    expect(find.byType(IconButton), findsNothing);
+    expect(find.text('استعادة'),findsOneWidget);
+    await tester.tap(find.text('حذف نهائي'));
+    await tester.pumpAndSettle();
+    expect(find.text('حذف القيد رقم 2 نهائيًا؟'),findsOneWidget);
+    await tester.tap(find.text('إلغاء'));
+    await tester.pumpAndSettle();
     expect(controller.ledger, orderedEquals(before));
     expect(tester.takeException(), isNull);
   });
