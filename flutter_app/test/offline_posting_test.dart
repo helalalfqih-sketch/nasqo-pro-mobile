@@ -9,6 +9,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 void main() {
   test('stock, vouchers and exchanges survive closing and reopening SQLite', () async {
     sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
     final dir = await Directory.systemTemp.createTemp('offline-posting');
     addTearDown(() => dir.delete(recursive: true));
     final path = '${dir.path}/local.db';
@@ -32,6 +33,12 @@ void main() {
       direction: EntryDirection.credit, payment: PaymentMethod.cash, fromCurrency: CurrencyCode.usd,
       currency: CurrencyCode.sar, amount: 5, exchangeRate: 3.75);
     expect(exchange, voucher + 1);
+    final counterpart = first.accounts.firstWhere((a) => a.id != account.id);
+    final journal = await first.postLocalEntry(accountId: account.id, counterpartId: counterpart.id,
+      kind: LedgerKind.simpleEntry, direction: EntryDirection.credit, payment: PaymentMethod.balance,
+      amount: 10, currency: account.currency);
+    expect(first.ledger.where((e) => e.entryNumber == journal).map((e) => e.direction).toSet(),
+      {EntryDirection.debit, EntryDirection.credit});
     first.dispose();
     await store.close();
 

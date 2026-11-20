@@ -4,16 +4,20 @@ import '../services/accounting_engine.dart';
 import '../state/erp_controller.dart';
 
 class LocalEntryView extends StatefulWidget {
-  const LocalEntryView({super.key, required this.controller, required this.exchange, required this.openDrafts});
+  const LocalEntryView({super.key, required this.controller, required this.kind, required this.openDrafts});
   final ErpController controller;
-  final bool exchange;
+  final LedgerKind kind;
+  bool get exchange => kind == LedgerKind.currency;
+  bool get transfer => kind == LedgerKind.transfer;
+  bool get journal => kind == LedgerKind.simpleEntry;
   final VoidCallback openDrafts;
   @override
   State<LocalEntryView> createState() => _LocalEntryState();
 }
 
 class _LocalEntryState extends State<LocalEntryView> {
-  String? accountId, error;
+  String? accountId, counterpart, error;
+  final document = TextEditingController(), sender = TextEditingController(), recipient = TextEditingController(), company = TextEditingController();
   late CurrencyCode currency, fromCurrency;
   EntryDirection direction = EntryDirection.debit;
   PaymentMethod payment = PaymentMethod.cash;
@@ -25,22 +29,28 @@ class _LocalEntryState extends State<LocalEntryView> {
     super.initState();
     final first = widget.controller.accounts.firstOrNull;
     accountId = first?.id;
+    if (widget.journal) { payment = PaymentMethod.balance; direction = EntryDirection.credit; }
     fromCurrency = first?.currency ?? widget.controller.defaultCurrency;
     currency = widget.exchange ? CurrencyCode.values.firstWhere((c) => c != fromCurrency) : fromCurrency;
   }
 
   @override
-  void dispose() { amount.dispose(); rate.dispose(); note.dispose(); super.dispose(); }
+  void dispose() { document.dispose(); sender.dispose(); recipient.dispose(); company.dispose(); amount.dispose(); rate.dispose(); note.dispose(); super.dispose(); }
 
   Future<void> _save() async {
     if (saving) return;
     setState(() { saving = true; error = null; });
     try {
       final number = await widget.controller.postLocalEntry(accountId: accountId ?? '',
-        kind: widget.exchange ? LedgerKind.currency : LedgerKind.voucher, direction: direction,
+        kind: widget.kind, direction: direction, counterpartId: counterpart, documentNumber: document.text,
         payment: payment, amount: AccountingEngine.parseArabicNumber(amount.text), currency: currency,
         fromCurrency: widget.exchange ? fromCurrency : null, exchangeRate: widget.exchange
-          ? AccountingEngine.parseArabicNumber(rate.text) : 1, note: note.text);
+          ? AccountingEngine.parseArabicNumber(rate.text) : 1, note: [
+            if (sender.text.trim().isNotEmpty) 'المرسل: ${sender.text.trim()}',
+            if (recipient.text.trim().isNotEmpty) 'المستلم: ${recipient.text.trim()}',
+            if (company.text.trim().isNotEmpty) 'شركة التحويل: ${company.text.trim()}',
+            if (note.text.trim().isNotEmpty) note.text.trim(),
+          ].join(' · '));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم حفظ العملية رقم $number')));
       Navigator.pop(context);
@@ -57,22 +67,36 @@ class _LocalEntryState extends State<LocalEntryView> {
 
   @override
   Widget build(BuildContext context) => PopScope(canPop: !saving,
-    child: Scaffold(appBar: AppBar(title: Text(widget.exchange ? 'صرف عملات' : 'سند جديد'),
+    child: Scaffold(appBar: AppBar(title: Text(switch (widget.kind) {LedgerKind.currency => 'صرف عملات', LedgerKind.simpleEntry => 'قيد بسيط', LedgerKind.transfer => 'حوالة جديدة', _ => 'سند جديد'}),
       actions: [TextButton(onPressed: saving ? null : widget.openDrafts,
         child: const Text('المسودات', style: TextStyle(color: Colors.white)))]),
       body: AbsorbPointer(absorbing: saving, child: ListView(padding: const EdgeInsets.all(16), children: [
-        SegmentedButton<EntryDirection>(segments: [
-          ButtonSegment(value: EntryDirection.debit, label: Text(widget.exchange ? 'بيع' : 'عليه')),
-          ButtonSegment(value: EntryDirection.credit, label: Text(widget.exchange ? 'شراء' : 'له')),
+        if (!widget.journal) SegmentedButton<EntryDirection>(segments: [
+          ButtonSegment(value: EntryDirection.debit, label: Text(widget.exchange ? 'بيع' : widget.transfer ? 'صادرة' : 'عليه')),
+          ButtonSegment(value: EntryDirection.credit, label: Text(widget.exchange ? 'شراء' : widget.transfer ? 'واردة' : 'له')),
         ], selected: {direction}, onSelectionChanged: (v) => setState(() => direction = v.single)),
         DropdownButtonFormField<String>(value: accountId, isExpanded: true,
-          decoration: const InputDecoration(labelText: 'الحساب'),
+          decoration: InputDecoration(labelText: widget.journal ? 'إلى حساب (دائن)' : 'الحساب'),
           items: [for (final a in widget.controller.accounts) DropdownMenuItem(value: a.id, child: Text(a.name))],
           onChanged: (v) => setState(() {
             accountId = v;
+            if (counterpart == v) counterpart = null;
             final c = widget.controller.accounts.where((a) => a.id == v).firstOrNull?.currency;
             if (!widget.exchange && c != null) currency = c;
           })),
+        if (widget.journal || widget.transfer) ...[
+          DropdownButtonFormField<String>(value: counterpart, isExpanded: true,
+            decoration: InputDecoration(labelText: widget.journal ? 'من حساب (مدين)' : 'الحساب المقابل'),
+            items: [for (final a in widget.controller.accounts.where((a) => a.id != accountId))
+              DropdownMenuItem(value: a.id, child: Text(a.name))],
+            onChanged: (v) => setState(() => counterpart = v)),
+          TextField(controller: document, decoration: InputDecoration(labelText: widget.transfer ? 'رقم الحوالة' : 'رقم المستند')),
+        ],
+        if (widget.transfer) ...[
+          TextField(controller: sender, decoration: const InputDecoration(labelText: 'المرسل')),
+          TextField(controller: recipient, decoration: const InputDecoration(labelText: 'المستلم')),
+          TextField(controller: company, decoration: const InputDecoration(labelText: 'شركة التحويل')),
+        ],
         if (widget.exchange) currencyField('من عملة', fromCurrency, (c) => fromCurrency = c),
         currencyField(widget.exchange ? 'إلى عملة' : 'العملة', currency, (c) => currency = c),
         TextField(controller: amount, onChanged: (_) => setState(() {}),
@@ -89,7 +113,7 @@ class _LocalEntryState extends State<LocalEntryView> {
           }),
         ],
         const SizedBox(height: 12),
-        SegmentedButton<PaymentMethod>(segments: const [
+        if (!widget.journal && !widget.transfer) SegmentedButton<PaymentMethod>(segments: const [
           ButtonSegment(value: PaymentMethod.cash, label: Text('نقدي')),
           ButtonSegment(value: PaymentMethod.balance, label: Text('رصيد')),
         ], selected: {payment}, onSelectionChanged: (v) => setState(() => payment = v.single)),

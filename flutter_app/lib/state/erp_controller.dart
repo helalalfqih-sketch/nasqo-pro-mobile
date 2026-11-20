@@ -826,6 +826,8 @@ class ErpController extends ChangeNotifier {
   Future<int> postLocalEntry({
     required String accountId,
     required LedgerKind kind,
+    String? counterpartId,
+    String documentNumber = '',
     required EntryDirection direction,
     required PaymentMethod payment,
     required double amount,
@@ -844,7 +846,12 @@ class ErpController extends ChangeNotifier {
       }
       final account = accounts.where((a) => a.id == accountId).firstOrNull;
       final exchange = kind == LedgerKind.currency;
-      if (account == null || (!exchange && kind != LedgerKind.voucher) ||
+      final paired = kind == LedgerKind.simpleEntry || kind == LedgerKind.transfer;
+      final other = accounts.where((a) => a.id == counterpartId).firstOrNull;
+      if (account == null || (!exchange && !paired && kind != LedgerKind.voucher) ||
+          (paired && (other == null || other.id == accountId)) ||
+          (kind == LedgerKind.simpleEntry && payment != PaymentMethod.balance) ||
+          (kind == LedgerKind.transfer && payment != PaymentMethod.cash) ||
           !amount.isFinite || amount <= 0 ||
           !exchangeRate.isFinite || exchangeRate <= 0 ||
           (exchange && (fromCurrency == null || currency == fromCurrency)) ||
@@ -854,9 +861,13 @@ class ErpController extends ChangeNotifier {
       final total = amount * exchangeRate;
       if (!total.isFinite || total <= 0) throw const SaleValidationException('المبلغ خارج النطاق.');
       final nextNumber = _nextEntryNumber + 1;
-      final label = exchange
-          ? (direction == EntryDirection.credit ? 'صرف شراء' : 'صرف بيع')
-          : (direction == EntryDirection.credit ? 'له (سند)' : 'عليه (سند)');
+      final label = switch (kind) {
+        LedgerKind.currency => direction == EntryDirection.credit ? 'صرف شراء' : 'صرف بيع',
+        LedgerKind.transfer => direction == EntryDirection.debit ? 'حوالة صادرة' : 'حوالة واردة',
+        LedgerKind.simpleEntry => 'قيد بسيط',
+        _ => direction == EntryDirection.credit ? 'له (سند)' : 'عليه (سند)',
+      };
+      final reference = documentNumber.trim().isEmpty && paired ? 'TX-$nextNumber' : documentNumber.trim();
       final entry = LedgerEntryRecord(
         id: 'local_${DateTime.now().microsecondsSinceEpoch}_$nextNumber',
         accountId: account.id, accountName: account.name,
@@ -865,11 +876,19 @@ class ErpController extends ChangeNotifier {
         details: [if (exchange) 'صرف $amount ${fromCurrency!.label} بسعر $exchangeRate إلى ${currency.label}',
           if (note.trim().isNotEmpty) note.trim(), if (!exchange && note.trim().isEmpty) label].join(' · '),
         entryNumber: nextNumber, entryDate: DateTime.now().toIso8601String().substring(0, 10),
-        warehouseId: '', warehouseName: '',
+        warehouseId: '', warehouseName: '', documentNumber: reference,
       );
-      final nextLedger = [entry, ...ledger];
+      final postings = [entry];
+      if (paired && other != null) {
+        postings.add(LedgerEntryRecord(id: '${entry.id}_counter', accountId: other.id, accountName: other.name,
+          kind: kind, typeLabel: label, payment: payment,
+          direction: direction == EntryDirection.credit ? EntryDirection.debit : EntryDirection.credit,
+          amount: total, currency: currency, details: entry.details, documentNumber: reference,
+          entryNumber: nextNumber, entryDate: entry.entryDate, warehouseId: '', warehouseName: ''));
+      }
+      final nextLedger = [...postings, ...ledger];
       if (_usesPersistentStore) await _saveCurrentSnapshot(nextLedger: nextLedger, nextEntryNumber: nextNumber);
-      ledger.insert(0, entry);
+      ledger.insertAll(0, postings);
       _nextEntryNumber = nextNumber;
       if (!_disposed) notifyListeners();
       return nextNumber;

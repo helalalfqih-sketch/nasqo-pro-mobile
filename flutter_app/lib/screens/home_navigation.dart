@@ -39,7 +39,7 @@ Future<String?> showHomeQuickActions(BuildContext context) => showModalBottomShe
   builder: (context) => Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
     child: Row(children: [
       for (final (route, title, icon) in const [
-        ('cash-transfer-drafts', 'حوالة جديدة', Icons.send_outlined),
+        ('post-transfer', 'حوالة جديدة', Icons.send_outlined),
         ('qr-scanner', 'مسح باركود', Icons.qr_code_scanner),
         ('invoice', 'فاتورة جديدة', Icons.receipt_long_outlined),
         ('post-voucher', 'سند جديد', Icons.note_add_outlined),

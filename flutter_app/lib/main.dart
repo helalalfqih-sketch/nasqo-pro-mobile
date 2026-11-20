@@ -313,9 +313,9 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           'سلة المحذوفات',
           HomeTrashView(controller: widget.controller),
         ),
-      'post-voucher' || 'post-exchange' => ('عملية جديدة', LocalEntryView(
-        controller: widget.controller, exchange: moduleId == 'post-exchange',
-        openDrafts: () => _openModulePage(moduleId == 'post-exchange' ? 'fx-drafts' : 'vouchers'))),
+      'post-voucher' || 'post-exchange' || 'post-journal' || 'post-transfer' => ('عملية جديدة', LocalEntryView(
+        controller: widget.controller, kind: switch (moduleId) { 'post-exchange' => LedgerKind.currency, 'post-journal' => LedgerKind.simpleEntry, 'post-transfer' => LedgerKind.transfer, _ => LedgerKind.voucher },
+        openDrafts: () => _openModulePage(switch (moduleId) { 'post-exchange' => 'fx-drafts', 'post-journal' => 'simple-journal-drafts', 'post-transfer' => 'cash-transfer-drafts', _ => 'vouchers' }))),
       'notifications' => ('التنبيهات', LocalAlertsView(controller: widget.controller, open: _openModulePage)),
       'reports' => ('التقارير', HomeReportsView(onOpenModule: _openModulePage)),
       'qr-scanner' || 'item-new' => ('الأصناف', StockScannerView(
@@ -423,7 +423,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         builder: (_) => Directionality(
           textDirection: TextDirection.rtl,
           child: category != null || const {
-            'post-voucher', 'post-exchange', 'qr-scanner', 'item-new', 'account-statement', 'cashboxes',
+            'post-journal', 'post-transfer', 'post-voucher', 'post-exchange', 'qr-scanner', 'item-new', 'account-statement', 'cashboxes',
             'warehouses',
             'currencies',
             'sales-overview',
@@ -574,7 +574,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
               PopupMenuItem(
                   value: 'post-voucher', child: Text('سند جديد')),
               PopupMenuItem(
-                  value: 'cash-transfer-drafts', child: Text('حوالة جديدة')),
+                  value: 'post-transfer', child: Text('حوالة جديدة')),
               PopupMenuItem(
                   value: 'invoice', child: Text('فاتورة مبيعات جديدة')),
               PopupMenuItem(
@@ -584,7 +584,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
               PopupMenuItem(
                   value: 'order-new', child: Text('طلبية بيع جديدة')),
               PopupMenuItem(
-                  value: 'simple-journal-drafts', child: Text('قيد بسيط جديد')),
+                  value: 'post-journal', child: Text('قيد بسيط جديد')),
               PopupMenuItem(
                   value: 'item-new', child: Text('إضافة صنف للمخزن')),
             ],
