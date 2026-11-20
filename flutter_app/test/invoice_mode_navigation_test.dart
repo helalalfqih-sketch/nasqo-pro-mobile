@@ -35,6 +35,9 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
     await tap(find.text('فاتورة بيع'));
+    expect(tester.widget<SegmentedButton<PaymentMethod>>(find.byType(SegmentedButton<PaymentMethod>)).selected,
+        {PaymentMethod.credit});
+    expect(tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,isFalse);
     await tap(find.text('حرة'));
     await tester.enterText(amount,'١٠٠');
     await tester.testTextInput.receiveAction(TextInputAction.done);

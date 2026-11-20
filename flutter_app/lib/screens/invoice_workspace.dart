@@ -42,7 +42,8 @@ class _InvoiceWorkspaceState extends State<InvoiceWorkspace> {
           if (returns) _PurchaseReturnForm(controller: widget.controller, onSaving: onSaving)
           else PurchaseInvoiceView(controller: widget.controller, onSaving: onSaving),
           if (!visitedSale) const SizedBox.shrink()
-          else widget.salesReturnBuilder?.call(onSaving) ?? InvoiceFormSheet(controller: widget.controller, onSaving: onSaving),
+          else widget.salesReturnBuilder?.call(onSaving) ?? InvoiceFormSheet(controller: widget.controller, onSaving: onSaving,
+              initialPayment: PaymentMethod.credit, initialVat: false),
         ])),
       ])),
     ));

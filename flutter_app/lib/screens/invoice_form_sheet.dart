@@ -6,10 +6,13 @@ import 'customer_list_sheet.dart';
 import 'invoice_actions.dart';
 
 class InvoiceFormSheet extends StatefulWidget {
-  const InvoiceFormSheet({super.key, required this.controller, this.onSaving});
+  const InvoiceFormSheet({super.key, required this.controller, this.onSaving,
+      this.initialPayment = PaymentMethod.cash, this.initialVat = true});
 
   final ErpController controller;
   final ValueChanged<bool>? onSaving;
+  final PaymentMethod initialPayment;
+  final bool initialVat;
 
   @override
   State<InvoiceFormSheet> createState() => _InvoiceFormSheetState();
@@ -25,8 +28,8 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
   final _customNameCtrl = TextEditingController();
   final _documentNumberCtrl = TextEditingController();
   final _memoCtrl = TextEditingController();
-  PaymentMethod _payment = PaymentMethod.cash;
-  bool _includeVat = true;
+  late PaymentMethod _payment = widget.initialPayment;
+  late bool _includeVat = widget.initialVat;
   bool _free = false;
   DateTime _date = DateTime.now();
   final _freeTotal = TextEditingController();
@@ -400,7 +403,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
                         ButtonSegment(value:true,label:Text('حرة')),
                       ],selected:{_free},onSelectionChanged:(v)=>setState(()=>_free=v.single)),
                       if (_free) TextField(controller:_freeTotal, keyboardType:const TextInputType.numberWithOptions(decimal:true),
-                          onChanged:(_)=>setState((){}),decoration:const InputDecoration(labelText:'إجمالي مبلغ الفاتورة'))
+                          onChanged:(_)=>setState((){}),decoration:InputDecoration(labelText:_includeVat ? 'مبلغ الفاتورة قبل الضريبة' : 'إجمالي مبلغ الفاتورة'))
                       else ...[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
