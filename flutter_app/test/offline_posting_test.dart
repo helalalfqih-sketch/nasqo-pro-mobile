@@ -46,6 +46,16 @@ void main() {
     expect(reopened.messageProvider,'external');
     expect(reopened.messagePhone,'770000000');
     expect(reopened.instantMessages,isTrue);
+    final db=await store.database;
+    await db.update('ledger_entries',{'deleted':1},where:'id = ?',whereArgs:[purchase.id]);
+    final restored=await store.resolveDeletedEntry(purchase.id,purge:false);
+    expect(restored!.deleted,isFalse);
+    await expectLater(store.resolveDeletedEntry(purchase.id,purge:true),throwsStateError);
+    await db.update('ledger_entries',{'deleted':1},where:'id = ?',whereArgs:[purchase.id]);
+    await store.resolveDeletedEntry(purchase.id,purge:true);
+    final afterPurge=await store.loadSnapshot();
+    expect(afterPurge.ledger.where((e)=>e.id==purchase.id),isEmpty);
+    expect(afterPurge.saleLines.where((l)=>l.entryId==purchase.id),isEmpty);
   });
   test('stock, vouchers and exchanges survive closing and reopening SQLite', () async {
     sqfliteFfiInit();
