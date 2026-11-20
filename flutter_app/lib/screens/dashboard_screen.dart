@@ -62,6 +62,13 @@ class DashboardScreen extends StatelessWidget {
 
     // Additional administration and advanced tools
     final administration = [
+      _Tile('عرض سعر', Icons.description_outlined,
+          id: 'quote-new', action: () => onOpenModule('quote-new')),
+      _Tile('طلبية جديدة', Icons.playlist_add,
+          id: 'order-new', action: () => onOpenModule('order-new')),
+      _Tile('مسودة مرتجع بيع', Icons.keyboard_return,
+          id: 'sales-return-drafts',
+          action: () => onOpenModule('sales-return-drafts')),
       _Tile('العملات', Icons.payments_outlined,
           id: 'currencies', action: () => onOpenModule('currencies')),
       _Tile('دليل الحسابات', Icons.account_tree_outlined,
@@ -202,22 +209,10 @@ class DashboardScreen extends StatelessWidget {
             balance,
             const SizedBox(height: 14),
 
-            // Collapsible / Supplementary Administration Grid
-            Theme(
-              data:
-                  Theme.of(context).copyWith(dividerColor: Colors.transparent),
-              child: ExpansionTile(
-                initiallyExpanded: false,
-                tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-                title: const Text('أدوات الإدارة والمخازن المتقدمة',
-                    style:
-                        TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                children: [
-                  _AdministrationGrid(tiles: administration),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            ),
+            // Administration & Advanced Tools Grid
+            const _SectionHeader(title: 'لوحة التحكم والعمليات المتقدمة'),
+            const SizedBox(height: 6),
+            _AdministrationGrid(tiles: administration),
           ],
           const SizedBox(height: 16),
           _DashboardFooter(onOpenModule: onOpenModule),
