@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+import 'package:nasqo_pro_erp/services/website_backup_file.dart';
 import 'dart:io';
 import 'package:nasqo_pro_erp/screens/home_account_views.dart';
 import 'package:nasqo_pro_erp/state/erp_controller.dart';
@@ -16,6 +18,27 @@ void main() {
       {'id': 'i1', 'name': 'صنف', 'unit': 'حبة', 'warehouseId': 'w1', 'quantity': 7, 'avgCost': 15},
     ],
   };
+  test('reads a gzip-wrapped unified SQLite backup without touching the live database', () async {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+    final dir = await Directory.systemTemp.createTemp('nasqo-back-fixture');
+    addTearDown(() => dir.delete(recursive:true));
+    final file = File('${dir.path}/sample.back');
+    final db = await databaseFactoryFfi.openDatabase(file.path);
+    await db.execute('CREATE TABLE workspaces(id TEXT,company_name TEXT)');
+    await db.execute("INSERT INTO workspaces VALUES('w','شركة اختبار')");
+    for (final table in ['accounts','account_groups','ledger_entries','inventory_items']) {
+      await db.execute('CREATE TABLE $table(workspace_id TEXT)');
+    }
+    await db.execute('CREATE TABLE warehouses(id TEXT,workspace_id TEXT,name TEXT,is_default INTEGER)');
+    await db.execute("INSERT INTO warehouses VALUES('wh','w','المخزن',1)");
+    await db.close();
+    final bytes = Uint8List.fromList(gzip.encode(await file.readAsBytes()));
+    final backup = WebBackup.parse(await readWebsiteBackup(bytes,1<<20));
+    expect(backup.company,'شركة اختبار');
+    expect(backup.warehouses.single.isDefault,isTrue);
+    await expectLater(readWebsiteBackup(bytes,100),throwsFormatException);
+  });
   test('rejects duplicate ids and unsupported versions', () {
     for (final invalid in [
       {...payload, 'version': 9},
