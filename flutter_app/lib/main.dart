@@ -363,6 +363,11 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       'local-backups' => (
           'النسخ المحلية واختبار الاستعادة',
           LocalBackupWorkspaceView(
+            onRestored: (message) {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+              if (_homeScroll.hasClients) _homeScroll.jumpTo(0);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+            },
             restoreWeb: widget.controller.restoreWebBackup,
             restoreLocal: widget.controller.restoreLocalBackup,
             importLocal: widget.controller.importLocalBackup,
