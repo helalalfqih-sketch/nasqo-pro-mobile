@@ -93,6 +93,7 @@ class NasqoWebDrawer extends StatelessWidget {
                     _item('حسابات العملاء', Icons.people_outline, route:'group-clients'),
                     _item('دليل الحسابات', Icons.account_tree_outlined,
                         route: 'chart-accounts'),
+                    _item('إدارة مجموعات الحسابات',Icons.workspaces_outlined,route:'group-directory'),
                     _item('جميع الحسابات', Icons.groups_outlined,
                         route: 'accounts'),
                     _item('دليل العملات المحلي', Icons.currency_exchange,
