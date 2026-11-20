@@ -14,6 +14,7 @@ class LocalBackupWorkspaceView extends StatefulWidget {
       required this.loadBackups,
       required this.createBackup,
       this.restoreWeb,
+      this.onRestored,
       this.importLocal,
       this.exportLocal,
       this.restoreLocal,
@@ -22,6 +23,7 @@ class LocalBackupWorkspaceView extends StatefulWidget {
   final Future<LocalBackupFile> Function(String)? importLocal;
   final Future<bool> Function(String)? exportLocal;
   final Future<void> Function(WebBackup)? restoreWeb;
+  final ValueChanged<String>? onRestored;
   final Future<void> Function(String id)? restoreLocal;
   final Future<List<LocalBackupFile>> Function() loadBackups;
   final Future<LocalBackupFile> Function() createBackup;
@@ -126,7 +128,7 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
     setState(() => _restoring = file.name);
     await widget.restoreWeb!(backup);
     final message = 'تمت استعادة ${file.name} • المجموعات: ${backup.groupData.groups.length} • الحسابات: ${backup.accounts.length} • الحركات: ${backup.ledger.length} • الأصناف: ${backup.inventory.length}';
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(message)));
+    if (mounted) widget.onRestored?.call(message);
     return message;
   });
 
