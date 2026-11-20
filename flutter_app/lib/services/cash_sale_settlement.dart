@@ -1,5 +1,10 @@
 import '../models/erp_models.dart';
 
+bool isCashSaleSettlement(LedgerEntryRecord entry) =>
+    entry.kind == LedgerKind.voucher &&
+    (entry.typeLabel == 'تحصيل فاتورة نقدية' || entry.typeLabel == 'رد نقدي لمرتجع مبيعات') &&
+    (entry.id.endsWith('/cashbox') || entry.id.endsWith('/settlement'));
+
 /// The invoice or return remains on the customer's statement. The linked
 /// settlement clears that amount and records the cashbox receipt or refund.
 List<LedgerEntryRecord> cashSaleSettlement(LedgerEntryRecord document,
