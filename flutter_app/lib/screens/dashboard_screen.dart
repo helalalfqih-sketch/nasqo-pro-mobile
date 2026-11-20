@@ -266,7 +266,8 @@ class DashboardScreen extends StatelessWidget {
             brandPlaque,
             const SizedBox(height: 12),
 
-            // 9 Compact Quick Actions (3 columns x 3 rows)
+            balance,
+            const SizedBox(height: 14),
             _QuickActionsGrid(tiles: quickActions),
             const SizedBox(height: 14),
 
@@ -279,9 +280,7 @@ class DashboardScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
 
-            // Live Group Balances Audit Table
-            balance,
-            const SizedBox(height: 14),
+
 
             // Administration & Advanced Tools Grid
             const _SectionHeader(title: 'لوحة التحكم والعمليات المتقدمة'),
@@ -289,7 +288,6 @@ class DashboardScreen extends StatelessWidget {
             _AdministrationGrid(tiles: administration),
           ],
           const SizedBox(height: 16),
-          _DashboardFooter(onOpenModule: onOpenModule),
           const SizedBox(height: 8),
         ],
       );
@@ -335,15 +333,15 @@ class _QuickActionsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
-      final itemWidth = (constraints.maxWidth - 12) / 3;
+      final itemWidth = (constraints.maxWidth - 9) / 2;
       return Wrap(
-        spacing: 6,
-        runSpacing: 6,
+        spacing: 9,
+        runSpacing: 9,
         children: [
           for (final tile in tiles)
             SizedBox(
               width: itemWidth,
-              height: 38,
+              height: 48,
               child: Tooltip(
                 message: tile.action == null
                     ? '${tile.title} · غير متاح'
@@ -944,99 +942,3 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
   }
 }
 
-/// Small version and link footer matching reference prototype
-class _DashboardFooter extends StatelessWidget {
-  const _DashboardFooter({required this.onOpenModule});
-  final ValueChanged<String> onOpenModule;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const Divider(height: 24, thickness: 0.5),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const NasqoBrandMark(size: 20),
-            const SizedBox(width: 6),
-            Flexible(child: Text(
-              'نسقو برو ERP · الإصدار 1.0.17+18',
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w600,
-              ),
-            )),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 12,
-          runSpacing: 4,
-          alignment: WrapAlignment.center,
-          children: [
-            _FooterLink(
-              label: 'الموقع الرسمي',
-              icon: Icons.language,
-              onTap: () => onOpenModule('settings'),
-            ),
-            _FooterLink(
-              label: 'واتساب الدعم',
-              icon: Icons.chat_bubble_outline,
-              onTap: () => onOpenModule('settings'),
-            ),
-            _FooterLink(
-              label: 'قناة تيليجرام',
-              icon: Icons.send_outlined,
-              onTap: () => onOpenModule('settings'),
-            ),
-            _FooterLink(
-              label: 'شروحات الفيديو',
-              icon: Icons.play_circle_outline,
-              onTap: () => onOpenModule('settings'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _FooterLink extends StatelessWidget {
-  const _FooterLink({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: const Color(0xFF4338CA)),
-            const SizedBox(width: 3),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFF4338CA),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
