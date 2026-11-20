@@ -281,6 +281,8 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
             saveDraft: widget.controller.saveFxDraft,
           ),
         ),
+      'purchase-register' => ('سجل فواتير المشتريات',PurchasesRegister(controller:widget.controller,
+          openNew:()=>_openModulePage('purchase-new'))),
       'purchase-new' => ('فاتورة مشتريات جديدة',PurchaseInvoiceView(controller:widget.controller)),
       'account-new' => ('إضافة حساب',AccountEditor(controller:widget.controller)),
       'account-import' => ('استيراد الحسابات',AccountImportView(controller:widget.controller)),
