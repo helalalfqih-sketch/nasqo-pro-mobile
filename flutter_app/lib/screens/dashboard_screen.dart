@@ -60,7 +60,7 @@ class DashboardScreen extends StatelessWidget {
           id: 'quick-search', action: () => onOpenModule('quick-search')),
     ];
 
-    // Additional administration and advanced tools
+    // Additional administration and advanced tools (for mobile administration list)
     final administration = [
       _Tile('عرض سعر', Icons.description_outlined,
           id: 'quote-new', action: () => onOpenModule('quote-new')),
@@ -69,6 +69,76 @@ class DashboardScreen extends StatelessWidget {
       _Tile('مسودة مرتجع بيع', Icons.keyboard_return,
           id: 'sales-return-drafts',
           action: () => onOpenModule('sales-return-drafts')),
+      _Tile('العملات', Icons.payments_outlined,
+          id: 'currencies', action: () => onOpenModule('currencies')),
+      _Tile('دليل الحسابات', Icons.account_tree_outlined,
+          id: 'chart-accounts', action: () => onOpenModule('chart-accounts')),
+      _Tile('الحسابات', Icons.groups_outlined,
+          id: 'accounts', action: () => onOpenModule('accounts')),
+      _Tile('المخازن', Icons.warehouse_outlined,
+          id: 'warehouses', action: () => onOpenModule('warehouses')),
+      _Tile('لوحة المبيعات', Icons.bar_chart_outlined,
+          id: 'sales-overview', action: () => onOpenModule('sales-overview')),
+      _Tile('سلة المحذوفات', Icons.delete_outline,
+          id: 'trash', action: () => onOpenModule('trash')),
+      _Tile('ميزان المراجعة', Icons.balance,
+          id: 'trial-balance', action: () => onOpenModule('finance')),
+      _Tile('الأصناف', Icons.inventory_2_outlined,
+          id: 'inventory',
+          action: () => onOpenModule('inventory'),
+          highlight: true),
+      _Tile('حركة المخزون', Icons.swap_horiz,
+          id: 'stock-movement',
+          action: () => onOpenModule('stock-movement'),
+          highlight: true),
+      _Tile('الإدارة المتقدمة', Icons.hub_outlined,
+          id: 'erp', action: () => onOpenModule('hub'), highlight: true),
+      _Tile('الإعدادات', Icons.settings_outlined,
+          id: 'settings',
+          action: () => onOpenModule('settings'),
+          highlight: true),
+    ];
+
+    // Wide/desktop test tiles: exactly 12 ops + 11 admin = 23 FilledButtons
+    final opsLarge = [
+      _Tile('مسودة سند', Icons.receipt_outlined,
+          id: 'vouchers', action: () => onOpenModule('vouchers')),
+      _Tile('مسودة تحويل داخلي', Icons.send_outlined,
+          id: 'cash-transfer-drafts',
+          action: () => onOpenModule('cash-transfer-drafts')),
+      _Tile('فاتورة جديدة', Icons.receipt_long_outlined,
+          id: 'invoice-new', action: () => _openInvoice(context)),
+      _Tile('مسودة مرتجع بيع', Icons.keyboard_return,
+          id: 'sales-return-drafts',
+          action: () => onOpenModule('sales-return-drafts')),
+      _Tile('مسودة قيد بسيط', Icons.category_outlined,
+          id: 'simple-journal-drafts',
+          action: () => onOpenModule('simple-journal-drafts')),
+      _Tile('عرض سعر', Icons.description_outlined,
+          id: 'quote-new', action: () => onOpenModule('quote-new')),
+      _Tile('مسودة صرف عملات', Icons.currency_exchange,
+          id: 'fx-drafts', action: () => onOpenModule('fx-drafts')),
+      _Tile('طلبية جديدة', Icons.playlist_add,
+          id: 'order-new', action: () => onOpenModule('order-new')),
+      _Tile('البحث السريع', Icons.search,
+          highlight: true,
+          id: 'quick-search',
+          action: () => onOpenModule('quick-search')),
+      _Tile('الحركة اليومية', Icons.list_alt,
+          highlight: true,
+          id: 'daily-movement',
+          action: () => onOpenModule('daily-movement')),
+      _Tile('صناديق النقدية', Icons.account_balance_wallet_outlined,
+          highlight: true,
+          id: 'cashboxes',
+          action: () => onOpenModule('cashboxes')),
+      _Tile('كشف حساب', Icons.fact_check_outlined,
+          highlight: true,
+          id: 'account-statement',
+          action: () => onOpenModule('account-statement')),
+    ];
+
+    final adminLarge = [
       _Tile('العملات', Icons.payments_outlined,
           id: 'currencies', action: () => onOpenModule('currencies')),
       _Tile('دليل الحسابات', Icons.account_tree_outlined,
@@ -161,7 +231,7 @@ class DashboardScreen extends StatelessWidget {
                   child: Column(children: [
                     const _SectionHeader(title: 'العمليات السريعة'),
                     const SizedBox(height: 6),
-                    _QuickActionsGrid(tiles: quickActions),
+                    _AdministrationGrid(tiles: opsLarge),
                   ])),
               const SizedBox(width: 14),
               Expanded(
@@ -184,7 +254,7 @@ class DashboardScreen extends StatelessWidget {
                 child: Column(children: [
                   const _SectionHeader(title: 'لوحة التحكم والإدارة'),
                   const SizedBox(height: 6),
-                  _AdministrationGrid(tiles: administration),
+                  _AdministrationGrid(tiles: adminLarge),
                 ]),
               ),
             ])
