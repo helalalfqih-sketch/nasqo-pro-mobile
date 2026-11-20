@@ -4,7 +4,8 @@ import '../models/erp_models.dart';
 
 /// The original export is retained alongside the records supported by mobile.
 class WebBackup {
-  WebBackup._(this.original, this.company, this.modules);
+  WebBackup._(this.original, this.company, this.modules, this.groupData);
+  final RestoredGroups groupData;
   final ErpWorkspaceSnapshot modules;
   final String original, company;
   final accounts = <AccountRecord>[];
@@ -23,7 +24,7 @@ class WebBackup {
       throw const FormatException('صيغة النسخة أو إصدارها غير مدعوم.');
     }
     final result = WebBackup._(source, _required(data['workspace']['companyName']),
-      ErpWorkspaceSnapshot.fromJson((data['erpData'] ?? <String, dynamic>{}) as Map<String, dynamic>));
+      ErpWorkspaceSnapshot.fromJson((data['erpData'] ?? <String, dynamic>{}) as Map<String, dynamic>), RestoredGroups.fromJson(data));
     List<Map<String, dynamic>> rows(String key) {
       final list = (data[key] as List).cast<Map<String, dynamic>>();
       final ids = <String>{};
@@ -103,4 +104,49 @@ class WebBackup {
   static CurrencyCode _currency(dynamic value) => CurrencyCode.values.firstWhere(
     (currency) => currency.name.toUpperCase() == value || currency.label == value || currency.name == value,
     orElse: () => throw FormatException('عملة غير مدعومة: $value'));
+}
+
+class RestoredGroups {
+  RestoredGroups(this.groups, this.membership, this.sides);
+  final List<({int id, int number, int order, String name})> groups;
+  final Map<String, int> membership;
+  final Map<String, ({num? debit, num? credit, bool settled})> sides;
+
+  factory RestoredGroups.fromJson(Map<String, dynamic> data) {
+    final groups = [for (final g in data['accountGroups'] ?? [])
+      (id: g['id'] as int, number: (g['legacyId'] ?? g['id']) as int,
+       order: (g['legacyId'] ?? g['sortOrder'] ?? g['id']) as int, name: g['name'] as String)];
+    groups.sort((a,b) => a.order.compareTo(b.order));
+    return RestoredGroups(groups, {
+      for (final a in data['accounts'] ?? [])
+        if (a['groupId'] is int) a['id'] as String: a['groupId'] as int
+    }, {
+      for (final e in data['ledger'] ?? [])
+        if (e['rawDain'] is num || e['rawMadin'] is num)
+          e['id'] as String: (debit:e['rawDain'] as num?, credit:e['rawMadin'] as num?,
+            settled:e['settledOnReceipt'] == true)
+    });
+  }
+
+  Map<int, double> balances(List<AccountRecord> accounts, List<LedgerEntryRecord> ledger,
+      Map<int, CurrencyCode> filters, CurrencyCode fallback) {
+    final result = <int,double>{};
+    for (final a in accounts) {
+      final id = membership[a.id];
+      if (id == null || a.currency != (filters[id] ?? fallback) || a.openingBalance <= 0) continue;
+      final sign = a.openingDirection == EntryDirection.debit ? 1 : -1;
+      result[id] = (result[id] ?? 0) + sign * a.openingBalance;
+    }
+    for (final e in ledger) {
+      final id = membership[e.accountId];
+      if (id == null || e.currency != (filters[id] ?? fallback) || e.deleted ||
+          e.kind == LedgerKind.quote || e.kind == LedgerKind.order) continue;
+      final side = sides[e.id];
+      if (side?.settled == true) continue;
+      final debit = side?.debit ?? (e.direction == EntryDirection.debit ? e.amount : 0);
+      final credit = side?.credit ?? (e.direction == EntryDirection.credit ? e.amount : 0);
+      result[id] = (result[id] ?? 0) + debit - credit;
+    }
+    return result;
+  }
 }
