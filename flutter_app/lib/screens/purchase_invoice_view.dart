@@ -100,3 +100,52 @@ class _CatalogItemEditorState extends State<CatalogItemEditor> {
       FilledButton(onPressed:saving?null:save,child:const Text('حفظ التعديل'))
     ]));
 }
+
+class PurchasesRegister extends StatefulWidget {
+  const PurchasesRegister({super.key,required this.controller,required this.openNew});
+  final ErpController controller;
+  final VoidCallback openNew;
+  @override
+  State<PurchasesRegister> createState()=>_PurchasesRegisterState();
+}
+class _PurchasesRegisterState extends State<PurchasesRegister> {
+  String query='';
+  PaymentMethod? payment;
+  CurrencyCode? currency;
+  @override
+  Widget build(BuildContext context) {
+    final c=widget.controller;
+    final filtered=c.ledger.where((e)=>!e.deleted && e.kind==LedgerKind.invoice &&
+      e.direction==EntryDirection.credit && (payment==null || e.payment==payment) &&
+      (currency==null || e.currency==currency) &&
+      '${e.accountName} ${e.documentNumber} ${e.entryNumber}'.toLowerCase().contains(query.trim().toLowerCase())).toList()
+      ..sort((a,b){final date=b.entryDate.compareTo(a.entryDate);return date==0?b.entryNumber.compareTo(a.entryNumber):date;});
+    return ListView(padding:const EdgeInsets.all(16),children:[
+      FilledButton.icon(onPressed:widget.openNew,icon:const Icon(Icons.add),label:const Text('فاتورة مشتريات جديدة')),
+      TextField(decoration:const InputDecoration(labelText:'بحث بالمورد أو رقم الفاتورة'),onChanged:(v)=>setState(()=>query=v)),
+      DropdownButtonFormField<PaymentMethod?>(value:payment,decoration:const InputDecoration(labelText:'طريقة الدفع'),
+        items:[const DropdownMenuItem(value:null,child:Text('كل طرق الدفع')),
+          for(final v in PaymentMethod.values) DropdownMenuItem(value:v,child:Text(v.label))],
+        onChanged:(v)=>setState(()=>payment=v)),
+      DropdownButtonFormField<CurrencyCode?>(value:currency,decoration:const InputDecoration(labelText:'العملة'),
+        items:[const DropdownMenuItem(value:null,child:Text('كل العملات')),
+          for(final v in CurrencyCode.values) DropdownMenuItem(value:v,child:Text(v.label))],onChanged:(v)=>setState(()=>currency=v)),
+      if(filtered.isEmpty) const ListTile(title:Text('لا توجد فواتير مشتريات تطابق البحث.')),
+      for(final e in filtered) ListTile(title:Text('${e.entryNumber} · ${e.accountName}'),
+        subtitle:Text('${e.entryDate} · ${e.payment.label}'),
+        trailing:Text('${AccountingEngine.formatAmount(e.amount)} ${e.currency.label}'),
+        onTap:()=>showModalBottomSheet<void>(context:context,isScrollControlled:true,builder:(ctx){
+          final lines=c.saleLines.where((line)=>line.entryId==e.id);
+          return SafeArea(child:ListView(shrinkWrap:true,padding:const EdgeInsets.all(16),children:[
+            Text('فاتورة مشتريات ${e.documentNumber}',style:Theme.of(ctx).textTheme.titleLarge),
+            Text('${e.accountName} · ${e.warehouseName} · ${e.entryDate}'),
+            if(lines.isEmpty) const ListTile(title:Text('لا تتوفر بنود محفوظة لهذه الفاتورة.')),
+            for(final line in lines) ListTile(title:Text(line.itemName),
+              subtitle:Text('${line.quantity} ${line.unit} × ${line.unitPrice}'),
+              trailing:Text(AccountingEngine.formatAmount(line.quantity*line.unitPrice))),
+            Text('الإجمالي: ${AccountingEngine.formatAmount(e.amount)} ${e.currency.label}')
+          ]));
+        }))
+    ]);
+  }
+}
