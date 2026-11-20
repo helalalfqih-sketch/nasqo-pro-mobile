@@ -697,8 +697,10 @@ class LocalDatabase {
             whereArgs: ['${source.id}/cashbox']);
         if (receipts.isNotEmpty) {
           final receipt = _ledgerFromMap(receipts.single);
-          if (receipt.deleted || receipt.currency != source.currency ||
-              receipt.kind != LedgerKind.voucher || receipt.direction != EntryDirection.debit) {
+          if (!isCashSaleSettlement(receipt) || receipt.deleted ||
+              receipt.payment != PaymentMethod.cash || receipt.currency != source.currency ||
+              receipt.amount != source.amount || receipt.entryNumber != source.entryNumber ||
+              receipt.direction != EntryDirection.debit) {
             throw StateError('تعذرت مطابقة حركة الصندوق بالفاتورة الأصلية.');
           }
           for (final movement in cashSaleSettlement(entry,
