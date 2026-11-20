@@ -189,7 +189,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
                       category: AccountCategory.purchases,
                       phone: '',
                       creditLimit: 0,
-                      currency: CurrencyCode.yer,
+                      currency: CurrencyCode.sar,
                       isCashAccount: true,
                       note: '',
                       openingBalance: 0,

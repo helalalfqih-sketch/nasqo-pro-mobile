@@ -32,6 +32,8 @@ class ErpController extends ChangeNotifier {
   }
 
   final LocalDatabase _localDatabase;
+  LocalDatabase get database => _localDatabase;
+  LocalDatabase get localDatabase => _localDatabase;
   final bool _usesPersistentStore;
   Future<void>? _startingDatabase;
   Future<void> _writeTail = Future<void>.value();
