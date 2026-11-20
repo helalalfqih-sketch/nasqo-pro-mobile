@@ -32,7 +32,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('المخزون المتبقي'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('inventory-catalog-search')), findsOneWidget);
+    expect(find.text('مخزن التقرير'), findsOneWidget);
+    expect(find.textContaining('إجمالي القيمة:'), findsOneWidget);
+    expect(find.text('الوحدة'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('المخزون المتبقي'), findsOneWidget);
