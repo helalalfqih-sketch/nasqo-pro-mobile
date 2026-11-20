@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:nasqo_pro_erp/models/sales_return_draft.dart';
 import 'package:nasqo_pro_erp/screens/home_account_views.dart';
+import 'package:nasqo_pro_erp/services/accounting_engine.dart';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -107,6 +108,7 @@ void main() {
     final other = cash ? customer : box;
     double balance(AccountRecord a) => LocalAccountStatement(a, c.ledger, a.currency).closing;
     final before = balance(account), otherBefore = balance(other);
+    final originalIncome = AccountingEngine.computeIncomeStatement(c.accounts, c.ledger);
     await c.submitSalesInvoice(accountId:customer.id, customerName:customer.name,
       cashboxAccountId:cash ? box.id : null,
       warehouse:c.warehouses.firstWhere((w) => w.id == item.warehouseId),
@@ -153,6 +155,9 @@ void main() {
     expect(c.inventory.singleWhere((i) => i.id == item.id).quantity,item.quantity);
     expect(balance(account), before);
     expect(balance(other), otherBefore);
+    final finalIncome = AccountingEngine.computeIncomeStatement(c.accounts, c.ledger);
+    expect(finalIncome.netSales, originalIncome.netSales);
+    expect(finalIncome.totalOperatingExpenses, originalIncome.totalOperatingExpenses);
     final settled = await store.loadSaleTaxRegister();
     expect(settled.rows.where((r) => r.documentNumber == entry.documentNumber)
         .fold<double>(0,(sum,row) => sum + row.finalTotal),0);
