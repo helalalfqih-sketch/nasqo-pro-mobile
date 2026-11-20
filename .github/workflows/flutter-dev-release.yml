@@ -1,6 +1,11 @@
 name: NASQO Flutter — Signed Development APK
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'flutter_app/**'
+      - '.github/workflows/flutter-dev-release.yml'
   workflow_dispatch:
 
 permissions:

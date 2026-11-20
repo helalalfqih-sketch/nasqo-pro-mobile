@@ -22,7 +22,7 @@ void main() {
     final original = List.of(c.ledger);
     await tester.pumpWidget(NasqoProErpApp(controller: c));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('خيارات'));
+    await tester.tap(find.byTooltip('خيارات'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('النسخ المحلية واختبار الاستعادة'));
     await tester.pumpAndSettle();
