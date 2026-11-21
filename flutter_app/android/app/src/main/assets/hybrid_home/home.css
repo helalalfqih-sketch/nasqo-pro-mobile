@@ -13230,3 +13230,14 @@ html, body { margin: 0; height: 100%; }
 .smart-center-stage .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .smart-center-stage .metrics-section { margin: 0; }
 .smart-center-stage .home-metric-slot > button { width: 100%; }
+.hybrid-directory { --flow-header-height: 58px; --flow-footer-height: 54px; z-index: 8; background: var(--nasqo-canvas); }
+.hybrid-directory:has(.warehouse-page) { --flow-footer-height: 26px; }
+@media print {
+  .hybrid-shell, .drawer-layer, .hybrid-directory .flow-fixed-header, .hybrid-directory .flow-fixed-footer,
+  .hybrid-directory .purchases-filter-panel, .hybrid-directory .fab, .hybrid-directory .vendor-actions,
+  .hybrid-directory .vendor-call, .mobile-scrollbar { display: none !important; }
+  html, body, .nasqo-app, .hybrid-directory, .hybrid-directory .flow-scenes, .hybrid-directory .flow-screen,
+  .hybrid-directory .purchases-layout, .hybrid-directory .mobile-page, .hybrid-directory .mobile-scroll,
+  .hybrid-directory .mobile-scroll-content { position: static; height:auto; overflow: visible; display:block; transform:none !important; }
+  .vendor-card { break-inside: avoid; }
+}

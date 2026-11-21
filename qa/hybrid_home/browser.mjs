@@ -6,8 +6,10 @@ import {chromium} from 'playwright';
 
 const repo=fileURLToPath(new URL('../../',import.meta.url));
 const out=path.resolve(process.argv[2] ?? '/tmp/nasqo-home-browser');
+const captureOnly=process.argv.includes('--capture-only');
 const width=Number(process.argv[3] ?? 427), height=Number(process.argv[4] ?? 710);
 const ref=path.resolve(process.env.NASQO_REFERENCE ?? '/tmp/nasqo-hybrid-ref');
+const directory=JSON.parse(fs.readFileSync(path.join(repo,'qa/hybrid_home/directory_fixture.json')));
 const fixture=JSON.parse(fs.readFileSync(path.join(repo,'qa/groups_lab/assets/fixture.json')));
 const dto=JSON.parse(fs.readFileSync(path.join(repo,'qa/hybrid_home/fixture_snapshot.json')));
 fs.mkdirSync(out,{recursive:true});
@@ -41,6 +43,8 @@ try{
    assert.equal(await page.locator('[data-metric="clients"] strong').innerText(),'1,250.5');
    assert.equal(await page.locator('[data-metric="purchases"] strong').innerText(),'−80');
    assert.equal(await page.getByTestId('home-bottom-nav').count(),1);
+   assert.equal(await page.locator('.flow-fixed-header:visible').count(),1);
+   assert.equal(await page.locator('.flow-fixed-footer:visible').count(),1);
    assert.ok(await page.locator('.dashboard-header img').evaluate(img=>img.complete && img.naturalWidth>0));
    assert.equal(await page.locator('[data-home-tile-id] svg').count(),24);
    assert.equal(await page.locator('html').getAttribute('dir'),'rtl');
@@ -54,6 +58,7 @@ try{
    assert.ok(geometry.fontLoaded);assert.ok(geometry.scrollRange>0);
    fs.writeFileSync(path.join(out,name+'.json'),JSON.stringify(geometry));
    await page.screenshot({path:path.join(out,name+'.png')});
+   if(captureOnly){await context.close();continue;}
    await page.getByTestId('home-nav-center-fab').tap();
    const quick=page.getByTestId('home-quick-sheet');
    await quick.getByText('مسح باركود').waitFor();
@@ -83,6 +88,27 @@ try{
     await page.waitForFunction(()=>document.querySelector('.smart-col-bal strong').innerText==='25');
     await page.getByRole('button',{name:/مجموعة الشمال/}).click();
     assert.ok(await page.evaluate(()=>window.events.some(e=>e.action==='group'&&e.id===41)));
+    await page.evaluate(s=>window.nasqoPresent(s),{...dto,directory:directory.suppliers});
+    const vendors=page.getByTestId('purchases-screen');
+    await vendors.waitFor();
+    assert.equal(await vendors.locator('article').count(),2);
+    assert.equal(await page.locator('.flow-fixed-header:visible').count(),1);
+    assert.equal(await page.locator('.flow-fixed-footer:visible').count(),1);
+    await page.getByLabel('حسابات العملة فقط').check();
+    assert.equal(await vendors.locator('article').count(),1);
+    await vendors.getByRole('button',{name:'فتح كشف عميل دولار تجريبي'}).tap();
+    assert.ok(await page.evaluate(()=>window.events.some(e=>e.action==='account'&&e.id==='qa-u'&&e.op==='statement')));
+    await vendors.getByRole('button',{name:'عمليات عميل دولار تجريبي'}).click();
+    await page.getByTestId('vendor-operations-menu').getByText('حوالة جديدة').click();
+    await page.waitForFunction(()=>window.events.some(e=>e.action==='account'&&e.id==='qa-u'&&e.op==='transfer'));
+    await page.getByLabel('عملة المشتريات').selectOption('الكل');
+    assert.ok(await page.evaluate(()=>window.events.some(e=>e.action==='filter'&&e.currency==='الكل')));
+    await page.evaluate(s=>window.nasqoPresent(s),{...dto,directory:directory.allCurrencies});
+    await page.getByLabel('تصدير المشتريات').click();await page.getByTestId('export-menu').waitFor();
+    assert.ok(await page.evaluate(()=>window.nasqoBack()));
+    await page.screenshot({path:path.join(out,'embedded-suppliers.png')});
+    assert.ok(await page.evaluate(()=>window.nasqoBack()));
+    await page.evaluate(s=>window.nasqoPresent(s),dto);
     await page.getByLabel('عملة مجموعة الشمال').selectOption('الكل');
     await page.evaluate(s=>window.nasqoPresent(s),{...dto,rows:[{...dto.rows[0],currency:'الكل',netDebitMinusCredit:null,amounts:[{value:-1250.5,currency:'ريال'},{value:25,currency:'دولار'}]},dto.rows[1]]});
     const multi=page.locator('tbody tr').first().locator('td.smart-col-bal');
@@ -127,6 +153,7 @@ try{
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[finger]});
     await page.getByTestId('home-tiles-edit-bar').waitFor();
     await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    assert.equal(await page.locator('.hybrid-shell').evaluate(el=>el.inert),false,'long press release must not activate a group beneath the moved tile');
     await page.getByTestId('tile-restore-new-transfer').click();
     await page.waitForFunction(()=>window.events.some(e=>e.action==='layout'&&!e.value.hidden.includes('new-transfer')));
     await page.getByTestId('home-tiles-reset-btn').click();
@@ -135,6 +162,28 @@ try{
     await page.getByTestId('home-tiles-edit-bar').waitFor({state:'detached'});
     await page.locator('[data-home-tile-id="quick-search"]').click();
     assert.ok(await page.evaluate(()=>window.events.some(e=>e.action==='tile'&&e.id==='quick-search')));
+    for (const [id,screen] of [['warehouses','warehouses'],['accounts','chart'],['statement','picker']]) {
+      await page.locator('[data-home-tile-id="'+id+'"]').click();
+      await page.evaluate(s=>window.nasqoPresent(s),{...dto,directory:directory[screen]});
+      if (screen==='warehouses') {
+        await page.getByRole('button',{name:'بحث في المخازن'}).click();
+        await page.getByLabel('اسم المخزن للبحث').fill('المختبر');
+        await page.getByLabel('تعديل مخزن المختبر').click();
+        assert.ok(await page.evaluate(()=>window.events.some(e=>e.action==='warehouse'&&e.op==='edit'&&e.id==='qa-wh')));
+        await page.getByLabel('اسم المخزن للبحث').fill('مفقود');
+        await page.getByText('لا توجد مخازن مطابقة للبحث.').waitFor();
+      } else if (screen==='chart') {
+        await page.getByTestId('coa-search-input').fill('دولار');
+        await page.getByRole('button',{name:'عميل دولار تجريبي',exact:true}).click();
+        await page.getByTestId('chart-of-accounts-modal').waitFor();
+      } else {
+        await page.getByTestId('account-picker-search-input').fill('دولار');
+        await page.getByRole('option').first().click();
+        await page.getByRole('button',{name:'موافق',exact:true}).click();
+      }
+      assert.ok(await page.evaluate(()=>window.nasqoBack()));
+      await page.evaluate(s=>window.nasqoPresent(s),dto);
+    }
     await page.evaluate(s=>window.nasqoPresent(s),{...dto,appearance:{primary:'#047857',secondary:'#0f766e',radius:9}});
     await page.waitForFunction(()=>{
       const tile=document.querySelector('[data-home-tile-id="new-voucher"]');

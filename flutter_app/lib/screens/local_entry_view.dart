@@ -5,9 +5,10 @@ import '../services/accounting_engine.dart';
 import '../state/erp_controller.dart';
 
 class LocalEntryView extends StatefulWidget {
-  const LocalEntryView({super.key, required this.controller, required this.kind, required this.openDrafts});
+  const LocalEntryView({super.key, required this.controller, required this.kind, this.initialAccount, required this.openDrafts});
   final ErpController controller;
   final LedgerKind kind;
+  final AccountRecord? initialAccount;
   bool get exchange => kind == LedgerKind.currency;
   bool get transfer => kind == LedgerKind.transfer;
   bool get journal => kind == LedgerKind.simpleEntry;
@@ -120,7 +121,7 @@ class _LocalEntryState extends State<LocalEntryView> {
   @override
   void initState() {
     super.initState();
-    final first = widget.controller.accounts.firstOrNull;
+    final first = widget.initialAccount ?? widget.controller.accounts.firstOrNull;
     accountId = first?.id;
     if (widget.journal || widget.exchange) { payment = PaymentMethod.balance; direction = EntryDirection.credit; }
     fromCurrency = first?.currency ?? widget.controller.defaultCurrency;

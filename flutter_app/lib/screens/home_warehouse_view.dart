@@ -3,18 +3,7 @@ import '../state/erp_controller.dart';
 import '../models/erp_models.dart';
 import 'workspace_views.dart';
 
-class HomeWarehouseView extends StatefulWidget {
-  const HomeWarehouseView({super.key, required this.controller});
-  final ErpController controller;
-  @override
-  State<HomeWarehouseView> createState() => _WarehouseState();
-}
-
-class _WarehouseState extends State<HomeWarehouseView> {
-  ErpController get controller => widget.controller;
-  String search = '';
-
-  Future<void> edit([WarehouseRecord? warehouse]) async {
+Future<void> showWarehouseEditor(BuildContext context, ErpController controller, [WarehouseRecord? warehouse]) async {
     var name = warehouse?.name ?? '', details = warehouse?.details ?? '';
     var isDefault = warehouse?.isDefault ?? controller.warehouses.isEmpty;
     var saving = false;
@@ -44,12 +33,23 @@ class _WarehouseState extends State<HomeWarehouseView> {
             }, child: const Text('حفظ'))]))));
   }
 
+class HomeWarehouseView extends StatefulWidget {
+  const HomeWarehouseView({super.key, required this.controller});
+  final ErpController controller;
+  @override
+  State<HomeWarehouseView> createState() => _WarehouseState();
+}
+
+class _WarehouseState extends State<HomeWarehouseView> {
+  ErpController get controller => widget.controller;
+  String search = '';
+
   @override
   Widget build(BuildContext context) => Directionality(
         textDirection: TextDirection.rtl,
         child: Scaffold(
           appBar: AppBar(title: const Text('المخازن'), actions: [IconButton(
-            tooltip: 'إضافة مخزن', onPressed: () => edit(), icon: const Icon(Icons.add))]),
+            tooltip: 'إضافة مخزن', onPressed: () => showWarehouseEditor(context,controller), icon: const Icon(Icons.add))]),
           body: AnimatedBuilder(
             animation: controller,
             builder: (context, _) {
@@ -76,7 +76,7 @@ class _WarehouseState extends State<HomeWarehouseView> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             ListTile(contentPadding: EdgeInsets.zero, title: Text(warehouse.name),
-                              trailing: IconButton(tooltip: 'تعديل المخزن', onPressed: () => edit(warehouse), icon: const Icon(Icons.edit_outlined))),
+                              trailing: IconButton(tooltip: 'تعديل المخزن', onPressed: () => showWarehouseEditor(context,controller,warehouse), icon: const Icon(Icons.edit_outlined))),
                             if (warehouse.details.isNotEmpty)
                               Text(warehouse.details),
                             if (warehouse.isDefault)

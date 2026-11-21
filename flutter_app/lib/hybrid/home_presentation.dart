@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'directory_presentation.dart';
+import '../services/account_amounts.dart';
 import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 import '../models/erp_models.dart';
 import '../services/home_balance_groups.dart';
@@ -70,14 +72,6 @@ const homeNavigationRoutes = {
   'report-movement',
   'recorded-sales-tax',
 };
-const _categories = [
-  AccountCategory.sales,
-  AccountCategory.purchases,
-  AccountCategory.clients,
-  AccountCategory.employees,
-  AccountCategory.transfers,
-  AccountCategory.shop
-];
 
 bool _hasKeys(Map map, Set<String> keys) =>
     map.length == keys.length && keys.every(map.containsKey);
@@ -112,6 +106,7 @@ bool _validLayout(Object? value) {
 }
 
 class HomePresentation {
+  late final directory = DirectoryPresentation(controller);
   HomePresentation(this.controller);
   final ErpController controller;
   static const preferenceKey = 'hybrid_home_ui_v1';
@@ -127,8 +122,8 @@ class HomePresentation {
 
   bool get restored => controller.restoredGroups?.groups.isNotEmpty == true;
   AccountCategory? categoryFor(int id) =>
-      !restored && id < 0 && -id <= _categories.length
-          ? _categories[-id - 1]
+      !restored && id < 0 && -id <= homeCategories.length
+          ? homeCategories[-id - 1]
           : null;
   String _key(int id) =>
       restored ? 'group-$id' : 'category-${categoryFor(id)?.name}';
@@ -161,7 +156,43 @@ class HomePresentation {
     }
     if (msg is! Map<String, dynamic>) return null;
     final id = msg['id'];
+    final category = msg['category'];
     final valid = switch (msg['action']) {
+      'browse' => _hasKeys(msg, {'action', 'screen'}) &&
+          const {'home', 'warehouses', 'picker', 'chart'}
+              .contains(msg['screen']),
+      'members' => _hasKeys(msg, {'action', 'category'}) &&
+          homeCategories.any((c) => c.name == category),
+      'filter' => _hasKeys(msg, {'action', 'period', 'currency'}) &&
+          directory.screen == 'suppliers' &&
+          const {'يومي', 'شهري', 'سنوي', 'الكل'}.contains(msg['period']) &&
+          _currency(msg['currency']),
+      'account' => _hasKeys(msg, {'action', 'id', 'op'}) &&
+          directory.account(id) != null &&
+          const {
+            'statement',
+            'edit',
+            'invoice',
+            'return',
+            'voucher',
+            'transfer',
+            'journal',
+            'exchange',
+            'quote',
+            'order',
+            'contact',
+            'message',
+            'whatsapp'
+          }.contains(msg['op']),
+      'directoryExport' => directory.screen == 'suppliers' &&
+          _hasKeys(msg, {'action', 'format', 'onlyCurrency'}) &&
+          msg['onlyCurrency'] is bool &&
+          const {'pdf-print', 'excel', 'pdf-share'}.contains(msg['format']),
+      'warehouse' => directory.screen == 'warehouses' &&
+          ((_hasKeys(msg, {'action', 'op'}) && msg['op'] == 'create') ||
+              (_hasKeys(msg, {'action', 'op', 'id'}) &&
+                  const {'edit', 'items', 'movement'}.contains(msg['op']) &&
+                  controller.warehouses.any((w) => w.id == id))),
       'ready' || 'paint' => _hasKeys(msg, {'action'}),
       'tile' =>
         _hasKeys(msg, {'action', 'id'}) && homeDestinations.containsKey(id),
@@ -183,7 +214,7 @@ class HomePresentation {
       'layout' =>
         _hasKeys(msg, {'action', 'value'}) && _validLayout(msg['value']),
       'haptic' => _hasKeys(msg, {'action', 'kind'}) &&
-          const ['light', 'pin', 'success'].contains(msg['kind']),
+          const ['light', 'pin', 'success', 'warning'].contains(msg['kind']),
       _ => false,
     };
     return valid ? msg : null;
@@ -244,47 +275,16 @@ class HomePresentation {
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  // Same sign convention as React computeCategoryTotals: credit minus debit.
   Map<String, double> _categoryMetrics() {
-    final totals = {for (final category in _categories) category.name: 0.0};
-    final currency = controller.defaultCurrency;
-    final byId = {
-      for (final account in controller.accounts) account.id: account
-    };
-    for (final account in byId.values) {
-      if (account.currency != currency || account.openingBalance <= 0) continue;
-      totals[account.category.name] = totals[account.category.name]! +
-          (account.openingDirection == EntryDirection.credit
-              ? account.openingBalance
-              : -account.openingBalance);
-    }
-    final archive = controller.restoredGroups;
-    for (final entry in controller.ledger) {
-      if (entry.deleted ||
-          entry.currency != currency ||
-          entry.kind == LedgerKind.quote ||
-          entry.kind == LedgerKind.order) {
-        continue;
-      }
-      final account = byId[entry.accountId];
-      final amount = entry.direction == EntryDirection.credit
-          ? entry.amount
-          : -entry.amount;
-      final settled = archive?.settledEntries.contains(entry.id) ?? false;
-      if (account != null &&
-          !settled &&
-          !(archive?.sides[entry.id] == null &&
-              account.isCashAccount &&
-              entry.payment == PaymentMethod.cash)) {
-        totals[account.category.name] = totals[account.category.name]! + amount;
-      }
-      final counterpart = byId[archive?.counterparts[entry.id]];
-      if (counterpart != null) {
-        totals[counterpart.category.name] =
-            totals[counterpart.category.name]! - amount;
+    final result = {for (final c in homeCategories) c.name: 0.0};
+    final amounts = accountAmountsByCurrency(controller, controller.accounts);
+    for (final a in controller.accounts) {
+      final b = amounts[(a.id, controller.defaultCurrency)];
+      if (b != null) {
+        result[a.category.name] = result[a.category.name]! + b.credit - b.debit;
       }
     }
-    return totals;
+    return result;
   }
 
   Map<String, dynamic> snapshot(bool dark) {
@@ -337,7 +337,7 @@ class HomePresentation {
               g.category: g
           }
       };
-      for (final (index, category) in _categories.indexed) {
+      for (final (index, category) in homeCategories.indexed) {
         final group = totals[controller.defaultCurrency]![category]!;
         if (group.accountCount == 0) continue;
         final name = switch (category) {
@@ -363,6 +363,7 @@ class HomePresentation {
         if (controller.homeRadius != 24) 'radius': controller.homeRadius,
       },
       'company': controller.companyName,
+      if (directory.screen != 'home') 'directory': directory.snapshot(),
       'metrics': _categoryMetrics(),
       'measurementCount': measurementCount,
       'unread': workspaceAlerts(controller)

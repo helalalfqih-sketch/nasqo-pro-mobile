@@ -1,6 +1,7 @@
 // Bundle just DashboardPage. Fail when reference seams change, so a source update
 // cannot silently switch the Android pilot to a stale handwritten dashboard.
 import fs from 'node:fs';
+import {directoryComponents} from './directories.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
@@ -87,7 +88,10 @@ const virtual=[
   'const APP_ICON_URL="logo.png";',extras,body,
   ...['DashboardHeader','AppDrawer','DashboardAddMenu'].map(n=>'export '+slice(decl(n))),
   'export '+navigation,
-  ...['CartIcon','ShopIcon'].map(n=>'export '+slice(decl(n))), 'export {PeopleIcon};'
+  ...['CartIcon','ShopIcon'].map(n=>'export '+slice(decl(n))), 'export {PeopleIcon};',
+  "import {rankAccountSearchMatches,normalizeArabicSearch,matchesArabicSearch,formatAmount} from './src/accounting';",
+  "import {summaryOf,balanceLabel,currencyFooter} from './qa/hybrid_home/directory_amounts';",
+  directoryComponents(n=>slice(decl(n)),replaceOnce)
 ].join('\n');
 const bundled=await build({entryPoints:[path.join(root,'qa/hybrid_home/host.tsx')],bundle:true,write:false,
   target:'chrome83',jsx:'automatic',minify:true,legalComments:'eof',metafile:true,

@@ -28,9 +28,11 @@ class NonpostingDocumentsView extends StatefulWidget {
       required this.loadDocument,
       required this.saveDocument,
       this.createOnOpen = false,
+      this.initialAccount,
       this.initialCurrency = CurrencyCode.sar});
   final NonpostingDocumentType type;
   final bool createOnOpen;
+  final AccountRecord? initialAccount;
   final CurrencyCode initialCurrency;
   final Future<List<NonpostingDocument>> Function() loadDocuments;
   final Future<NonpostingDocument?> Function(int id) loadDocument;
@@ -68,6 +70,7 @@ class _NonpostingDocumentsViewState extends State<NonpostingDocumentsView> {
             builder: (_) => NonpostingDocumentEditor(
                 type: widget.type,
                 initialCurrency: widget.initialCurrency,
+                initialAccount: widget.initialAccount,
                 saveDocument: widget.saveDocument)));
     if (mounted) {
       setState(() => _opening = false);
@@ -264,10 +267,12 @@ class NonpostingDocumentEditor extends StatefulWidget {
       required this.type,
       required this.saveDocument,
       this.document,
+      this.initialAccount,
       this.initialCurrency = CurrencyCode.sar});
   final NonpostingDocumentType type;
   final NonpostingSave saveDocument;
   final NonpostingDocument? document;
+  final AccountRecord? initialAccount;
   final CurrencyCode initialCurrency;
   @override
   State<NonpostingDocumentEditor> createState() =>
@@ -301,7 +306,7 @@ class _NonpostingDocumentEditorState extends State<NonpostingDocumentEditor> {
   void initState() {
     super.initState();
     final d = widget.document;
-    _customer = TextEditingController(text: d?.customerName ?? '');
+    _customer = TextEditingController(text: d?.customerName ?? widget.initialAccount?.name ?? '');
     _date = TextEditingController(
         text: d?.date ?? DateTime.now().toIso8601String().substring(0, 10));
     _notes = TextEditingController(text: d?.notes ?? '');
@@ -370,7 +375,7 @@ class _NonpostingDocumentEditorState extends State<NonpostingDocumentEditor> {
           date: _latinDigits(_date.text),
           currency: _currency,
           customerName: _customer.text.trim(),
-          accountId: original?.accountId ?? '',
+          accountId: original?.accountId ?? (_customer.text.trim() == widget.initialAccount?.name ? widget.initialAccount?.id ?? '' : ''),
           notes: _notes.text.trim(),
           lines: [
             for (final line in _lines)

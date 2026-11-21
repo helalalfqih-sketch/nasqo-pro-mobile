@@ -72,7 +72,9 @@ void main() {
     await first.saveSnapshot(
         accounts: accounts,
         ledger: [],
-        warehouses: [],
+        warehouses: const [
+          WarehouseRecord(id: 'qa-wh', name: 'مخزن المختبر', isDefault: true)
+        ],
         inventory: [],
         saleLines: [],
         companyName: 'مختبر المطابقة',
@@ -113,6 +115,38 @@ void main() {
           if (const bool.fromEnvironment('HYBRID_CAPTURE')) {
             File('../qa/hybrid_home/fixture_snapshot.json').writeAsStringSync(
                 '${const JsonEncoder.withIndent('  ').convert(snapshot)}\n');
+          }
+          expect(snapshot['metrics'], containsPair('clients', 1250.5));
+          expect(snapshot['metrics'], containsPair('purchases', -80.0));
+          expect(snapshot, isNot(contains('directory')));
+          final fixtures = <String, Object?>{};
+          for (final screen in ['picker', 'chart', 'warehouses']) {
+            view.directory.open(screen);
+            fixtures[screen] = view.directory.snapshot();
+          }
+          view.directory
+              .open('suppliers', groupId: 41, initialCurrency: 'دولار');
+          expect(
+              view.parse('{"action":"account","op":"statement","id":"qa-s"}'),
+              isNull);
+          expect(view.parse('{"action":"account","op":"edit","id":"qa-u"}'),
+              isNotNull);
+          expect(view.parse('{"action":"account","op":"delete","id":"qa-u"}'),
+              isNull);
+          fixtures['suppliers'] = view.directory.snapshot();
+          expect(view.directory.exportRows(true).skip(1).single,
+              containsAll(['عميل دولار تجريبي', 'دولار', '25.00']));
+          view.directory.currency = 'الكل';
+          final exported = view.directory.exportRows(false);
+          expect(exported.where((r) => r[2] == 'دولار').single.last, '25.00');
+          expect(exported.where((r) => r[2] == 'ريال').single.last, '-1250.50');
+          fixtures['allCurrencies'] = view.directory.snapshot();
+          view.directory.open('home');
+          expect(view.parse('{"action":"warehouse","op":"edit","id":"qa-wh"}'),
+              isNull);
+          if (const bool.fromEnvironment('HYBRID_CAPTURE')) {
+            File('../qa/hybrid_home/directory_fixture.json').writeAsStringSync(
+                '${const JsonEncoder.withIndent('  ').convert(fixtures)}\n');
           }
           final ids =
               homeDestinations.keys.where((s) => s != 'qr-scanner').toList();

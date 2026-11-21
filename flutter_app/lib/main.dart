@@ -156,19 +156,20 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
     }
   }
 
-  Widget _documents(NonpostingDocumentType type, {bool createOnOpen = false}) {
+  Widget _documents(NonpostingDocumentType type, {bool createOnOpen = false, AccountRecord? account}) {
     final controller = widget.controller;
     return NonpostingDocumentsView(
       type: type,
       createOnOpen: createOnOpen,
-      initialCurrency: controller.defaultCurrency,
+      initialAccount: account,
+      initialCurrency: account?.currency ?? controller.defaultCurrency,
       loadDocuments: () => controller.loadNonpostingDocuments(type),
       loadDocument: (id) => controller.loadNonpostingDocument(type, id),
       saveDocument: controller.saveNonpostingDocument,
     );
   }
 
-  Future<List<SalesReturnSource>> _salesReturnSources() async {
+  Future<List<SalesReturnSource>> _salesReturnSources([AccountRecord? account]) async {
     final controller = widget.controller;
     await controller.initDatabase();
     final linesByEntry = <String, List<SavedSaleLine>>{};
@@ -177,7 +178,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
     }
     return [
       for (final entry in controller.ledger)
-        if (isEligibleSalesReturnSource(entry) &&
+        if ((account == null || entry.accountId == account.id) && isEligibleSalesReturnSource(entry) &&
             linesByEntry.containsKey(entry.id))
           SalesReturnSource(entry: entry, lines: linesByEntry[entry.id]!),
     ];
@@ -192,7 +193,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         initialCurrency: widget.controller.defaultCurrency,
       );
 
-  Future<void> _openModulePage(String moduleId) async {
+  Future<void> _openModulePage(String moduleId, {AccountRecord? account}) async {
     if (moduleId == 'sms-settings') {
       showNasqoSmsSettingsDialog(context);
       return;
@@ -321,20 +322,20 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       'quotes' || 'quote-new' => (
           'عروض الأسعار',
           _documents(NonpostingDocumentType.quote,
-              createOnOpen: moduleId == 'quote-new'),
+              createOnOpen: moduleId == 'quote-new', account: account),
         ),
       'orders' || 'order-new' => (
           'طلبيات البيع',
           _documents(NonpostingDocumentType.order,
-              createOnOpen: moduleId == 'order-new'),
+              createOnOpen: moduleId == 'order-new', account: account),
         ),
       'sales-return-drafts' => (
           'مسودات مرتجع المبيعات',
-          InvoiceWorkspace(controller: widget.controller, salesReturnBuilder: (onPosting) => SalesReturnDraftsView(
+          InvoiceWorkspace(controller: widget.controller, initialAccount: account, salesReturnBuilder: (onPosting) => SalesReturnDraftsView(
             onPosting: onPosting,
             loadDrafts: widget.controller.loadSalesReturnDrafts,
             loadDraft: widget.controller.loadSalesReturnDraft,
-            loadSales: _salesReturnSources,
+            loadSales: () => _salesReturnSources(account),
             loadFacts: widget.controller.loadOriginalSaleFacts,
             saveDraft: widget.controller.saveSalesReturnDraft,
             postDraft: widget.controller.postSalesReturn,
@@ -352,7 +353,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           HomeTrashView(controller: widget.controller),
         ),
       'post-voucher' || 'post-exchange' || 'post-journal' || 'post-transfer' => ('عملية جديدة', LocalEntryView(
-        controller: widget.controller, kind: switch (moduleId) { 'post-exchange' => LedgerKind.currency, 'post-journal' => LedgerKind.simpleEntry, 'post-transfer' => LedgerKind.transfer, _ => LedgerKind.voucher },
+        controller: widget.controller, initialAccount: account, kind: switch (moduleId) { 'post-exchange' => LedgerKind.currency, 'post-journal' => LedgerKind.simpleEntry, 'post-transfer' => LedgerKind.transfer, _ => LedgerKind.voucher },
         openDrafts: () => _openModulePage(switch (moduleId) { 'post-exchange' => 'fx-drafts', 'post-journal' => 'simple-journal-drafts', 'post-transfer' => 'cash-transfer-drafts', _ => 'vouchers' }))),
       'notifications' => ('التنبيهات', LocalAlertsView(controller: widget.controller, open: _openModulePage)),
       'report-trial' || 'report-profit' || 'report-movement' || 'report-closing' || 'report-category' || 'report-stock' || 'report-expiry' || 'report-services' => (
@@ -516,9 +517,9 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
     if (moduleId != 'home') _openModulePage(moduleId);
   }
 
-  Future<void> _openInvoice() async {
+  Future<void> _openInvoice({AccountRecord? account}) async {
     await Navigator.of(context).push<void>(MaterialPageRoute(
-      builder: (_) => InvoiceWorkspace(controller: widget.controller),
+      builder: (_) => InvoiceWorkspace(controller: widget.controller, initialAccount: account),
     ));
   }
 
@@ -544,7 +545,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
             Expanded(child: HybridHomeView(
               controller: widget.controller,
               showNative: () => setState(() => _usePilot = false),
-              openModule: (route) async {
+              openModule: (route, {account}) async {
                 switch (route) {
                   case 'app-update':
                     await _updateKey.currentState?.checkForUpdate();
@@ -553,9 +554,9 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
                   case 'theme':
                     widget.controller.toggleTheme();
                   case 'invoice':
-                    await _openInvoice();
+                    await _openInvoice(account: account);
                   default:
-                    await _openModulePage(route);
+                    await _openModulePage(route, account: account);
                 }
               },
             )),

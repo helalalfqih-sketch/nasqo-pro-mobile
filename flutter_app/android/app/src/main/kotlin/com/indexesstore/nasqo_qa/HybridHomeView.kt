@@ -1,5 +1,7 @@
 package com.indexesstore.nasqo_qa
 
+import android.app.Activity
+import android.content.Intent
 import android.content.Context
 import android.net.Uri
 import android.os.SystemClock
@@ -21,13 +23,13 @@ import io.flutter.plugin.platform.PlatformView
 import io.flutter.plugin.platform.PlatformViewFactory
 import java.io.ByteArrayInputStream
 
-class HybridHomeFactory(private val messenger: BinaryMessenger) :
+class HybridHomeFactory(private val messenger: BinaryMessenger, private val activity: Activity) :
     PlatformViewFactory(StandardMessageCodec.INSTANCE) {
     override fun create(context: Context, viewId: Int, args: Any?): PlatformView =
-        HybridHomeView(context, messenger, viewId)
+        HybridHomeView(context, messenger, viewId, activity)
 }
 
-private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: Int) : PlatformView {
+private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: Int, activity: Activity) : PlatformView {
     private val web = WebView(context)
     private val channel = MethodChannel(messenger, "nasqo/home/$id")
     private val origin = Uri.parse("https://appassets.androidplatform.net")
@@ -99,6 +101,35 @@ private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: I
                     else {
                         web.postWebMessage(WebMessage(payload), origin)
                         result.success(null)
+                    }
+                }
+                "printDirectory" -> {
+                    try {
+                        val job = "NASQO - كشف الحسابات"
+                        val printer = activity.getSystemService(Context.PRINT_SERVICE) as android.print.PrintManager
+                        printer.print(job, web.createPrintDocumentAdapter(job), null)
+                        result.success(null)
+                    } catch (_: RuntimeException) {
+                        result.error("PRINT_UNAVAILABLE", "Print dialog unavailable", null)
+                    }
+                }
+                "contact" -> {
+                    val phone = call.argument<String>("phone").orEmpty()
+                    val text = call.argument<String>("text").orEmpty()
+                    val intent = when (call.argument<String>("op")) {
+                        "contact" -> if (phone.isBlank()) null else Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", phone, null))
+                        "message" -> Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null)
+                        "whatsapp" -> if (phone.isBlank()) null else Intent(Intent.ACTION_VIEW,
+                            Uri.Builder().scheme("https").authority("wa.me").appendPath(phone.filter(Char::isDigit))
+                                .appendQueryParameter("text", text).build()).setPackage("com.whatsapp")
+                        else -> null
+                    }
+                    if (intent == null) result.error("NO_CONTACT", "Missing contact details", null)
+                    else try {
+                        activity.startActivity(intent)
+                        result.success(null)
+                    } catch (_: android.content.ActivityNotFoundException) {
+                        result.error("UNAVAILABLE", "No matching Android activity", null)
                     }
                 }
                 "endEdit" -> { web.evaluateJavascript("window.nasqoBack()", null); result.success(null) }

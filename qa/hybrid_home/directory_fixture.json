@@ -1,0 +1,242 @@
+{
+  "picker": {
+    "screen": "picker",
+    "group": null,
+    "category": null,
+    "currency": "ريال",
+    "period": "الكل",
+    "accounts": [
+      {
+        "id": "qa-n",
+        "name": "عميل شمال تجريبي",
+        "codeNumber": 1,
+        "category": "clients",
+        "groupId": 41,
+        "currency": "ريال",
+        "phone": "",
+        "note": "",
+        "creditLimit": 50000.0,
+        "openingBalance": 1250.5,
+        "isCashAccount": false
+      },
+      {
+        "id": "qa-u",
+        "name": "عميل دولار تجريبي",
+        "codeNumber": 1,
+        "category": "clients",
+        "groupId": 41,
+        "currency": "دولار",
+        "phone": "",
+        "note": "",
+        "creditLimit": 50000.0,
+        "openingBalance": 25.0,
+        "isCashAccount": false
+      },
+      {
+        "id": "qa-s",
+        "name": "مورد جنوب تجريبي",
+        "codeNumber": 1,
+        "category": "purchases",
+        "groupId": 52,
+        "currency": "ريال",
+        "phone": "",
+        "note": "",
+        "creditLimit": 50000.0,
+        "openingBalance": 80.0,
+        "isCashAccount": false
+      }
+    ]
+  },
+  "chart": {
+    "screen": "chart",
+    "group": null,
+    "category": null,
+    "currency": "ريال",
+    "period": "الكل",
+    "accounts": [
+      {
+        "id": "qa-n",
+        "name": "عميل شمال تجريبي",
+        "codeNumber": 1,
+        "category": "clients",
+        "groupId": 41,
+        "currency": "ريال",
+        "phone": "",
+        "note": "",
+        "creditLimit": 50000.0,
+        "openingBalance": 1250.5,
+        "isCashAccount": false,
+        "amounts": {
+          "ريال": {
+            "debitTotal": 0.0,
+            "creditTotal": 1250.5,
+            "netBalance": 1250.5,
+            "tone": "credit",
+            "entryCount": 0
+          }
+        }
+      },
+      {
+        "id": "qa-u",
+        "name": "عميل دولار تجريبي",
+        "codeNumber": 1,
+        "category": "clients",
+        "groupId": 41,
+        "currency": "دولار",
+        "phone": "",
+        "note": "",
+        "creditLimit": 50000.0,
+        "openingBalance": 25.0,
+        "isCashAccount": false,
+        "amounts": {
+          "دولار": {
+            "debitTotal": 25.0,
+            "creditTotal": 0.0,
+            "netBalance": 25.0,
+            "tone": "debit",
+            "entryCount": 0
+          }
+        }
+      },
+      {
+        "id": "qa-s",
+        "name": "مورد جنوب تجريبي",
+        "codeNumber": 1,
+        "category": "purchases",
+        "groupId": 52,
+        "currency": "ريال",
+        "phone": "",
+        "note": "",
+        "creditLimit": 50000.0,
+        "openingBalance": 80.0,
+        "isCashAccount": false,
+        "amounts": {
+          "ريال": {
+            "debitTotal": 80.0,
+            "creditTotal": 0.0,
+            "netBalance": 80.0,
+            "tone": "debit",
+            "entryCount": 0
+          }
+        }
+      }
+    ]
+  },
+  "warehouses": {
+    "screen": "warehouses",
+    "warehouses": [
+      {
+        "id": "qa-wh",
+        "name": "مخزن المختبر",
+        "isDefault": true,
+        "codeNumber": null
+      }
+    ]
+  },
+  "suppliers": {
+    "screen": "suppliers",
+    "group": 41,
+    "category": null,
+    "currency": "دولار",
+    "period": "الكل",
+    "accounts": [
+      {
+        "id": "qa-n",
+        "name": "عميل شمال تجريبي",
+        "codeNumber": 1,
+        "category": "clients",
+        "groupId": 41,
+        "currency": "ريال",
+        "phone": "",
+        "note": "",
+        "creditLimit": 50000.0,
+        "openingBalance": 1250.5,
+        "isCashAccount": false,
+        "amounts": {
+          "ريال": {
+            "debitTotal": 0.0,
+            "creditTotal": 1250.5,
+            "netBalance": 1250.5,
+            "tone": "credit",
+            "entryCount": 0
+          }
+        }
+      },
+      {
+        "id": "qa-u",
+        "name": "عميل دولار تجريبي",
+        "codeNumber": 1,
+        "category": "clients",
+        "groupId": 41,
+        "currency": "دولار",
+        "phone": "",
+        "note": "",
+        "creditLimit": 50000.0,
+        "openingBalance": 25.0,
+        "isCashAccount": false,
+        "amounts": {
+          "دولار": {
+            "debitTotal": 25.0,
+            "creditTotal": 0.0,
+            "netBalance": 25.0,
+            "tone": "debit",
+            "entryCount": 0
+          }
+        }
+      }
+    ]
+  },
+  "allCurrencies": {
+    "screen": "suppliers",
+    "group": 41,
+    "category": null,
+    "currency": "الكل",
+    "period": "الكل",
+    "accounts": [
+      {
+        "id": "qa-n",
+        "name": "عميل شمال تجريبي",
+        "codeNumber": 1,
+        "category": "clients",
+        "groupId": 41,
+        "currency": "ريال",
+        "phone": "",
+        "note": "",
+        "creditLimit": 50000.0,
+        "openingBalance": 1250.5,
+        "isCashAccount": false,
+        "amounts": {
+          "ريال": {
+            "debitTotal": 0.0,
+            "creditTotal": 1250.5,
+            "netBalance": 1250.5,
+            "tone": "credit",
+            "entryCount": 0
+          }
+        }
+      },
+      {
+        "id": "qa-u",
+        "name": "عميل دولار تجريبي",
+        "codeNumber": 1,
+        "category": "clients",
+        "groupId": 41,
+        "currency": "دولار",
+        "phone": "",
+        "note": "",
+        "creditLimit": 50000.0,
+        "openingBalance": 25.0,
+        "isCashAccount": false,
+        "amounts": {
+          "دولار": {
+            "debitTotal": 25.0,
+            "creditTotal": 0.0,
+            "netBalance": 25.0,
+            "tone": "debit",
+            "entryCount": 0
+          }
+        }
+      }
+    ]
+  }
+}

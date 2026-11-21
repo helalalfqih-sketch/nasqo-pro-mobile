@@ -4,7 +4,7 @@ export const Workspace = createContext(null);
 export const useWorkspace = () => useContext(Workspace);
 export const useScreenPortal = () => ({screenRef: {current: document.getElementById('home')}});
 export const useKeyboard = () => ({hide() { (document.activeElement as HTMLElement)?.blur(); }});
-export const simpleEntryScreen = () => 'simple-entry';
+export const simpleEntryScreen = (id?: string) => id ? ({operation:'journal',id}) : 'simple-entry';
 export const erpModuleScreen = (route: string) => route;
 
 export function send(action: string, fields: object = {}) {

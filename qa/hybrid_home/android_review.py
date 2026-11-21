@@ -128,7 +128,7 @@ def crop_compare(mode,box):
     full=shot("android-"+mode)
     actual=full.crop(box)
     w,h=actual.size
-    subprocess.run(["node","qa/hybrid_home/browser.mjs",str(OUT/"browser"),str(w),str(h)],check=True)
+    subprocess.run(["node","qa/hybrid_home/browser.mjs",str(OUT/"browser"),str(w),str(h),'--capture-only'],check=True)
     ref=Image.open(OUT/"browser"/("reference-"+mode+".png")).convert("RGB")
     diff=ImageChops.difference(actual,ref)
     rgb=diff.split()

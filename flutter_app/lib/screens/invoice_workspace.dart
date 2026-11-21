@@ -7,17 +7,18 @@ import 'invoice_form_sheet.dart';
 import 'purchase_invoice_view.dart';
 
 class InvoiceWorkspace extends StatefulWidget {
-  const InvoiceWorkspace({super.key, required this.controller, this.salesReturnBuilder});
+  const InvoiceWorkspace({super.key, required this.controller, this.salesReturnBuilder, this.initialAccount});
   final ErpController controller;
   final Widget Function(ValueChanged<bool>)? salesReturnBuilder;
+  final AccountRecord? initialAccount;
 
   @override
   State<InvoiceWorkspace> createState() => _InvoiceWorkspaceState();
 }
 
 class _InvoiceWorkspaceState extends State<InvoiceWorkspace> {
-  bool sale = false;
-  bool visitedSale = false;
+  late bool sale = widget.initialAccount != null && widget.initialAccount!.category != AccountCategory.purchases;
+  late bool visitedSale = sale;
   bool saving = false;
 
   void onSaving(bool value) { if (mounted) setState(() => saving = value); }
@@ -39,11 +40,11 @@ class _InvoiceWorkspaceState extends State<InvoiceWorkspace> {
             }),
           )),
         Expanded(child: IndexedStack(index: sale ? 1 : 0, children: [
-          if (returns) _PurchaseReturnForm(controller: widget.controller, onSaving: onSaving)
-          else PurchaseInvoiceView(controller: widget.controller, onSaving: onSaving),
+          if (returns) _PurchaseReturnForm(controller: widget.controller, accountId: widget.initialAccount?.id, onSaving: onSaving)
+          else PurchaseInvoiceView(controller: widget.controller, initialAccountId: widget.initialAccount?.id, onSaving: onSaving),
           if (!visitedSale) const SizedBox.shrink()
           else widget.salesReturnBuilder?.call(onSaving) ?? InvoiceFormSheet(controller: widget.controller, onSaving: onSaving,
-              initialPayment: PaymentMethod.credit, initialVat: false),
+              initialPayment: PaymentMethod.credit, initialVat: false, initialAccountId: widget.initialAccount?.id),
         ])),
       ])),
     ));
@@ -51,7 +52,8 @@ class _InvoiceWorkspaceState extends State<InvoiceWorkspace> {
 }
 
 class _PurchaseReturnForm extends StatefulWidget {
-  const _PurchaseReturnForm({required this.controller, required this.onSaving});
+  const _PurchaseReturnForm({required this.controller, required this.onSaving, this.accountId});
+  final String? accountId;
   final ErpController controller;
   final ValueChanged<bool> onSaving;
   @override
@@ -92,7 +94,7 @@ class _PurchaseReturnFormState extends State<_PurchaseReturnForm> {
   @override
   Widget build(BuildContext context) {
     final c = widget.controller;
-    final eligible = c.returnablePurchases;
+    final eligible = c.returnablePurchases.where((e) => widget.accountId == null || e.accountId == widget.accountId);
     final source = eligible.where((e) => e.id == sourceId).firstOrNull;
     final remaining = source == null ? <int,double>{} : c.remainingPurchaseQuantities(source.id);
     final lines = c.saleLines.where((l) => l.entryId == sourceId && (remaining[l.position] ?? 0) > 0);

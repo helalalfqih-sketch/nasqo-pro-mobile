@@ -7,7 +7,8 @@ import 'invoice_actions.dart';
 
 class InvoiceFormSheet extends StatefulWidget {
   const InvoiceFormSheet({super.key, required this.controller, this.onSaving,
-      this.initialPayment = PaymentMethod.cash, this.initialVat = true});
+      this.initialPayment = PaymentMethod.cash, this.initialVat = true, this.initialAccountId});
+  final String? initialAccountId;
 
   final ErpController controller;
   final ValueChanged<bool>? onSaving;
@@ -40,8 +41,8 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
   @override
   void initState() {
     super.initState();
-    final preferredAccounts = _clientAccounts;
-    _selectedAccountId = preferredAccounts.firstOrNull?.id;
+    _selectedAccountId = widget.controller.accounts.where((a) => a.id == widget.initialAccountId).firstOrNull?.id;
+    _selectedAccountId ??= _clientAccounts.firstOrNull?.id;
     _cashboxId = _cashboxes.firstOrNull?.id;
     _selectedWhId = widget.controller.warehouses.firstOrNull?.id;
     final firstItem = _stockItems.firstOrNull;

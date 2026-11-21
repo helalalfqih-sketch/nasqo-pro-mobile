@@ -6641,6 +6641,7 @@ function DashboardPage({ flow }: { flow: FlowControls }) {
   const longPressTimerRef = useRef<number | null>(null);
   const pointerStartRef = useRef<{ x: number; y: number; tileId: HomeTileId } | null>(null);
   const suppressNextClickRef = useRef(false);
+  const longTouchClickRef = useRef(false);
   const didDragMoveRef = useRef(false);
   const lastSwapTargetRef = useRef<HomeTileId | null>(null);
 
@@ -6762,6 +6763,7 @@ function DashboardPage({ flow }: { flow: FlowControls }) {
     longPressTimerRef.current = window.setTimeout(() => {
       longPressTimerRef.current = null;
       suppressNextClickRef.current = true;
+      longTouchClickRef.current = e.pointerType === "touch";
       triggerHaptic("pin");
       setTileEditMode(true);
       setSelectedTileId(tileId);
@@ -6961,6 +6963,21 @@ function DashboardPage({ flow }: { flow: FlowControls }) {
         <main
           className={`dashboard-page page-with-footer smart-home-workbench${isCustomLayout ? " custom-tile-layout" : ""}${tileEditMode ? " is-editing-tiles" : ""}`}
           data-testid="dashboard-screen"
+          onPointerDownCapture={() => {
+            if (longTouchClickRef.current) {
+              longTouchClickRef.current = false;
+              suppressNextClickRef.current = false;
+            }
+          }}
+          onClickCapture={(event) => {
+            // Entering edit mode can move another control under the same finger.
+            if (longTouchClickRef.current && event.detail > 0) {
+              longTouchClickRef.current = false;
+              suppressNextClickRef.current = false;
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          }}
         >
           {/* Right / Primary Quick Operations Column */}
           {!isCustomLayout ? (

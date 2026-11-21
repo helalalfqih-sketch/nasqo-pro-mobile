@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/erp_models.dart';
 import '../services/accounting_engine.dart';
+import '../services/account_amounts.dart';
 import '../state/erp_controller.dart';
 import '../services/invoice_movement_report.dart';
 
@@ -91,32 +92,14 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
 
   Widget categoryReport() {
     final c = widget.controller;
-    final accounts = {for(final a in c.accounts) a.id:a};
+    final values = accountAmountsByCurrency(c,c.accounts);
     final debit = <AccountCategory,double>{}, credit = <AccountCategory,double>{};
     final counts = <AccountCategory,int>{};
-    void add(AccountCategory group,bool isDebit,double value) {
-      final totals = isDebit ? debit : credit;
-      totals[group] = (totals[group] ?? 0) + value;
-    }
-    for(final a in c.accounts) {
-      counts[a.category] = (counts[a.category] ?? 0)+1;
-      if(a.currency == currency && a.openingBalance > 0) {
-        add(a.category,a.openingDirection == EntryDirection.debit,a.openingBalance);
-      }
-    }
-    for(final e in c.ledger) {
-      if(e.currency != currency || e.deleted || e.kind == LedgerKind.quote || e.kind == LedgerKind.order) continue;
-      final a = accounts[e.accountId];
-      final isDebit = e.direction == EntryDirection.debit;
-      if(a != null) {
-        final metadata = c.restoredGroups;
-        final wash = (metadata?.settledEntries.contains(e.id) ?? false) ||
-            (metadata?.sides[e.id] == null && a.isCashAccount && e.payment == PaymentMethod.cash);
-        add(a.category,isDebit,e.amount);
-        if(wash) add(a.category,!isDebit,e.amount);
-      }
-      final other = accounts[c.restoredGroups?.counterparts[e.id]];
-      if(other != null) add(other.category,!isDebit,e.amount);
+    for (final a in c.accounts) {
+      counts[a.category] = (counts[a.category] ?? 0) + 1;
+      final summary = values[(a.id,currency)];
+      debit[a.category] = (debit[a.category] ?? 0) + (summary?.debit ?? 0);
+      credit[a.category] = (credit[a.category] ?? 0) + (summary?.credit ?? 0);
     }
     final rows = <List<String>>[];
     for(final group in AccountCategory.values) {

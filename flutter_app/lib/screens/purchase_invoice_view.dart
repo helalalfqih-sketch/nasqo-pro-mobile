@@ -6,7 +6,8 @@ import '../services/accounting_engine.dart';
 import '../state/erp_controller.dart';
 
 class PurchaseInvoiceView extends StatefulWidget {
-  const PurchaseInvoiceView({super.key,required this.controller,this.onSaving});
+  const PurchaseInvoiceView({super.key,required this.controller,this.onSaving,this.initialAccountId});
+  final String? initialAccountId;
   final ValueChanged<bool>? onSaving;
   final ErpController controller;
   @override
@@ -26,7 +27,8 @@ class _PurchaseInvoiceState extends State<PurchaseInvoiceView> {
   void initState() {
     super.initState();
     final c=widget.controller;
-    final supplier=c.accounts.where((a)=>a.category==AccountCategory.purchases).firstOrNull;
+    final suppliers=c.accounts.where((a)=>a.category==AccountCategory.purchases);
+    final supplier=suppliers.where((a)=>a.id==widget.initialAccountId).firstOrNull ?? suppliers.firstOrNull;
     account=supplier?.id;
     warehouse=(c.warehouses.where((w)=>w.isDefault).firstOrNull ?? c.warehouses.firstOrNull)?.id;
     cashbox=c.accounts.where((a)=>a.isCashAccount && a.currency==supplier?.currency).firstOrNull?.id;

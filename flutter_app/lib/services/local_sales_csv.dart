@@ -32,7 +32,7 @@ class LocalSalesCsv {
   /// a formula sigil. Preserve embedded CR/LF, commas, quotes and Arabic text.
   /// Apostrophe marks spreadsheet-dangerous strings as text. This intentional
   /// defensive transformation means the CSV is not a lossless import format.
-  static String _text(String value) {
+  static String safeText(String value) {
     var clean =
         value.replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]'), '');
     clean = clean.replaceFirst(
@@ -101,9 +101,9 @@ class LocalSalesCsv {
         throw StateError('تجاوز حجم التصدير المسموح');
       }
       append([
-        _text(entry.documentNumber),
+        safeText(entry.documentNumber),
         entry.entryDate,
-        _text(entry.accountName),
+        safeText(entry.accountName),
         entry.currency.label,
         entry.amount.toString()
       ]);

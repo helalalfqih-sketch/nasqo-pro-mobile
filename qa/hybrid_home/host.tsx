@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useLayoutEffect, useState} from 'react';
+import React, {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {AppDrawer, DashboardAddMenu, DashboardBottomNav, DashboardHeader, DashboardPage} from 'dashboard:presentation';
 import {normalizeHomeTileLayout} from '../../src/utils/dashboardPrefs';
@@ -6,6 +6,7 @@ import {applyCardAppearanceSettings, DEFAULT_EXTENDED_SETTINGS} from '../../src/
 import {applyBrandColor} from '../../src/utils/brandColor';
 import {computeCategoryTotals} from '../../src/accounting';
 import {HomeMetrics} from './metrics';
+import {DirectoryScreen} from './DirectoryScreen';
 import {ReportsMenu, ReportsPanel, type ReportDestination} from '../../src/components/ReportsMenu';
 import {Workspace, send, triggerHaptic} from './workspace';
 
@@ -32,12 +33,28 @@ function Shell({snapshot}) {
   const [overlay, setOverlay] = useState('');
   const [quick, setQuick] = useState(false);
   const [toast, setToast] = useState('');
-  const close = useCallback(() => setOverlay(''), []);
+  const directoryBack = useRef(null);
+  const directoryOpen = useRef(false);
+  const openDirectory = (screen, action='browse', fields={screen}) => {
+    directoryOpen.current = true;
+    setOverlay(screen);
+    send(action,fields);
+  };
+  const close = useCallback(() => {
+    if (directoryOpen.current) {directoryOpen.current=false;send('browse',{screen:'home'});}
+    setOverlay('');
+  }, []);
   const tile = (id: string) => {
     if (id === 'reports') setOverlay('reports');
-    else send('tile', {id});
+    else if (id==='warehouses' || id==='accounts' || id==='statement') {
+      openDirectory({warehouses:'warehouses',accounts:'chart',statement:'picker'}[id]);
+    } else send('tile', {id});
   };
-  const navigate = (id: string) => send('navigate', {id});
+  const navigate = (id: string) => {
+    if (id.startsWith('group-')) openDirectory('suppliers','members',{category:id.slice(6)});
+    else if (id==='chart-accounts') openDirectory('chart');
+    else send('navigate', {id});
+  };
   const flow = {push: tile};
   const openReport = (id: ReportDestination) => {
     if (id === 'cashboxes' || id === 'trial-balance') {tile(id); return;}
@@ -85,6 +102,7 @@ function Shell({snapshot}) {
   useLayoutEffect(() => {
     send('overlay', {active: !!overlay || quick});
     window.nasqoBack = () => {
+      if (directoryBack.current) {directoryBack.current(); return true;}
       if (overlay) {close(); return true;}
       if (quick) {document.querySelector<HTMLElement>('[data-testid="home-nav-center-fab"]')?.click(); return true;}
       if (!document.querySelector('[data-testid="home-tiles-edit-bar"]')) return false;
@@ -108,7 +126,7 @@ function Shell({snapshot}) {
     openTransferModal: () => tile('new-transfer'), openInvoice: () => tile('new-invoice'),
     openTransaction: () => tile('new-voucher'), openSettings: () => tile('settings'),
     openReportsHub: () => tile('reports'), openInventoryAdd: () => navigate('item-new'),
-    openAccountCreate: () => navigate('account-new'), openAccountEdit: () => tile('accounts'),
+    openAccountCreate: () => navigate('account-new'), openAccountEdit: () => openDirectory('chart'),
     openVendorInvoice: (_,kind) => tile({return: 'new-return', quote: 'quote', order: 'new-order'}[kind]),
     openChartOfAccounts: () => navigate('chart-accounts'), openCurrenciesManager: () => tile('currencies'),
     triggerCsvImport: () => navigate('account-import'),
@@ -120,11 +138,12 @@ function Shell({snapshot}) {
   const host = {context, rows: snapshot.rows, layout: normalizeHomeTileLayout(snapshot.layout),
     metrics: <HomeMetrics balances={balances} count={snapshot.measurementCount} currency={snapshot.defaultCurrency} onOpen={navigate}/>,
     selectCurrency: update => {const [[id,currency]] = Object.entries(update({})); send('currency',{id:Number(id),currency});},
-    openGroup: (id: number) => send('group',{id}), openTile: tile,
+    openGroup: (id: number) => openDirectory('suppliers','group',{id}), openTile: tile,
     editing: active => send('editing',{active}), saveLayout: value => send('layout',{value}), haptic: triggerHaptic,
   };
   return <Workspace.Provider value={context}>
-    <div className="flow-stack hybrid-shell">
+    <div className="flow-stack hybrid-shell" inert={!!overlay}
+      style={['warehouses','suppliers'].includes(overlay) && snapshot.directory?.screen===overlay ? {visibility:'hidden'} : undefined}>
       <div className="flow-fixed-header"><DashboardHeader/></div>
       <div className="flow-scenes"><div className="flow-screen"><DashboardPage host={host}/></div></div>
       <div className="flow-fixed-footer"><DashboardBottomNav flow={flow}/></div>
@@ -132,9 +151,12 @@ function Shell({snapshot}) {
     <AppDrawer open={overlay === 'drawer'} onClose={close} onNavigate={target => {
       close();
       if (target === 'dashboard') {window.nasqoTop(); return;}
-      const [action,id] = drawerRoutes[target]; send(action,{id});
+      const [action,id] = drawerRoutes[target]; (action==='tile'?tile:navigate)(id);
     }}/>
     <DashboardAddMenu open={overlay === 'add'} onClose={close}/>
+    {snapshot.directory && overlay===snapshot.directory.screen && <DirectoryScreen key={overlay}
+      data={snapshot.directory} base={context} rows={snapshot.rows} close={close}
+      backRef={directoryBack} tile={tile} navigate={navigate}/>}
     {overlay === 'reports' && <ReportsPanel title="التقارير" footer="اختر تقريرًا" onClose={close}>
       <ReportsMenu onSelect={openReport}/>
     </ReportsPanel>}

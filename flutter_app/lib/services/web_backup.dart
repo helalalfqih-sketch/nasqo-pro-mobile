@@ -147,6 +147,7 @@ class RestoredGroups {
   final reportLines = <(String,int),Map<String,dynamic>>{};
   final unitFactors = <String,(double,double)>{};
   final itemNumbers = <String,int>{};
+  final warehouseNumbers = <String,int>{};
 
   factory RestoredGroups.fromJson(Map<String, dynamic> data) {
     final groups = [for (final g in data['accountGroups'] ?? [])
@@ -162,6 +163,11 @@ class RestoredGroups {
           e['id'] as String: (debit:e['rawDain'] as num?, credit:e['rawMadin'] as num?,
             settled:e['settledOnReceipt'] == true)
     });
+    for (final w in data['warehouses'] ?? []) {
+      if (w is Map && w['id'] is String && w['codeNumber'] is int) {
+        result.warehouseNumbers[w['id'] as String] = w['codeNumber'] as int;
+      }
+    }
     for(final g in data['accountGroups'] ?? []) {
       if(g['category'] is String) result.groupCategories[g['id']]=g['category'];
       if(g['currencyCode'] is String) result.groupCurrencies[g['id']]=g['currencyCode'];
