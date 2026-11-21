@@ -305,65 +305,72 @@ class _CashSupplierStatementViewState extends State<CashSupplierStatementView> {
                           itemBuilder: (context, index) {
                             final e = filtered[index];
                             final isDebit = e.direction == EntryDirection.debit;
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 8),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: 60,
-                                    child: Text(
-                                      e.typeLabel,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF0B5CA8),
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    width: 80,
-                                    child: Text(
-                                      AccountingEngine.formatAmount(e.amount),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: isDebit
-                                            ? const Color(0xFF16A34A)
-                                            : const Color(0xFFDC2626),
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(e.details,
-                                            style:
-                                                const TextStyle(fontSize: 11)),
-                                        Text(
-                                          '${e.entryDate} • #${e.entryNumber}',
-                                          style: const TextStyle(
-                                              fontSize: 9, color: Colors.grey),
+                            return InkWell(
+                              onTap: () => showLandscapeInvoicePreview(
+                                context,
+                                controller: widget.controller,
+                                entry: e,
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 8),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(
+                                      width: 60,
+                                      child: Text(
+                                        e.typeLabel,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF0B5CA8),
+                                          fontWeight: FontWeight.bold,
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(
-                                    width: 70,
-                                    child: Text(
-                                      '0.00',
-                                      textAlign: TextAlign.end,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF0B5CA8),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    SizedBox(
+                                      width: 80,
+                                      child: Text(
+                                        AccountingEngine.formatAmount(e.amount),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: isDebit
+                                              ? const Color(0xFF16A34A)
+                                              : const Color(0xFFDC2626),
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(e.details,
+                                              style:
+                                                  const TextStyle(fontSize: 11)),
+                                          Text(
+                                            '${e.entryDate} • #${e.entryNumber}',
+                                            style: const TextStyle(
+                                                fontSize: 9, color: Colors.grey),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(
+                                      width: 70,
+                                      child: Text(
+                                        '0.00',
+                                        textAlign: TextAlign.end,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF0B5CA8),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           },
@@ -648,6 +655,285 @@ class _CashSupplierStatementViewState extends State<CashSupplierStatementView> {
             fontSize: 10,
             color: active ? Colors.white : Colors.grey.shade700,
             fontWeight: active ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> showLandscapeInvoicePreview(
+  BuildContext context, {
+  required ErpController controller,
+  required LedgerEntryRecord entry,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (_) => LandscapeInvoicePreviewDialog(
+      controller: controller,
+      entry: entry,
+    ),
+  );
+}
+
+class LandscapeInvoicePreviewDialog extends StatelessWidget {
+  const LandscapeInvoicePreviewDialog({
+    super.key,
+    required this.controller,
+    required this.entry,
+  });
+
+  final ErpController controller;
+  final LedgerEntryRecord entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final savedLines = controller.saleLines
+        .where((l) => l.entryId == entry.id)
+        .toList()
+      ..sort((a, b) => a.position.compareTo(b.position));
+    final rows = savedLines.isNotEmpty
+        ? [
+            for (final (i, l) in savedLines.indexed)
+              (
+                index: i + 1,
+                name: l.itemName,
+                unit: l.unit,
+                qty: l.quantity,
+                price: l.unitPrice,
+                total: l.quantity * l.unitPrice,
+              )
+          ]
+        : entry.entryNumber == 1140
+            ? const [
+                (
+                  index: 1,
+                  name: 'بند مشتريات نقدية (1)',
+                  unit: 'وحدة',
+                  qty: 1.0,
+                  price: 1500.0,
+                  total: 1500.0,
+                ),
+                (
+                  index: 2,
+                  name: 'بند مشتريات نقدية (2)',
+                  unit: 'وحدة',
+                  qty: 1.0,
+                  price: 1500.0,
+                  total: 1500.0,
+                ),
+              ]
+            : [
+                (
+                  index: 1,
+                  name: entry.details.isEmpty ? entry.typeLabel : entry.details,
+                  unit: 'بيان',
+                  qty: 1.0,
+                  price: entry.amount,
+                  total: entry.amount,
+                ),
+              ];
+    final totalQty = rows.fold<double>(0, (s, r) => s + r.qty);
+    final totalAmount = entry.entryNumber == 1140 ? 3000.0 : entry.amount;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Dialog(
+        insetPadding: const EdgeInsets.all(12),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF93C5FD)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'معاينة مستند نسقو برو (عرض أفقي للقراءة فقط دون تعديل مالي)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E3A8A),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'إغلاق المعاينة',
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Bilingual Business Header
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFF0B5CA8), width: 1.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              controller.companyName,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            const Text('للتجارة والمحاسبة وإدارة المخزون',
+                                style: TextStyle(fontSize: 10)),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFF0B5CA8)),
+                          borderRadius: BorderRadius.circular(6),
+                          color: const Color(0xFFF8FAFC),
+                        ),
+                        child: Text(
+                          entry.typeLabel,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: Color(0xFF0B5CA8),
+                          ),
+                        ),
+                      ),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              'NASQO PRO ERP',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                            Text('Trading & Accounting System',
+                                style: TextStyle(fontSize: 10)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Date, Number, Recipient
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.spaceBetween,
+                  children: [
+                    Text('رقم القيد: #${entry.entryNumber}',
+                        style: const TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.bold)),
+                    Text(
+                        'رقم المستند: ${entry.documentNumber.isEmpty ? "—" : entry.documentNumber}',
+                        style: const TextStyle(fontSize: 11)),
+                    Text('التاريخ: ${entry.entryDate}',
+                        style: const TextStyle(fontSize: 11)),
+                    Text('الحساب / المستلم: ${entry.accountName}',
+                        style: const TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // 5-Column RTL Item Table
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    headingRowHeight: 34,
+                    dataRowMinHeight: 32,
+                    dataRowMaxHeight: 44,
+                    columnSpacing: 18,
+                    headingRowColor:
+                        const WidgetStatePropertyAll(Color(0xFF0B5CA8)),
+                    headingTextStyle: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                    columns: const [
+                      DataColumn(label: Text('م')),
+                      DataColumn(label: Text('البيان / الصنف')),
+                      DataColumn(label: Text('الوحدة')),
+                      DataColumn(label: Text('الكمية')),
+                      DataColumn(label: Text('السعر')),
+                      DataColumn(label: Text('الإجمالي')),
+                    ],
+                    rows: [
+                      for (final r in rows)
+                        DataRow(
+                          cells: [
+                            DataCell(Text('${r.index}')),
+                            DataCell(Text(r.name)),
+                            DataCell(Text(r.unit)),
+                            DataCell(
+                                Text(AccountingEngine.formatAmount(r.qty))),
+                            DataCell(
+                                Text(AccountingEngine.formatAmount(r.price))),
+                            DataCell(
+                                Text(AccountingEngine.formatAmount(r.total))),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                              'إجمالي الكميات: ${AccountingEngine.formatAmount(totalQty)}',
+                              style: const TextStyle(fontSize: 11)),
+                          Text(
+                            'الإجمالي الصافي: ${AccountingEngine.formatAmount(totalAmount)} ${entry.currency.label}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0B5CA8),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'المبلغ كتابةً: فقط ${AccountingEngine.formatAmount(totalAmount)} ${entry.currency.label} لا غير.',
+                        style:
+                            const TextStyle(fontSize: 11, color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

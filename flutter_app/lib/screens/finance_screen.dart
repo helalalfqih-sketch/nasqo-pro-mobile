@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/accounting_engine.dart';
 import '../state/erp_controller.dart';
+import 'web_auxiliary_views.dart';
 
 class FinanceScreen extends StatefulWidget {
   const FinanceScreen({
@@ -71,7 +72,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
                   ),
                 ),
               )),
-        if (_tab == 1)
+        if (_tab == 1) ...[
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -95,6 +96,17 @@ class _FinanceScreenState extends State<FinanceScreen> {
               ),
             ),
           ),
+          ExpenseTrendsChartCard(
+            accounts: widget.controller.accounts,
+            ledger: widget.controller.ledger,
+            currency: widget.controller.defaultCurrency,
+          ),
+          SupplierPerformanceChartCard(
+            accounts: widget.controller.accounts,
+            ledger: widget.controller.ledger,
+            currency: widget.controller.defaultCurrency,
+          ),
+        ],
         if (_tab == 2 && widget.openRecordedSalesTax != null)
           OutlinedButton.icon(
             key: const ValueKey('finance-recorded-sales-tax'),

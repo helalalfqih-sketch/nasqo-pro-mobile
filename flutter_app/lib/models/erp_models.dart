@@ -159,6 +159,32 @@ class LedgerEntryRecord {
   final int entryNumber;
   final bool deleted;
   final String entryDate;
+
+  LedgerEntryRecord copyWith({
+    bool? deleted,
+    String? details,
+    String? expenseCategory,
+  }) =>
+      LedgerEntryRecord(
+        id: id,
+        accountId: accountId,
+        accountName: accountName,
+        kind: kind,
+        typeLabel: typeLabel,
+        payment: payment,
+        direction: direction,
+        amount: amount,
+        currency: currency,
+        exchangeRate: exchangeRate,
+        details: details ?? this.details,
+        documentNumber: documentNumber,
+        warehouseId: warehouseId,
+        warehouseName: warehouseName,
+        expenseCategory: expenseCategory ?? this.expenseCategory,
+        entryNumber: entryNumber,
+        deleted: deleted ?? this.deleted,
+        entryDate: entryDate,
+      );
 }
 
 class WarehouseRecord {

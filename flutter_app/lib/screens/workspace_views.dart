@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/erp_models.dart';
 import '../models/sales_return_draft.dart';
+import '../services/accounting_engine.dart';
 import 'original_sale_facts_view.dart';
 import 'purchase_invoice_view.dart';
 import '../state/erp_controller.dart';
@@ -191,6 +193,36 @@ class WorkspaceSettingsScreen extends StatelessWidget {
               ListTile(
                 title: const Text('العملة الافتراضية'),
                 subtitle: Text(controller.defaultCurrency.label),
+                trailing: const Icon(Icons.edit_outlined),
+                onTap: () async {
+                  final picked = await showDialog<CurrencyCode>(
+                    context: context,
+                    builder: (dialogCtx) => Directionality(
+                      textDirection: TextDirection.rtl,
+                      child: SimpleDialog(
+                        title: const Text('اختر العملة الافتراضية'),
+                        children: [
+                          for (final c in CurrencyCode.values)
+                            SimpleDialogOption(
+                              onPressed: () => Navigator.pop(dialogCtx, c),
+                              child: Text(c.label),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                  if (picked != null && picked != controller.defaultCurrency && context.mounted) {
+                    try {
+                      await controller.setDefaultCurrency(picked);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(e.toString())),
+                        );
+                      }
+                    }
+                  }
+                },
               ),
               ListTile(leading:const Icon(Icons.palette_outlined),title:const Text('تخصيص الواجهة الرئيسية'),
                 subtitle:const Text('ألوان الأزرار واستدارة الزوايا'),onTap:()=>_editAppearance(context)),
@@ -219,6 +251,19 @@ class WorkspaceSettingsScreen extends StatelessWidget {
                   ['الأصناف', '${controller.inventory.length}'],
                 ],
               ),
+              TextButton.icon(
+                key: const ValueKey('settings-reset-appearance'),
+                onPressed: () async {
+                  await controller.saveAppearance(0xff4338ca, 0xff0891b2, 24);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('تمت استعادة الإعدادات الافتراضية للمظهر.')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.restore),
+                label: const Text('استعادة المظهر الافتراضي'),
+              ),
             ],
           ),
         ),
@@ -240,6 +285,252 @@ class InventoryCatalogScreen extends StatefulWidget {
 
 class _InventoryCatalogScreenState extends State<InventoryCatalogScreen> {
   String _query = '';
+  bool _lowStockOnly = false;
+
+  Future<void> _showTransferDialog(BuildContext context) async {
+    final c = widget.controller;
+    if (c.inventory.isEmpty || c.warehouses.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يلزم وجود صنف ومستودعين على الأقل للتحويل المخزني.')),
+      );
+      return;
+    }
+    var selectedItemId = c.inventory.first.id;
+    var toWarehouseId = c.warehouses
+        .firstWhere(
+          (w) => w.id != c.inventory.first.warehouseId,
+          orElse: () => c.warehouses.last,
+        )
+        .id;
+    var qtyText = '1';
+    String? error;
+    var busy = false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, update) {
+          final srcItem = c.inventory.firstWhere((i) => i.id == selectedItemId);
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              title: const Text('تحويل مخزني بين المستودعات'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: selectedItemId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'الصنف المصدر'),
+                      items: [
+                        for (final item in c.inventory)
+                          DropdownMenuItem(
+                            value: item.id,
+                            child: Text('${item.name} (${_warehouseName(c, item.warehouseId)} · متوفر: ${_number(item.quantity)})'),
+                          ),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        final nextItem = c.inventory.firstWhere((i) => i.id == v);
+                        update(() {
+                          selectedItemId = v;
+                          final alt = c.warehouses.where((w) => w.id != nextItem.warehouseId).firstOrNull;
+                          if (alt != null) toWarehouseId = alt.id;
+                        });
+                      },
+                    ),
+                    DropdownButtonFormField<String>(
+                      value: toWarehouseId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'إلى المستودع'),
+                      items: [
+                        for (final w in c.warehouses.where((w) => w.id != srcItem.warehouseId))
+                          DropdownMenuItem(value: w.id, child: Text(w.name)),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) update(() => toWarehouseId = v);
+                      },
+                    ),
+                    TextFormField(
+                      initialValue: qtyText,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: 'الكمية المحولة (${srcItem.unit})',
+                        helperText: 'الحد الأقصى المتاح: ${_number(srcItem.quantity)}',
+                      ),
+                      onChanged: (v) => qtyText = v,
+                    ),
+                    if (error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: busy ? null : () => Navigator.pop(dialogCtx),
+                  child: const Text('إلغاء'),
+                ),
+                FilledButton(
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          update(() {
+                            busy = true;
+                            error = null;
+                          });
+                          try {
+                            await c.transferWarehouseStock(
+                              itemId: selectedItemId,
+                              toWarehouseId: toWarehouseId,
+                              quantity: AccountingEngine.parseArabicNumber(qtyText),
+                            );
+                            if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('تم تنفيذ التحويل المخزني بنجاح.')),
+                              );
+                            }
+                          } catch (e) {
+                            update(() {
+                              busy = false;
+                              error = e is SaleValidationException ? e.message : e.toString();
+                            });
+                          }
+                        },
+                  child: const Text('تنفيذ التحويل'),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showBulkEditDialog(
+    BuildContext context,
+    List<InventoryItemRecord> visibleItems,
+  ) async {
+    if (visibleItems.isEmpty) return;
+    final selected = <String>{for (final i in visibleItems) i.id};
+    var priceMode = 'keep';
+    var priceVal = '';
+    var stockMode = 'keep';
+    var stockVal = '';
+    var thresholdVal = '';
+    String? error;
+    var busy = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, update) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            title: Text('التعديل الجماعي للمخزون (${selected.length} صنف)'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: priceMode,
+                    decoration: const InputDecoration(labelText: 'تحديث التكلفة'),
+                    items: const [
+                      DropdownMenuItem(value: 'keep', child: Text('بدون تغيير')),
+                      DropdownMenuItem(value: 'set', child: Text('تعيين تكلفة ثابتة')),
+                      DropdownMenuItem(value: 'percent', child: Text('تعديل بنسبة مئوية (%)')),
+                    ],
+                    onChanged: (v) => update(() => priceMode = v ?? 'keep'),
+                  ),
+                  if (priceMode != 'keep')
+                    TextFormField(
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                      decoration: InputDecoration(
+                        labelText: priceMode == 'percent' ? 'النسبة المئوية (مثال: 10 أو -5)' : 'التكلفة الجديدة',
+                      ),
+                      onChanged: (v) => priceVal = v,
+                    ),
+                  DropdownButtonFormField<String>(
+                    value: stockMode,
+                    decoration: const InputDecoration(labelText: 'تحديث الكمية'),
+                    items: const [
+                      DropdownMenuItem(value: 'keep', child: Text('بدون تغيير')),
+                      DropdownMenuItem(value: 'set', child: Text('تعيين كمية جرد ثابتة')),
+                      DropdownMenuItem(value: 'delta', child: Text('إضافة / خصم كمية (+/-)')),
+                    ],
+                    onChanged: (v) => update(() => stockMode = v ?? 'keep'),
+                  ),
+                  if (stockMode != 'keep')
+                    TextFormField(
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                      decoration: const InputDecoration(labelText: 'قيمة الكمية'),
+                      onChanged: (v) => stockVal = v,
+                    ),
+                  TextFormField(
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'حد التنبيه الأدنى (اختياري)'),
+                    onChanged: (v) => thresholdVal = v,
+                  ),
+                  if (error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: busy ? null : () => Navigator.pop(dialogCtx),
+                child: const Text('إلغاء'),
+              ),
+              FilledButton(
+                onPressed: busy
+                    ? null
+                    : () async {
+                        update(() {
+                          busy = true;
+                          error = null;
+                        });
+                        try {
+                          final count = await widget.controller.batchUpdateInventoryItems(
+                            selected,
+                            priceMode: priceMode,
+                            priceValue: priceVal.trim().isEmpty
+                                ? null
+                                : AccountingEngine.parseArabicNumber(priceVal),
+                            stockMode: stockMode,
+                            stockValue: stockVal.trim().isEmpty
+                                ? null
+                                : AccountingEngine.parseArabicNumber(stockVal),
+                            minThreshold: thresholdVal.trim().isEmpty
+                                ? null
+                                : AccountingEngine.parseArabicNumber(thresholdVal),
+                          );
+                          if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('تم تحديث $count صنف دفعة واحدة.')),
+                            );
+                          }
+                        } catch (e) {
+                          update(() {
+                            busy = false;
+                            error = e is SaleValidationException ? e.message : e.toString();
+                          });
+                        }
+                      },
+                child: const Text('تطبيق التعديل الجماعي'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -252,6 +543,8 @@ class _InventoryCatalogScreenState extends State<InventoryCatalogScreen> {
                 (item) =>
                     (widget.warehouseId == null ||
                         item.warehouseId == widget.warehouseId) &&
+                    (!_lowStockOnly ||
+                        (item.minThreshold > 0 && item.quantity < item.minThreshold)) &&
                     '${item.name} ${item.sku} ${item.id}'
                         .toLowerCase()
                         .contains(query),
@@ -311,6 +604,47 @@ class _InventoryCatalogScreenState extends State<InventoryCatalogScreen> {
                       )
                       .toList(),
                   emptyMessage: 'لا توجد أصناف تطابق البحث ونطاق المستودع.',
+                ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilterChip(
+                      label: const Text('منخفض المخزون فقط'),
+                      selected: _lowStockOnly,
+                      onSelected: (v) => setState(() => _lowStockOnly = v),
+                    ),
+                    OutlinedButton.icon(
+                      key: const ValueKey('inventory-bulk-edit-btn'),
+                      onPressed: items.isEmpty ? null : () => _showBulkEditDialog(context, items),
+                      icon: const Icon(Icons.edit_note, size: 18),
+                      label: const Text('التعديل الجماعي'),
+                    ),
+                    OutlinedButton.icon(
+                      key: const ValueKey('inventory-transfer-btn'),
+                      onPressed: () => _showTransferDialog(context),
+                      icon: const Icon(Icons.swap_horiz, size: 18),
+                      label: const Text('تحويل مخزني'),
+                    ),
+                    OutlinedButton.icon(
+                      key: const ValueKey('inventory-export-csv-btn'),
+                      onPressed: () async {
+                        final csv = [
+                          'الصنف,الرمز,المستودع,الوحدة,الكمية,متوسط التكلفة,حد التنبيه',
+                          for (final item in items)
+                            '"${item.name.replaceAll('"', '""')}","${item.sku}","${_warehouseName(controller, item.warehouseId)}","${item.unit}",${_number(item.quantity)},${_number(item.avgCost)},${_number(item.minThreshold)}',
+                        ].join('\n');
+                        await Clipboard.setData(ClipboardData(text: csv));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('تم نسخ جدول الأصناف CSV (${items.length} صنف).')),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.download_outlined, size: 18),
+                      label: const Text('تصدير CSV'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -439,6 +773,35 @@ class StockMovementScreen extends StatelessWidget {
                       .toList(),
                   emptyMessage:
                       'لا توجد رؤوس فواتير أو مرتجعات نشطة في هذا النطاق. هذا لا يثبت عدم وجود حركة مخزنية تاريخية.',
+                ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final (key, label) in const [
+                      ('pdf-print', 'طباعة PDF'),
+                      ('pdf-share', 'مشاركة PDF'),
+                      ('excel-export', 'تصدير Excel'),
+                      ('excel-share', 'مشاركة Excel'),
+                    ])
+                      OutlinedButton(
+                        key: ValueKey('stock-movement-$key'),
+                        onPressed: () async {
+                          final csv = [
+                            'رقم العملية,التاريخ,النوع,الحساب,المستودع,المبلغ,العملة',
+                            for (final e in entries)
+                              '${e.entryNumber},${e.entryDate},"${e.typeLabel}","${e.accountName}","${_warehouseName(controller, e.warehouseId)}",${_number(e.amount)},${e.currency.label}',
+                          ].join('\n');
+                          await Clipboard.setData(ClipboardData(text: csv));
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('تم تجهيز التقرير ($label) ونسخ البيانات.')),
+                            );
+                          }
+                        },
+                        child: Text(label),
+                      ),
+                  ],
                 ),
               ],
             ),

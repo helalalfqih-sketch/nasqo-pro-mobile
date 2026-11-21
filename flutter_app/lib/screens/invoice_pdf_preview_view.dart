@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/invoice_print_snapshot.dart';
 import '../services/local_invoice_pdf.dart';
+import 'web_auxiliary_views.dart';
 
 class InvoicePdfPreviewView extends StatefulWidget {
   const InvoicePdfPreviewView({
@@ -97,10 +98,35 @@ class _InvoicePdfPreviewViewState extends State<InvoicePdfPreviewView> {
                     padding: const EdgeInsets.all(10),
                     child: Column(
                       children: [
-                        FilledButton.icon(
-                          onPressed: _printing ? null : () => _print(result),
-                          label: const Text('طباعة / حفظ PDF'),
-                          icon: const Icon(Icons.print_outlined),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: _printing ? null : () => _print(result),
+                              label: const Text('طباعة / حفظ PDF'),
+                              icon: const Icon(Icons.print_outlined),
+                            ),
+                            OutlinedButton.icon(
+                              key: const ValueKey('invoice-pdf-print-options'),
+                              onPressed: _printing
+                                  ? null
+                                  : () => showPrintOptionsModal(
+                                        context,
+                                        subjectLabel: 'معاينة الفاتورة PDF',
+                                        onAction: (action) {
+                                          if (action.startsWith('طباعة')) {
+                                            _print(result);
+                                          } else {
+                                            setState(() => _message = 'تم اختيار: $action');
+                                          }
+                                        },
+                                      ),
+                              icon: const Icon(Icons.tune_outlined),
+                              label: const Text('خيارات الطباعة'),
+                            ),
+                          ],
                         ),
                         const Text(
                             'اختر جميع الصفحات. يمكنك اختيار الطابعة أو الحفظ بتنسيق PDF من خيارات Android إن توفرت.'),

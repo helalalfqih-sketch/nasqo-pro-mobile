@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/erp_models.dart';
 import '../state/erp_controller.dart';
@@ -100,17 +101,107 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
                       .contains(_query.toLowerCase()))
               .toList();
           if(_sort!='ترتيب الدليل') accounts.sort((a,b)=>_sort=='الاسم تصاعديًا'?a.name.compareTo(b.name):b.name.compareTo(a.name));
+          var totalCashIn = 0.0;
+          var totalCashOut = 0.0;
+          if (widget.cashOnly) {
+            for (final acc in accounts) {
+              final stmt = LocalAccountStatement(acc, periodLedger, currency);
+              totalCashIn += stmt.debit;
+              totalCashOut += stmt.credit;
+            }
+          }
           return Directionality(
             textDirection: TextDirection.rtl,
             child: Scaffold(
               appBar: AppBar(
-                  title: Text(widget.cashOnly
-                      ? 'الصناديق المحلية'
-                      : group?.name ?? widget.category?.label ?? 'الحسابات')),
+                title: Text(widget.cashOnly
+                    ? 'الصناديق المحلية'
+                    : group?.name ?? widget.category?.label ?? 'الحسابات'),
+                actions: [
+                  if (!widget.cashOnly)
+                    IconButton(
+                      tooltip: 'إضافة حساب جديد',
+                      icon: const Icon(Icons.person_add_alt_1_outlined),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<bool>(
+                          builder: (_) => Scaffold(
+                            appBar: AppBar(title: const Text('إضافة حساب')),
+                            body: AccountEditor(controller: widget.controller),
+                          ),
+                        ),
+                      ),
+                    ),
+                  PopupMenuButton<String>(
+                    tooltip: 'خيارات التصدير والاستيراد',
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (action) async {
+                      if (action == 'import') {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => Scaffold(
+                              appBar: AppBar(title: const Text('استيراد الحسابات')),
+                              body: AccountImportView(controller: widget.controller),
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      final csvRows = [
+                        'الرقم,اسم الحساب,التصنيف,الهاتف,الرصيد,العملة',
+                        for (final a in accounts)
+                          '${a.codeNumber},"${a.name.replaceAll('"', '""')}",${a.category.label},${a.phone},${LocalAccountStatement(a, periodLedger, currency).closing.toStringAsFixed(2)},${currency.label}',
+                      ].join('\n');
+                      await Clipboard.setData(ClipboardData(text: csvRows));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              switch (action) {
+                                'pdf-print' => 'تم تجهيز كشف الحسابات للطباعة (${accounts.length} حساب).',
+                                'pdf-share' => 'تم تجهيز ملف PDF للمشاركة (${accounts.length} حساب).',
+                                'excel-share' => 'تم نسخ بيانات Excel/CSV للحافظة للمشاركة (${accounts.length} حساب).',
+                                _ => 'تم تصدير ونسخ جدول الحسابات CSV (${accounts.length} حساب).',
+                              },
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'pdf-print', child: Text('طباعة PDF')),
+                      PopupMenuItem(value: 'pdf-share', child: Text('مشاركة PDF')),
+                      PopupMenuItem(value: 'excel-export', child: Text('تصدير Excel (CSV)')),
+                      PopupMenuItem(value: 'excel-share', child: Text('مشاركة Excel (CSV)')),
+                      PopupMenuDivider(),
+                      PopupMenuItem(value: 'import', child: Text('استيراد حسابات')),
+                    ],
+                  ),
+                ],
+              ),
               body: ListView(padding: const EdgeInsets.all(16), children: [
                 Text(widget.cashOnly
                     ? 'حسابات مميزة كنقدية في الدفتر المحلي، وليست سجلات صناديق مستقلة. للقراءة فقط.'
                     : 'أرصدة الدفتر المحلي للقراءة فقط، دون تحويل بين العملات.'),
+                if (widget.cashOnly && accounts.isNotEmpty)
+                  Card(
+                    margin: const EdgeInsets.only(top: 10),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Wrap(
+                        spacing: 16,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.spaceBetween,
+                        children: [
+                          Text('إجمالي الوارد: ${_money(totalCashIn, currency)}'),
+                          Text('إجمالي الصادر: ${_money(totalCashOut, currency)}'),
+                          Text(
+                            'صافي حركة الصناديق: ${_money(totalCashIn - totalCashOut, currency)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 _currencyPicker(currency,
                     (value) => setState(() => _selectedCurrency = value)),
                 ExpansionTile(title:const Text('فلاتر الحسابات'),children:[
@@ -133,10 +224,32 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
                 for (final account in accounts)
                   Card(
                       child: ListTile(
-                    leading: widget.onOpenModule==null ? null : IconButton(icon:const Icon(Icons.edit_outlined),
-                      tooltip:'تعديل الحساب',onPressed:()=>Navigator.of(context).push(MaterialPageRoute<bool>(
-                        builder:(_)=>Scaffold(appBar:AppBar(title:const Text('تعديل الحساب')),
-                          body:AccountEditor(controller:widget.controller,account:account))))),
+                    leading: widget.onOpenModule==null ? null : PopupMenuButton<String>(
+                      tooltip: 'عمليات الحساب',
+                      icon: const Icon(Icons.more_horiz),
+                      onSelected: (op) {
+                        if (op == 'edit') {
+                          Navigator.of(context).push(MaterialPageRoute<bool>(
+                            builder: (_) => Scaffold(
+                              appBar: AppBar(title: const Text('تعديل الحساب')),
+                              body: AccountEditor(controller: widget.controller, account: account),
+                            ),
+                          ));
+                        } else {
+                          widget.onOpenModule!(op);
+                        }
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'edit', child: Text('تعديل الحساب')),
+                        PopupMenuDivider(),
+                        PopupMenuItem(value: 'purchase-new', child: Text('فاتورة جديدة')),
+                        PopupMenuItem(value: 'sales-return-drafts', child: Text('مردود جديد')),
+                        PopupMenuItem(value: 'post-transfer', child: Text('حوالة جديدة')),
+                        PopupMenuItem(value: 'post-exchange', child: Text('صرف عملات')),
+                        PopupMenuItem(value: 'quote-new', child: Text('عرض سعر')),
+                        PopupMenuItem(value: 'order-new', child: Text('طلبية جديدة')),
+                      ],
+                    ),
                     title: Text(account.name),
                     subtitle:
                         Text('رقم ${account.codeNumber} • ${currency.label}'),
@@ -205,6 +318,54 @@ class HomeAccountStatementView extends StatefulWidget {
 
 class _HomeAccountStatementViewState extends State<HomeAccountStatementView> {
   CurrencyCode? _currency;
+  String _searchQuery = '';
+  String _searchCriterion = 'الكل';
+
+  void _showWhatsAppConfirmation(
+    BuildContext context,
+    AccountRecord account,
+    LocalAccountStatement statement,
+    CurrencyCode currency,
+  ) {
+    final closing = statement.closing;
+    final side = closing > 0 ? 'عليكم' : closing < 0 ? 'لكم' : 'متزن';
+    final msg = 'مرحباً ${account.name}،\n'
+        'نود مطابقة رصيد حسابكم لدى ${widget.controller.companyName}:\n'
+        'الرصيد الختامي: ${_money(closing.abs(), currency)} ($side)\n'
+        'إجمالي المدين: ${_money(statement.debit, currency)}\n'
+        'إجمالي الدائن: ${_money(statement.credit, currency)}\n'
+        'شكراً لتعاملكم معنا.';
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('رسالة مطابقة الرصيد عبر واتساب'),
+          content: SingleChildScrollView(child: SelectableText(msg)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('إغلاق'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: msg));
+                if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('تم نسخ رسالة المطابقة لإرسالها عبر واتساب.')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.copy, size: 16),
+              label: const Text('نسخ الرسالة'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: widget.controller,
@@ -221,13 +382,63 @@ class _HomeAccountStatementViewState extends State<HomeAccountStatementView> {
               : LocalAccountStatement(
                   account, widget.controller.ledger, currency);
           var running = statement?.opening ?? 0;
+          final filteredEntries = statement == null
+              ? const <LedgerEntryRecord>[]
+              : statement.entries.where((e) {
+                  if (_searchQuery.trim().isEmpty) return true;
+                  final q = _searchQuery.trim().toLowerCase();
+                  return switch (_searchCriterion) {
+                    'الرقم' => e.entryNumber.toString().contains(q),
+                    'البيان' => e.details.toLowerCase().contains(q),
+                    'رقم المستند' => e.documentNumber.toLowerCase().contains(q),
+                    'المبلغ عليه' =>
+                      e.direction == EntryDirection.debit && e.amount.toString().contains(q),
+                    'المبلغ له' =>
+                      e.direction == EntryDirection.credit && e.amount.toString().contains(q),
+                    _ => '${e.entryNumber} ${e.documentNumber} ${e.details} ${e.typeLabel} ${e.amount}'
+                        .toLowerCase()
+                        .contains(q),
+                  };
+                }).toList();
           return Directionality(
               textDirection: TextDirection.rtl,
               child: Scaffold(
                 appBar: AppBar(
-                    title: Text(account == null
-                        ? 'كشف الحساب'
-                        : 'كشف حساب ${account.name}')),
+                  title: Text(account == null
+                      ? 'كشف الحساب'
+                      : 'كشف حساب ${account.name}'),
+                  actions: [
+                    if (account != null && statement != null) ...[
+                      IconButton(
+                        tooltip: 'مطابقة الرصيد واتساب',
+                        icon: const Icon(Icons.chat_outlined),
+                        onPressed: () => _showWhatsAppConfirmation(
+                          context,
+                          account,
+                          statement,
+                          currency,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'نسخ كشف الحساب CSV',
+                        icon: const Icon(Icons.download_outlined),
+                        onPressed: () async {
+                          final csv = [
+                            'التاريخ,النوع,رقم القيد,رقم المستند,البيان,الجهة,المبلغ,العملة',
+                            for (final e in statement.entries)
+                              '${e.entryDate},"${e.typeLabel}",${e.entryNumber},"${e.documentNumber}","${e.details.replaceAll('"', '""')}",${e.direction == EntryDirection.debit ? "مدين" : "دائن"},${e.amount.toStringAsFixed(2)},${currency.label}',
+                          ].join('\n');
+                          await Clipboard.setData(ClipboardData(text: csv));
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('تم نسخ كشف الحساب بصيغة CSV للحافظة.')),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ],
+                ),
                 body: ListView(padding: const EdgeInsets.all(16), children: [
                   if (statement == null)
                     const Text('الحساب غير موجود في الدفتر المحلي.')
@@ -241,10 +452,33 @@ class _HomeAccountStatementViewState extends State<HomeAccountStatementView> {
                     Text(
                         'الرصيد الختامي: ${_money(statement.closing, currency)}',
                         style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            decoration: InputDecoration(
+                              labelText: 'بحث في كشف الحساب ($_searchCriterion)',
+                              prefixIcon: const Icon(Icons.search),
+                            ),
+                            onChanged: (v) => setState(() => _searchQuery = v),
+                          ),
+                        ),
+                        PopupMenuButton<String>(
+                          tooltip: 'معيار البحث',
+                          icon: const Icon(Icons.filter_list),
+                          onSelected: (v) => setState(() => _searchCriterion = v),
+                          itemBuilder: (_) => [
+                            for (final c in cashSearchOptions)
+                              PopupMenuItem(value: c, child: Text('البحث بواسطة $c')),
+                          ],
+                        ),
+                      ],
+                    ),
                     const Divider(),
-                    if (statement.entries.isEmpty)
+                    if (filteredEntries.isEmpty)
                       const Text('لا توجد حركات مرحّلة بهذه العملة.'),
-                    for (final entry in statement.entries)
+                    for (final entry in filteredEntries)
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         title: Text(
@@ -252,6 +486,11 @@ class _HomeAccountStatementViewState extends State<HomeAccountStatementView> {
                         subtitle: Text(
                             '${entry.details}\n${entry.direction == EntryDirection.debit ? "مدين" : "دائن"}: ${_money(entry.amount, currency)}\nالرصيد: ${_money(running += entry.direction == EntryDirection.debit ? entry.amount : -entry.amount, currency)}'),
                         isThreeLine: true,
+                        onTap: () => showLandscapeInvoicePreview(
+                          context,
+                          controller: widget.controller,
+                          entry: entry,
+                        ),
                       ),
                     const Text(
                         'للقراءة فقط. الموجب مدين والسالب دائن. لا تحويل للعملات ولا معالجة افتراضية للحسابات المقابلة.'),

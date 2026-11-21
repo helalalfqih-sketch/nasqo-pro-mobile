@@ -176,6 +176,7 @@ class _DailyMovementScreenState extends State<DailyMovementScreen> {
   late DateTime _day;
   String _query = '';
   CurrencyCode? _currency;
+  LedgerKind? _kindFilter;
   @override
   void initState() {
     super.initState();
@@ -201,9 +202,17 @@ class _DailyMovementScreenState extends State<DailyMovementScreen> {
                   !e.deleted &&
                   (e.entryDate == day || e.entryDate.startsWith('${day}T')) &&
                   (_currency == null || e.currency == _currency) &&
+                  (_kindFilter == null || e.kind == _kindFilter) &&
                   _entryMatches(_query, e))
               .toList()
             ..sort((a, b) => b.entryNumber.compareTo(a.entryNumber));
+          final financialEntries = entries.where(_financial).toList();
+          final dayDebit = financialEntries
+              .where((e) => e.direction == EntryDirection.debit)
+              .fold<double>(0, (s, e) => s + e.amount);
+          final dayCredit = financialEntries
+              .where((e) => e.direction == EntryDirection.credit)
+              .fold<double>(0, (s, e) => s + e.amount);
           return Directionality(
               textDirection: TextDirection.rtl,
               child: ListView(
@@ -229,6 +238,45 @@ class _DailyMovementScreenState extends State<DailyMovementScreen> {
                             DropdownMenuItem(value: c, child: Text(c.label)))
                       ],
                       onChanged: (v) => setState(() => _currency = v)),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: [
+                      for (final (kind, label) in const [
+                        (null, 'الكل'),
+                        (LedgerKind.invoice, 'فواتير'),
+                        (LedgerKind.voucher, 'سندات'),
+                        (LedgerKind.transfer, 'حوالات'),
+                        (LedgerKind.simpleEntry, 'قيود'),
+                        (LedgerKind.currency, 'مصارفة'),
+                        (LedgerKind.returnEntry, 'مرتجعات'),
+                      ])
+                        ChoiceChip(
+                          label: Text(label),
+                          selected: _kindFilter == kind,
+                          onSelected: (_) => setState(() => _kindFilter = kind),
+                        ),
+                    ],
+                  ),
+                  if (_currency != null && financialEntries.isNotEmpty)
+                    Card(
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 4,
+                          children: [
+                            Text('مدين اليوم: ${_amount(dayDebit)} ${_currency!.label}'),
+                            Text('دائن اليوم: ${_amount(dayCredit)} ${_currency!.label}'),
+                            Text(
+                              'صافي اليوم: ${_amount(dayDebit - dayCredit)} ${_currency!.label}',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   TextField(
                       key: const ValueKey('daily-search'),
                       decoration:

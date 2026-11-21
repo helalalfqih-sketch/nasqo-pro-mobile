@@ -41,6 +41,7 @@ import 'screens/fx_draft_views.dart';
 import 'screens/sales_return_views.dart';
 import 'screens/customer_measurement_views.dart';
 import 'screens/cash_supplier_statement_view.dart';
+import 'screens/web_auxiliary_views.dart';
 import 'services/customer_measurement_repository.dart';
 import 'state/erp_controller.dart';
 
@@ -186,6 +187,18 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       );
 
   void _openModulePage(String moduleId) {
+    if (moduleId == 'sms-settings') {
+      showNasqoSmsSettingsDialog(context);
+      return;
+    }
+    if (moduleId == 'activation-modal') {
+      showNasqoActivationDialog(context, widget.controller.companyName);
+      return;
+    }
+    if (moduleId == 'about-modal') {
+      showNasqoAboutDialog(context, controller: widget.controller);
+      return;
+    }
     if (moduleId == 'measurement-new') {
       showModalBottomSheet<void>(
         context: context,
