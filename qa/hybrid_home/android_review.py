@@ -87,6 +87,11 @@ def verify_saved_document():
     def saved_files():
         return set(adb("shell", "find /sdcard/ -type f -iname '*.pdf'").decode().splitlines())
 
+    fields = json.loads(sql("""SELECT json_object(
+        'entryNumber', e.entryNumber, 'documentNumber', e.documentNumber,
+        'amount', e.amount, 'item', l.itemName, 'quantity', l.quantity, 'unitPrice', l.unitPrice)
+        FROM ledger_entries e JOIN sale_lines l ON l.entryId=e.id
+        WHERE e.id='qa-document' AND e.accountId='qa-u' AND l.position=0;"""))
     before = saved_files()
     tap(exact_button("حفظ المستند PDF عبر Android"))
     spooler = "com.android.printspooler"
@@ -117,13 +122,15 @@ def verify_saved_document():
     (OUT / "sqlite-invoice-9041.txt").write_text(extracted)
     normalized = "".join(c for c in unicodedata.normalize("NFKC", extracted)
                          if unicodedata.category(c) != "Cf")
-    for token in ("9041", "QA-41", "8.5", "25.5", "خيط", "تجريبي"):
+    for token in (fields["documentNumber"], *fields["item"].split()):
         require(token in normalized or token[::-1] in normalized, "Missing saved invoice field: " + token)
+    for key in ("entryNumber", "quantity", "unitPrice", "amount"):
+        number = re.escape(format(fields[key], "g"))
+        require(re.search(r"(?<![0-9.])" + number + r"(?:\.0+)?(?![0-9.])", normalized),
+                "Missing saved invoice " + key)
     find("معاينة المستند")
     passed("native_saved_pdf_matches_sqlite_invoice", {
-        "entryNumber": 9041, "documentNumber": "QA-41", "quantity": 3,
-        "unitPrice": 8.5, "total": 25.5, "bytes": len(raw),
-        "sha256": hashlib.sha256(raw).hexdigest(),
+        **fields, "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(),
     })
 def launch(expect_hybrid=True):
     adb("logcat","-c")
