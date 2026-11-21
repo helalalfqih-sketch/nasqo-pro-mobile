@@ -66,6 +66,9 @@ void main() {
     final result = await testWebsiteRestore(backup);
     expect(result['before'], result['after']);
     expect(result['matchedRecords'], 5);
+    expect(result['financialBefore'], result['financialAfter']);
+    expect((result['financialBefore'] as Map)['accountCurrencyBalances'],
+        {'["sp_acc_11","usd"]': '-1.75'});
     expect(jsonDecode(raw)['ledger'][0]['lines'][0]['legacyId'], 44);
     expect(await File('${dir.path}/source.back').readAsBytes(), bytes);
   });
@@ -82,6 +85,31 @@ void main() {
     expect(
         audit.currencyReferences.where((r) => r['currencyId'] == 3).length, 5);
     await expectLater(readWebsiteBackup(bytes, 1 << 20), throwsFormatException);
+  });
+  test(
+      'explicit cash account and historical warehouse transfers survive staging',
+      () async {
+    final bytes = await fixture(dir, changes: [
+      "INSERT INTO stores VALUES(5,'مخزن آخر','',0)",
+      'CREATE TABLE cboxes(id INTEGER,name TEXT,account_id INTEGER,cur INTEGER)',
+      "INSERT INTO cboxes VALUES(80,'صندوق اختبار',11,9)",
+      'CREATE TABLE store_trans(id INTEGER,store_id1 INTEGER,store_id2 INTEGER,ndate TEXT)',
+      "INSERT INTO store_trans VALUES(90,4,5,'20240229')",
+      'CREATE TABLE trans_details(id INTEGER,bill_id INTEGER,prod_id INTEGER,amount REAL,unit TEXT,unitnum INTEGER)',
+      "INSERT INTO trans_details VALUES(91,90,22,2.5,'حبة',1)"
+    ]);
+    final backup = WebBackup.parse(await readWebsiteBackup(bytes, 1 << 20));
+    expect(backup.accounts.single.isCashAccount, isTrue);
+    final move = backup.groupData.transfers.single;
+    expect((move.source, move.destination, move.quantity),
+        ('sp_wh_4', 'sp_wh_5', 2.5));
+    expect(backup.inventory.single.quantity, 17.25);
+    expect((await testWebsiteRestore(backup))['coldReopen'], isTrue);
+  });
+  test('truncated SQLite cannot pass inspection or conversion', () async {
+    final bytes = await fixture(dir);
+    final broken = bytes.sublist(0, 96);
+    await expectLater(readWebsiteBackup(broken, 1 << 20), throwsA(anything));
   });
   for (final entry in {
     'missing product': 'UPDATE bill_details SET prod_id=77',

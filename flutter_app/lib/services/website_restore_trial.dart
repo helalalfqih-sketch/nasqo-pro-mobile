@@ -192,12 +192,15 @@ Future<Map<String, Object?>> testWebsiteRestore(WebBackup backup) async {
     final expectedTotals = _financialReport(before, backup.groupData);
     final actualTotals =
         _financialReport(after, RestoredGroups.fromJson(archived!));
-    if (jsonEncode(expectedTotals) != jsonEncode(actualTotals)) {
+    final sourceTotals = archived['legacySourceTotals'];
+    if ((sourceTotals != null &&
+            jsonEncode(sourceTotals) != jsonEncode(actualTotals)) ||
+        jsonEncode(expectedTotals) != jsonEncode(actualTotals)) {
       throw const FormatException(
           'لم تتطابق الأرصدة أو الفواتير أو كميات المخزون.');
     }
     return {
-      'financialBefore': expectedTotals,
+      'financialBefore': sourceTotals ?? expectedTotals,
       'financialAfter': actualTotals,
       'coldReopen': true,
       'before': counts(before),

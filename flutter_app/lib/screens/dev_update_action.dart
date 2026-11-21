@@ -35,24 +35,23 @@ class _DevUpdateActionState extends State<DevUpdateAction> {
       }
       final accepted = await showDialog<bool>(
         context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text('تحديث تجريبي متاح'),
-              content: Text(
-                'الإصدار ${release.versionName} (${release.versionCode})\n${release.notes}\n'
-                'سيتم تنزيل نسخة موقعة والتحقق من بصمتها. أكمل حفظ عملك قبل التثبيت. يُثبَّت التحديث فوق التطبيق الحالي للاحتفاظ ببياناته.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('لاحقًا'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('تنزيل وتحديث'),
-                ),
-              ],
+        builder: (context) => AlertDialog(
+          title: const Text('تحديث تجريبي متاح'),
+          content: Text(
+            'الإصدار ${release.versionName} (${release.versionCode})\n${release.notes}\n'
+            'سيتم تنزيل نسخة موقعة والتحقق من بصمتها. أكمل حفظ عملك قبل التثبيت. يُثبَّت التحديث فوق التطبيق الحالي للاحتفاظ ببياناته.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('لاحقًا'),
             ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('تنزيل وتحديث'),
+            ),
+          ],
+        ),
       );
       if (accepted != true || !mounted) return;
       reportError = true;
@@ -64,7 +63,14 @@ class _DevUpdateActionState extends State<DevUpdateAction> {
       if (mounted && reportError)
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error is FormatException ? 'تعذر التحديث: ${error.message}' : error is PlatformException ? 'تعذّر فتح مثبّت أندرويد. تحقق من إذن تثبيت التحديث.' : error is IOException ? 'تعذّر إكمال التنزيل. تحقق من الاتصال ثم أعد المحاولة.' : 'تعذّر التحديث. أعد المحاولة لاحقًا.')));
+        ).showSnackBar(SnackBar(
+            content: Text(error is FormatException
+                ? 'تعذر التحديث: ${error.message}'
+                : error is PlatformException
+                    ? 'تعذّر فتح مثبّت أندرويد. تحقق من إذن تثبيت التحديث.'
+                    : error is IOException
+                        ? 'تعذّر إكمال التنزيل. تحقق من الاتصال ثم أعد المحاولة.'
+                        : 'تعذّر التحديث. أعد المحاولة لاحقًا.')));
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -72,8 +78,8 @@ class _DevUpdateActionState extends State<DevUpdateAction> {
 
   @override
   Widget build(BuildContext context) => IconButton(
-    tooltip: 'التحقق من تحديثات التطبيق',
-    icon: Icon(busy ? Icons.hourglass_top : Icons.system_update_alt),
-    onPressed: busy ? null : () => _check(),
-  );
+        tooltip: 'التحقق من تحديثات التطبيق',
+        icon: Icon(busy ? Icons.hourglass_top : Icons.system_update_alt),
+        onPressed: busy ? null : () => _check(),
+      );
 }
