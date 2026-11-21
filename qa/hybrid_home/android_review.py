@@ -45,7 +45,19 @@ def wait(fn, label, seconds=25):
         time.sleep(.35)
     raise AssertionError("Timed out: "+label)
 def nodes():
-    return list(screen().iter("node"))
+    tree=list(screen().iter("node"))
+    # A freshly booted Pixel image can show a launcher ANR after changing its
+    # resolution. Dismiss that exact background process only, and preserve the
+    # evidence. A NASQO or WebView error must still fail the test.
+    if any(n.get("package")=="android" and n.get("resource-id")=="android:id/alertTitle" and
+           n.get("text")=="Pixel Launcher isn't responding" for n in tree):
+        count=RESULT.get("launcher_dialogs_dismissed",0)
+        require(count<2, "Pixel Launcher repeatedly blocked the test emulator")
+        shot("pixel-launcher-dialog-"+str(count+1))
+        close=next(n for n in tree if n.get("resource-id")=="android:id/aerr_close" and n.get("package")=="android")
+        tap(close);RESULT["launcher_dialogs_dismissed"]=count+1
+        return list(screen().iter("node"))
+    return tree
 def label(n):
     return (n.get("text","")+"\n"+n.get("content-desc","")).strip()
 def find(text, seconds=20):
