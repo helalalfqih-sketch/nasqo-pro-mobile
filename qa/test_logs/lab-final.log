@@ -1,7 +1,7 @@
 00:00 +0: loading /home/chatgpt-admin/nasqo-parity-batch01/qa/groups_lab/test/lab_test.dart
 00:00 +0: offline reopen, filter and drill intents preserve every stored row
 00:00 +1: native source, currencies and capture dark=false restored=true
-00:01 +2: native source, currencies and capture dark=false restored=false
+00:02 +2: native source, currencies and capture dark=false restored=false
 00:02 +3: native source, currencies and capture dark=true restored=true
 00:02 +4: native source, currencies and capture dark=true restored=false
 00:02 +5: All tests passed!

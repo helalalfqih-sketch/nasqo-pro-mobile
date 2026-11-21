@@ -1,0 +1,70 @@
+# تسليم الدفعة 01 للمراجعة — جدول مجموعات الحسابات والأرصدة
+
+**الفرع** `audit/parity-account-groups-01`  
+**مصدر الـAPK** `9b8e78a47cfd2ab5caf9fb64ccf542ede82265d7`، انطلاقًا من `2e4396b347b21a1378e82e8124b2ef461b3ad02f`.  
+**النطاق** واجهة Flutter الأصلية، فحص حفظ SQLite، ومختبر مستقل للمقارنة. راجع [مصفوفة السيناريوهات](PARITY_MATRIX.csv) و[الفروقات](PARITY_GAPS.md) و[بروتوكول التسليم للهاتف](EDITOR_PHONE_UPDATE_QA_AR.md).
+
+## أصل إخفاقات الاختبار
+
+| الملف والحالة | أول فشل في السجل | السبب والتحقق |
+|---|---|---|
+| `offline_posting_test.dart` — catalog, imported accounts, message settings and purchases survive a cold reopen | `Bad state: قاعدة البيانات غير جاهزة.` عند `ErpController.saveAccountRows:1320` | فشل فتح SQLite قبل الحفظ. |
+| الملف نفسه — stock, vouchers and exchanges survive closing and reopening SQLite | `قاعدة البيانات غير جاهزة.` عند `ErpController.receiveStock:1926` | فشل فتح SQLite قبل ترحيل المخزون. |
+| `dev_update_test.dart` — verified downloads and rejected or interrupted transfers preserve SQLite on reopen | `Failed to load dynamic library 'libsqlite3.so'` | يكشف محمّل Dart FFI السبب في بيئة Linux. كانت المكتبة متاحة بالاسم `libsqlite3.so.0` فقط. |
+
+انقطع التشغيل التاريخي قبل اكتماله. يتيح مشغل الاختبار اسم المكتبة الذي يحتاجه FFI في مجلد مؤقت لعملية الاختبار وحدها. نجحت ملفات الاختبارات المتأثرة كاملة (7 حالات) بنفس شروط التحقق فيها، ثم نجحت المجموعة كاملة (270 حالة). [السجل قبل المعالجة](test_logs/flutter-test.log) · [اختبارات SQLite والتحديث](test_logs/ffi-recheck.log) · [كامل التشغيل](test_logs/full-final.log).
+
+## التقنية والأدلة
+
+- **التحليل.** شُغّل Flutter 3.29.3 محليًا. تحليل التطبيق أعاد 0 أخطاء و0 تحذيرات و31 ملاحظة معلوماتية. منها 27 لإحاطة تعليمات التحكم بأقواس و4 لاقتراح `const`. أبقيناها ظاهرة لتجنب تعديلات شكلية خارج الدفعة. تحليل المختبر سليم. [تحليل التطبيق](test_logs/analyze-final.log) · [تحليل المختبر](test_logs/lab-analyze-final.log).
+- **الأرصدة.** أُضيف عرض لكل عملة في المجموعات المستعادة، ووُحِّد عرض السالب وألوانه في الواجهتين المحلية والمستعادة. اختبرنا أرصدة المدين والدائن في الوضعين. في العينة أُبقي `1,250.5-` ريال و`25` دولار منفصلين عند اختيار «الكل». لا يوجد تعديل على مخطط قاعدة بيانات التطبيق. قورنت الصفوف المالية المخزنة، وفُحصت الجداول في قاعدة الاختبار عبر فتحين، وكانت نتيجة `PRAGMA integrity_check` هي `ok`. [اختبارات المختبر الخمسة](test_logs/lab-final.log) · [اختبارات المظهر قبل المعالجة](test_logs/style-before.log) · [بعدها](test_logs/style-after.log).
+- **المقارنة.** استُخرج جدول React من `src/Prototype.tsx` مع CSS المرجعي. استُخدم مكوّن Flutter الحقيقي وعينة واحدة، واتجاه RTL، وخط Noto Sans Arabic، وإطار 427×952 بكثافة 1. حمّل الاختبار خط أيقونات Flutter أيضًا. قُصّت الصور على حدود الجدول نفسه. ارتفاع React هو 151 بكسل وFlutter هو 144. تغير 17,135 بكسل في الفاتح و16,328 في الداكن وفق عتبة 16. تختلف عرض الأعمدة وحدود المرشّح وألوان أسماء المجموعات. [الفاتح](screenshots/compare-light.png) · [الداكن](screenshots/compare-dark.png) · [الفروق المحسوبة](test_logs/visual-diff.log).
+- **Hybrid.** النسخة المعزولة تحزم الخط محليًا وتستخدم رسائل مقيدة لعرض الصفوف وفتح المجموعة وتغيير العملة. في Chromium ظهرت صفوف المرجع دون طلبات HTTP(S) أو أخطاء JavaScript. اختبرنا رفض أوامر الجسر غير المدعومة وسلامة SQLite. ما زال قياس زمن التشغيل والذاكرة والتمرير وإمكانية الوصول لـWebView على الجهاز معلقًا؛ يظل Flutter Native هو المسار الحالي. [سجل المتصفح](test_logs/browser-final.log).
+- **الجرد.** جُمعت 28,681 حالة ظهور في 22,814 مدخلًا آليًا بفئة وسياق وملف وأرقام أسطر. السيناريوهات التسعة المراجعة مدرجة في مصفوفة مستقلة. لا تمثّل هذه الأعداد نسبة إنجاز. [الجرد](PARITY_INVENTORY.csv) · [ملخص التوليد](test_logs/inventory.log).
+- **الملفات المعدلة.** التطبيق في `flutter_app/lib/screens/dashboard_screen.dart` و`flutter_app/lib/services/web_backup.dart` وقفل الاعتماديات `flutter_app/pubspec.lock`. اختبارات الواجهة في `flutter_app/test/{home_balance_panel_test,parity_balance_style_test}.dart`. ملفات المختبر في `qa/groups_lab/`؛ توليد الجرد وتشغيل FFI في `qa/tools/`، والأدلة في `qa/test_logs/` و`qa/screenshots/`. [الفروق الكاملة مقارنة بالأساس](https://github.com/helalalfqih-sketch/nasqo-pro-mobile/compare/2e4396b347b21a1378e82e8124b2ef461b3ad02f...audit/parity-account-groups-01).
+
+## إعادة التشغيل
+
+من جذر نسخة اختبار للمستودع مع Flutter وSQLite وNode واعتماديات الواجهة وChromium:
+
+```sh
+(cd flutter_app && flutter pub get --enforce-lockfile && ../qa/tools/test-linux.sh)
+(cd flutter_app && flutter analyze --no-pub)
+node qa/groups_lab/build-table.mjs
+node qa/groups_lab/build-table.mjs --reference
+node qa/groups_lab/browser-check.mjs
+(cd qa/groups_lab && flutter pub get --enforce-lockfile && ../tools/test-linux.sh --dart-define=CAPTURE=true)
+node qa/groups_lab/compare.mjs
+node qa/tools/inventory.mjs
+```
+
+لإعادة فحص الإخفاق الأول وحده بعد إعداد المكتبة، شغّل من داخل `flutter_app/` الأمر `../qa/tools/test-linux.sh test/offline_posting_test.dart test/dev_update_test.dart`. استُخدمت قاعدة مؤقتة وبيانات اصطناعية. لا تتطلب أي خطوة قاعدة الإنتاج أو نسخة هاتف فعلية. يقبل برنامج المتصفح `CHROME_BIN` عند استخدام نسخة Chromium محددة.
+
+## اختبار هلال بعد الموافقة على النشر
+
+1. سجّل رقم النسخة الحالية وقيمة رصيد معروف بعملته، ثم افتح «تحديث التطبيق». تحقق من رقم المرشح الموضح أدناه.
+2. وافق على التحديث فوق النسخة المثبتة، وافتح «مجموعات الحسابات والأرصدة». تحقق من استمرار الحساب والرصيد.
+3. قارن ظهور علامة السالب بعد المبلغ ولون الدائن والمدين في المظهرين الفاتح والداكن.
+4. اختر عملة ثم «الكل» لمجموعة بها أكثر من عملة. يجب أن يبقى كل رصيد موسومًا بعملته.
+5. افتح كشف حساب ثم ارجع. راقب مرشح العملة وموضع التمرير وسجّل أي اختلاف.
+6. أغلق التطبيق وافتحه في وضع الطيران وراجع الرصيد. أرسل رقم الإصدار مع «مقبول» أو «مقبول مع ملاحظات» أو «مرفوض»، ووصف أي فرق. يبقى اعتماد الشاشة معلقًا حتى ردك.
+
+
+## مرفق Android للمراجعة
+
+| الحقل | نتيجة فحص ملف APK المنزَّل من Actions |
+|---|---|
+| الإصدار | `1.0.18 (10014)` |
+| التطبيق | `com.indexesstore.nasqo_qa` |
+| الإصدار المنشور الذي تحققنا من ملفه | `1.0.18 (10013)` |
+| حجم المرشح | 81,857,767 بايت |
+| SHA-256 للمرشح | `fed19174edd70fcfca0593376aefc811f5701721cb90a6a1234b1d4f2c2514c4` |
+| SHA-256 للشهادة على الحزمتين | `0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79` |
+
+[ملف البناء المضغوط في GitHub Actions](https://github.com/helalalfqih-sketch/nasqo-pro-mobile/actions/runs/44929394951/artifacts/14717226371) · [تشغيل التوقيع](https://github.com/helalalfqih-sketch/nasqo-pro-mobile/actions/runs/44929394951) · [سجل الهوية والتوقيع والبصمة](test_logs/apk-verification.log). مدة الاحتفاظ المحددة في سير العمل 14 يومًا. تحققنا من توقيع كل ملف باستخدام apksigner، وطابقنا بصمة ملف المرشح مع سجل البناء وبصمة ملف الإصدار المنشور مع البيان العام. بُني التطبيق في Actions على Flutter 3.29.0. الإصدار مرفق مراجعة؛ يحتاج نشره إلى موافقة منفصلة.
+
+**نتيجة اختبار Android.** نجح التشغيل `44930114626` على نفس تعديل بناء الحزمة. ثُبّت الإصدار `10004` على محاكي Android API 30 بقاعدة جديدة، وأضيفت وحدة مخزون ثم أعيد فتح التطبيق. بعد تثبيت المرشح `10014` فوقه في وضع الطيران بقيت الكمية `81` (ابتدأت عند `80`). لم تُختبر الترقية المباشرة من `10013`، ولا الجهاز الشخصي أو بيانات الإنتاج. اختُبر تطابق توقيع الإصدار المنشور `10013` والمرشح من ملفيهما.
+
+[سجل ترقية المحاكي](test_logs/android-upgrade.log) · [تشغيل اختبار Android](https://github.com/helalalfqih-sketch/nasqo-pro-mobile/actions/runs/44930114626) · [صورتا المخزون قبل الترقية وبعدها](https://github.com/helalalfqih-sketch/nasqo-pro-mobile/actions/runs/44930114626/artifacts/14717412591).
+
+**القرار المطلوب من المراجع.** مراجعة الفرق البصري المتبقي وسلوك «الكل»، ثم تحديد ما إذا كان المرشح يصلح للنشر التجريبي أو يحتاج دفعة تصحيح. القبول النهائي لدى هلال بعد اختبار زر التحديث على هاتفه.

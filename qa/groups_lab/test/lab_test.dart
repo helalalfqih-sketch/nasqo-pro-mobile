@@ -60,6 +60,9 @@ void main() {
       addTearDown(()async{c!.dispose();await db.close();await dir.delete(recursive:true);});
       final loader=FontLoader('LabArabic')..addFont(rootBundle.load('assets/NotoSansArabic-Regular.ttf'));
       await tester.runAsync(loader.load);
+      final icons = FontLoader('MaterialIcons')
+        ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+      await tester.runAsync(icons.load);
       final archive=c!.restoredGroups!;
       if(!restored)c.restoredGroups=null;
       Future<List<Object?>> sqlRows() async{

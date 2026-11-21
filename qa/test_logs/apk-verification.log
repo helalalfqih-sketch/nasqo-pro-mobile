@@ -1,0 +1,22 @@
+GitHub build 44929394951, source 9b8e78a47cfd2ab5caf9fb64ccf542ede82265d7, artifact 14717226371
+baseline.apk
+{"package": "com.indexesstore.nasqo_qa", "versionCode": 10013, "versionName": "1.0.18"}
+size_bytes=81857768
+40d08a52af3bad0ff9d418c2417ead42dfab809681c84fe6823fc384067e4c6b  baseline.apk
+Verifies
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Signer #1 certificate SHA-256 digest: 0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79
+candidate/app-release.apk
+{"package": "com.indexesstore.nasqo_qa", "versionCode": 10014, "versionName": "1.0.18"}
+size_bytes=81857767
+fed19174edd70fcfca0593376aefc811f5701721cb90a6a1234b1d4f2c2514c4  candidate/app-release.apk
+Verifies
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Signer #1 certificate SHA-256 digest: 0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79
+Publicly served baseline matches manifest; candidate matches checksum in signed workflow; certificate digests match.

@@ -10,8 +10,8 @@
     "data_effect": "عرض فقط",
     "flutter_target": "flutter_app/lib/screens/dashboard_screen.dart:719",
     "status": "IMPLEMENTED_UNVERIFIED",
-    "discrepancy": "تجربة على مجموعة مستعادة. انتظار المقارنة على الهاتف.",
-    "test": "flutter_app/test/parity_balance_style_test.dart",
+    "discrepancy": "ثبتت الإشارة وألوان الدائن والمدين في الوضعين للحسابات المحلية والمستعادة. بقي اختلاف عرض الأعمدة وارتفاع الجدول وقبول الهاتف.",
+    "test": "flutter_app/test/parity_balance_style_test.dart; qa/groups_lab/test/lab_test.dart; qa/groups_lab/browser-check.mjs",
     "screenshot": "qa/screenshots/compare-light.png; qa/screenshots/compare-dark.png"
   },
   {
@@ -26,7 +26,7 @@
     "flutter_target": "flutter_app/lib/screens/dashboard_screen.dart:793",
     "status": "IMPLEMENTED_UNVERIFIED",
     "discrepancy": "React يجمع القيم الاسمية عند اختيار الكل. تعرض الشاشة المحلية قيمة موسومة لكل عملة. قرار المراجع المحاسبي ينتظر تجربة الهاتف.",
-    "test": "flutter_app/test/home_balance_panel_test.dart; qa/groups_lab/test/lab_test.dart"
+    "test": "flutter_app/test/home_balance_panel_test.dart; qa/groups_lab/test/lab_test.dart; qa/groups_lab/browser-check.mjs"
   },
   {
     "id": "AB-03",
@@ -123,7 +123,8 @@
     "data_effect": "عرض فقط",
     "flutter_target": "qa/groups_lab/lib/main.dart",
     "status": "BLOCKED",
-    "discrepancy": "مقارنة مكوّن على الحاسوب؛ قياسات Android والقبول من زر التحديث لدى هلال معلقة.",
-    "test": ""
+    "discrepancy": "المقارنة البصرية للمكوّن متاحة. تبقى قياسات Native/Hybrid على الجهاز والقبول من زر التحديث لدى هلال.",
+    "test": "",
+    "screenshot": "qa/screenshots/compare-light.png; qa/screenshots/compare-dark.png"
   }
 ]
