@@ -4,7 +4,6 @@ import io
 import json
 import os
 import re
-import shlex
 import sqlite3
 import subprocess
 import sys
@@ -84,15 +83,19 @@ def back():
 
 def verify_saved_document():
     """Save the displayed SQLite invoice through Android's real print and file pickers."""
-    def saved_files():
-        return set(adb("shell", "find /sdcard/ -type f -iname '*.pdf'").decode().splitlines())
+    # Read the emulator owner's storage directly: /sdcard is an alias and the
+    # Documents provider can choose its own filename suffix.
+    directory = "/data/media/0/Download"
+    filename = "NASQO-QA-9041.pdf"
+    paths = [directory + "/" + name for name in (filename, filename + ".pdf")]
+    require(not any(subprocess.run(["adb", "shell", "test", "-e", path]).returncode == 0
+                    for path in paths), "Expected a fresh document in emulator Downloads")
 
     fields = json.loads(sql("""SELECT json_object(
         'entryNumber', e.entryNumber, 'documentNumber', e.documentNumber,
         'amount', e.amount, 'item', l.itemName, 'quantity', l.quantity, 'unitPrice', l.unitPrice)
         FROM ledger_entries e JOIN sale_lines l ON l.entryId=e.id
         WHERE e.id='qa-document' AND e.accountId='qa-u' AND l.position=0;"""))
-    before = saved_files()
     tap(exact_button("حفظ المستند PDF عبر Android"))
     spooler = "com.android.printspooler"
     def spooler_control(control):
@@ -104,18 +107,34 @@ def verify_saved_document():
     tap(wait(lambda: next((n for n in nodes() if n.get("package") == spooler and
         label(n).casefold() in ("save as pdf", "حفظ بتنسيق pdf")), None), "Save as PDF destination"))
     tap(spooler_control("print_button"))
-    save_file = wait(lambda: next((n for n in nodes() if n.get("package", "").endswith(".documentsui")
-        and n.get("enabled") == "true" and label(n).casefold() in ("save", "حفظ")), None),
-        "Android file picker save action")
-    tap(save_file)
-    def completed_pdf():
-        files = saved_files() - before
-        if len(files) != 1:
-            return None
-        raw = adb("exec-out", "cat", shlex.quote(next(iter(files))))
-        return raw if raw.startswith(b"%PDF-") and raw.rstrip().endswith(b"%%EOF") else None
+    def picker_control(class_name, resource_name):
+        return wait(lambda: next((n for n in nodes()
+            if n.get("package", "").endswith(".documentsui") and n.get("class") == class_name
+            and n.get("resource-id", "").endswith("/" + resource_name)
+            and n.get("enabled") == "true"), None), "system file picker " + resource_name)
 
-    raw = wait(completed_pdf, "completed PDF in emulator storage", 30)
+    title = picker_control("android.widget.EditText", "title")
+    tap(title)
+    adb("shell", "input", "keycombination", "113", "29")  # Ctrl+A
+    adb("shell", "input", "text", filename)
+    require(picker_control("android.widget.EditText", "title").get("text") == filename,
+            "System picker did not accept the synthetic filename")
+    tap(picker_control("android.widget.Button", "button1"))
+
+    def completed_pdf():
+        for path in paths:
+            if subprocess.run(["adb", "shell", "test", "-s", path]).returncode != 0:
+                continue
+            raw = adb("exec-out", "cat", path)
+            if raw.startswith(b"%PDF-") and raw.rstrip().endswith(b"%%EOF"):
+                return raw
+        return None
+
+    try:
+        raw = wait(completed_pdf, "completed PDF in emulator Downloads", 30)
+    except AssertionError:
+        (OUT / "emulator-downloads.txt").write_bytes(adb("shell", "ls", "-la", directory))
+        raise
     path = OUT / "sqlite-invoice-9041.pdf"
     path.write_bytes(raw)
     extracted = subprocess.check_output(["pdftotext", "-layout", str(path), "-"]).decode()
