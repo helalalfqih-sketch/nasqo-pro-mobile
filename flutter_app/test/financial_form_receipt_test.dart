@@ -99,7 +99,8 @@ void main() {
         rows: rows,
         invoiceDate: date,
         onCommitted: (id) => saleId = id);
-    Future<int> purchase() => c.postPurchaseInvoice(
+    Future<int> purchase({String reference = ''}) => c.postPurchaseInvoice(
+        reference: reference,
         requestId: purchaseKey,
         accountId: 's',
         warehouseId: 'w',
@@ -117,11 +118,17 @@ void main() {
             currency: CurrencyCode.sar,
             cashboxAccountId: box,
             amount: amount);
-    await sale();
+    final pendingSale = sale();
+    await expectLater(sale(), throwsA(isA<SaleValidationException>()));
+    await pendingSale;
     final original = saleId;
-    final purchaseNumber = await purchase();
+    final pendingPurchase = purchase();
+    await expectLater(purchase(), throwsA(isA<SaleValidationException>()));
+    final purchaseNumber = await pendingPurchase;
     final cashBefore = trialBalanceSummary(c, CurrencyCode.sar).cash;
-    final voucherNumber = await voucher();
+    final pendingVoucher = voucher();
+    await expectLater(voucher(), throwsA(isA<SaleValidationException>()));
+    final voucherNumber = await pendingVoucher;
     expect(trialBalanceSummary(c, CurrencyCode.sar).cash, cashBefore + 3.25);
     expect(trialBalanceSummary(c, CurrencyCode.usd).cash, 0);
     expect(c.inventory.single.quantity, 10);
@@ -145,6 +152,7 @@ void main() {
     await sale();
     expect(saleId, original);
     expect(await purchase(), purchaseNumber);
+    await expectLater(purchase(reference: 'changed'), throwsA(isA<SaleValidationException>()));
     expect(await voucher(), voucherNumber);
     expect(trialBalanceSummary(c, CurrencyCode.sar).cash, cashBefore + 3.25);
     await expectLater(sale(tax: true), throwsA(isA<SaleValidationException>()));

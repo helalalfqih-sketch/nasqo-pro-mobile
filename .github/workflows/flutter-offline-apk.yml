@@ -113,7 +113,7 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs" --jq '.jobs[] | select(.name=="offline-apk") | .conclusion' | grep -qx success
           source_sha="$(jq -r '.head_sha' "$RUNNER_TEMP/debug-run.json")"
           git merge-base --is-ancestor "$source_sha" HEAD
-          git diff --exit-code "$source_sha" HEAD -- flutter_app src qa/hybrid_home/build.mjs qa/hybrid_home/metrics.tsx qa/hybrid_home/host.tsx qa/hybrid_home/workspace.ts qa/hybrid_home/DirectoryScreen.tsx qa/hybrid_home/directories.mjs qa/hybrid_home/directory_amounts.ts qa/hybrid_home/android.css package-lock.json
+          git diff --exit-code "$source_sha" HEAD -- flutter_app src qa/hybrid_home/build.mjs qa/hybrid_home/metrics.tsx qa/hybrid_home/host.tsx qa/hybrid_home/workspace.ts qa/hybrid_home/DirectoryScreen.tsx qa/hybrid_home/directories.mjs qa/hybrid_home/document.mjs qa/hybrid_home/DocumentScreen.tsx qa/hybrid_home/directory_amounts.ts qa/hybrid_home/android.css package-lock.json
           echo "HYBRID_APK_SOURCE=$source_sha" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@v4
         if: '!inputs.signed_run'
@@ -194,6 +194,7 @@ jobs:
           node --import tsx --test tests/accounting.test.mjs tests/homeAppearanceSettings.test.ts
           npm run build
           npm run test:sites
+          CHROME_BIN=/usr/bin/google-chrome npx --no-install playwright test --reporter=list --config=qa/hybrid_home/runtime.config.mjs
       - name: Exercise the APK in airplane mode
         uses: reactivecircus/android-emulator-runner@v2
         with:

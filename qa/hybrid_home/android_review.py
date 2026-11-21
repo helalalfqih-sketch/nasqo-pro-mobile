@@ -218,8 +218,18 @@ def record_diag(name):
 def run(baseline,candidate):
     require(os.environ.get("GITHUB_ACTIONS")=="true" and adb("get-serialno").strip().startswith(b"emulator-") and adb("shell","getprop","ro.kernel.qemu").strip()==b"1","Disposable CI emulator required")
     require(PACKAGE.encode() not in adb("shell","pm","list","packages",PACKAGE),"Emulator must start empty")
-    adb("root");adb("wait-for-device")
-    require(adb("shell","id","-u").strip()==b"0","Emulator root required")
+    def fixture_access():
+        # adbd restarts when enabling root. The emulator can briefly disconnect
+        # even after reporting a successful boot.
+        try:
+            probe=subprocess.run(["adb","shell","id","-u"],capture_output=True,timeout=4)
+            if probe.returncode==0 and probe.stdout.strip()==b"0":
+                return True
+            subprocess.run(["adb","root"],capture_output=True,timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+        return False
+    wait(fixture_access,"disposable SQLite fixture access",35)
     adb("shell","wm","size","427x952");adb("shell","wm","density","160")
     adb("shell","settings","put","system","font_scale","1.0")
     adb("shell","cmd","connectivity","airplane-mode","enable");adb("shell","svc","wifi","disable");adb("shell","svc","data","disable")
