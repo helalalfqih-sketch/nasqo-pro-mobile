@@ -1,0 +1,7 @@
+00:00 +0: loading /home/chatgpt-admin/nasqo-parity-table-review/flutter_app/test/supplier_currency_filter_test.dart
+00:00 +0: /home/chatgpt-admin/nasqo-parity-table-review/flutter_app/test/supplier_currency_filter_test.dart: supplier currency filter includes both sides of live period entries
+00:02 +1: loading /home/chatgpt-admin/nasqo-parity-table-review/flutter_app/test/home_account_views_test.dart
+00:03 +1: /home/chatgpt-admin/nasqo-parity-table-review/flutter_app/test/home_account_views_test.dart: statement isolates currency/account and excludes non-posted records
+00:03 +2: /home/chatgpt-admin/nasqo-parity-table-review/flutter_app/test/home_account_views_test.dart: customer list opens statement and cashboxes only use cash flag
+00:04 +3: /home/chatgpt-admin/nasqo-parity-table-review/flutter_app/test/home_account_views_test.dart: missing account is explicit and narrow screen does not overflow
+00:05 +4: All tests passed!

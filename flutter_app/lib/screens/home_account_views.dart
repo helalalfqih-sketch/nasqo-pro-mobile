@@ -89,6 +89,15 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
           final from=switch(_period){'يومي'=>today,'شهري'=>'${today.substring(0,7)}-01','سنوي'=>'${today.substring(0,4)}-01-01',_=>''};
           final periodLedger=from.isEmpty?widget.controller.ledger:widget.controller.ledger.where((e)=>
               e.entryDate.compareTo(from)>=0 && e.entryDate.compareTo(today)<=0).toList();
+          final accountsWithCurrencyEntry = <String>{};
+          if (_byCurrency) {
+            for (final entry in periodLedger) {
+              if (entry.deleted || entry.currency != currency) continue;
+              accountsWithCurrencyEntry.add(entry.accountId);
+              final counterpart = archive?.counterparts[entry.id];
+              if (counterpart != null) accountsWithCurrencyEntry.add(counterpart);
+            }
+          }
           final accounts = widget.controller.accounts
               .where((a) =>
                   (widget.groupId == null || archive?.membership[a.id] == widget.groupId) &&
@@ -96,7 +105,7 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
                       ? a.isCashAccount
                       : widget.category == null ||
                           a.category == widget.category) &&
-                  (!_byCurrency || a.currency==currency) && '${a.name} ${a.codeNumber} ${a.phone}'
+                  (!_byCurrency || a.currency == currency || accountsWithCurrencyEntry.contains(a.id)) && '${a.name} ${a.codeNumber} ${a.phone}'
                       .toLowerCase()
                       .contains(_query.toLowerCase()))
               .toList();
@@ -210,7 +219,7 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
                   DropdownButtonFormField<String>(value:_sort,decoration:const InputDecoration(labelText:'ترتيب الحسابات'),
                     items:[for(final s in ['ترتيب الدليل','الاسم تصاعديًا','الاسم تنازليًا']) DropdownMenuItem(value:s,child:Text(s))],
                     onChanged:(v)=>setState(()=>_sort=v!)),
-                  SwitchListTile(title:const Text('الحسابات المسجلة بالعملة المحددة فقط'),value:_byCurrency,
+                  SwitchListTile(title:const Text('حسابات العملة فقط'),value:_byCurrency,
                     onChanged:(v)=>setState(()=>_byCurrency=v)),
                   if(from.isNotEmpty) Text('من $from إلى $today')
                 ]),
