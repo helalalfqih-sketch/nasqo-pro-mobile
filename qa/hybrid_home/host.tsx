@@ -36,17 +36,21 @@ function Shell({snapshot}) {
     send('editing',{active:editors.current.tiles || editors.current.metrics});
   };
   const directoryOpen = useRef(false);
+  const directoryParent=useRef('');
   const openDirectory = (screen, action='browse', fields={screen}) => {
+    directoryParent.current=overlay==='reports' ? 'reports' : '';
     directoryOpen.current = true;
     setOverlay(screen);
     send(action,fields);
   };
   const close = useCallback(() => {
-    if (directoryOpen.current) {directoryOpen.current=false;send('browse',{screen:'home'});}
-    setOverlay('');
+    const parent=directoryOpen.current ? directoryParent.current : '';
+    if (directoryOpen.current) {directoryOpen.current=false;directoryParent.current='';send('browse',{screen:'home'});}
+    setOverlay(parent);
   }, []);
   const tile = (id: string) => {
     if (id === 'reports') setOverlay('reports');
+    else if (id==='trial-balance') openDirectory('trial');
     else if (id==='warehouses' || id==='accounts' || id==='statement') {
       openDirectory({warehouses:'warehouses',accounts:'chart',statement:'picker'}[id]);
     } else send('tile', {id});

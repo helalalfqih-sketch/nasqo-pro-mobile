@@ -1,4 +1,85 @@
 {
+  "trial": {
+    "screen": "trial",
+    "currency": "ريال",
+    "from": "",
+    "through": "",
+    "reports": [
+      {
+        "currency": "ريال",
+        "totalDebitAccounts": 80.0,
+        "totalCreditAccounts": 1250.5,
+        "cashTotal": 0.0,
+        "netBalance": -1170.5,
+        "resultLabel": "عجز",
+        "liquidityRatioPercent": 0.0,
+        "salesTotal": 0.0,
+        "purchasesTotal": 0.0,
+        "inventoryValue": 0.0,
+        "netProfit": 0.0
+      }
+    ]
+  },
+  "trialAll": {
+    "screen": "trial",
+    "currency": "الكل",
+    "from": "",
+    "through": "",
+    "reports": [
+      {
+        "currency": "ريال",
+        "totalDebitAccounts": 80.0,
+        "totalCreditAccounts": 1250.5,
+        "cashTotal": 0.0,
+        "netBalance": -1170.5,
+        "resultLabel": "عجز",
+        "liquidityRatioPercent": 0.0,
+        "salesTotal": 0.0,
+        "purchasesTotal": 0.0,
+        "inventoryValue": 0.0,
+        "netProfit": 0.0
+      },
+      {
+        "currency": "دولار",
+        "totalDebitAccounts": 25.0,
+        "totalCreditAccounts": 0.0,
+        "cashTotal": 0.0,
+        "netBalance": 25.0,
+        "resultLabel": "فائض",
+        "liquidityRatioPercent": 0.0,
+        "salesTotal": 0.0,
+        "purchasesTotal": 0.0,
+        "inventoryValue": 0.0,
+        "netProfit": 0.0
+      },
+      {
+        "currency": "يورو",
+        "totalDebitAccounts": 0.0,
+        "totalCreditAccounts": 0.0,
+        "cashTotal": 0.0,
+        "netBalance": 0.0,
+        "resultLabel": "متزن",
+        "liquidityRatioPercent": 0.0,
+        "salesTotal": 0.0,
+        "purchasesTotal": 0.0,
+        "inventoryValue": 0.0,
+        "netProfit": 0.0
+      },
+      {
+        "currency": "عملة 2",
+        "totalDebitAccounts": 0.0,
+        "totalCreditAccounts": 0.0,
+        "cashTotal": 0.0,
+        "netBalance": 0.0,
+        "resultLabel": "متزن",
+        "liquidityRatioPercent": 0.0,
+        "salesTotal": 0.0,
+        "purchasesTotal": 0.0,
+        "inventoryValue": 0.0,
+        "netProfit": 0.0
+      }
+    ]
+  },
   "picker": {
     "screen": "picker",
     "group": null,

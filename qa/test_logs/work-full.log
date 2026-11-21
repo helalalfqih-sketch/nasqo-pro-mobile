@@ -1,0 +1,485 @@
+00:00 +0: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_draft_storage_test.dart
+00:00 +0: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_draft_storage_test.dart: v6 upgrade only adds a draft table and preserves other records
+00:00 +1: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_draft_storage_test.dart: stable create/edit/reopen preserves precision with zero effects outside draft table
+00:00 +2: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_draft_storage_test.dart: atomic failure and stale revisions cannot modify draft or financial tables
+00:00 +3: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_draft_storage_test.dart: reject same, unknown, noncash and differing currency; revalidate saved accounts
+00:00 +4: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_draft_storage_test.dart: invalid dates/amounts/ids reject before persistence
+00:00 +5: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_draft_storage_test.dart: schema repeat and clear helper affect only drafts; IDs not reused
+00:00 +6: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_workspace_test.dart
+00:08 +6: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_workspace_test.dart: home receipt and payment lead to separate nonposting lists
+00:11 +7: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_draft_storage_test.dart
+00:11 +7: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_draft_storage_test.dart: v7 upgrade only adds a draft table and preserves other records
+00:12 +8: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_draft_storage_test.dart: stable create/edit/reopen preserves precision with zero effects outside draft table
+00:12 +9: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_draft_storage_test.dart: atomic failure and stale revisions cannot modify draft or financial tables
+00:12 +10: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_draft_storage_test.dart: reject same, unknown and differing currency; revalidate saved accounts
+00:12 +11: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_draft_storage_test.dart: invalid dates/amounts/ids reject before persistence
+00:12 +12: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_draft_storage_test.dart: schema repeat and clear helper affect only drafts; IDs not reused
+00:12 +13: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_tax_register_workspace_test.dart
+00:13 +13: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_tax_register_workspace_test.dart: local finance opens a separate read-only recorded-tax register
+00:16 +14: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/backup_arabic_golden_test.dart
+00:18 +14: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/backup_arabic_golden_test.dart: (setUpAll)
+00:18 +14: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/backup_arabic_golden_test.dart: Arabic recovery at 320dp with larger type in dark
+00:20 +15: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/backup_arabic_golden_test.dart: Arabic recovery at 320dp with larger type in light
+00:20 +16: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/backup_arabic_golden_test.dart: (tearDownAll)
+00:20 +16: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_tax_register_view_test.dart
+00:21 +16: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_tax_register_view_test.dart: stored tax and unknown records shown separately by currency, readonly RTL
+00:23 +17: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_tax_register_view_test.dart: optional dates forwarded inclusively after applying
+00:24 +18: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_tax_register_view_test.dart: invalid and reversed dates do not request register
+00:24 +19: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_tax_register_view_test.dart: error retry loads empty result without exposing exception
+00:24 +20: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_tax_register_view_test.dart: unknown-only and invalid headers not misrepresented as empty
+00:25 +21: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/original_sale_facts_workspace_test.dart
+00:26 +21: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/original_sale_facts_workspace_test.dart: stock movement links original sale number to a read-only view
+00:27 +22: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/nonposting_workspace_integration_test.dart
+00:28 +22: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/nonposting_workspace_integration_test.dart: home and drawer distinguish direct drafts from document lists
+00:32 +23: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/offline_posting_test.dart
+00:33 +23: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/offline_posting_test.dart: website JSON imports supported currency quotes without aliasing unknown codes
+00:33 +24: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/offline_posting_test.dart: catalog, imported accounts, message settings and purchases survive a cold reopen
+00:34 +25: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/offline_posting_test.dart: stock, vouchers and exchanges survive closing and reopening SQLite
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:35 +26: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_files_test.dart
+00:36 +26: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_files_test.dart: app-private file roundtrip, invalid path rejection and source unchanged
+00:36 +27: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_views_test.dart
+00:38 +27: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_views_test.dart: failed draft list reload can retry without writes
+00:39 +28: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_views_test.dart: partial draft uses stable positions and awaits save without duplicates
+00:40 +29: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_views_test.dart: cancel and Back never save; ineligible sources are excluded
+00:41 +30: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_views_test.dart: edit retains revision/source and failed save retains quantities
+00:41 +31: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_views_test.dart: zero/excess quantities never save and layout fits narrow RTL
+00:42 +32: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_estimate_test.dart
+00:42 +32: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_estimate_test.dart: partial uses exact stored tax share; full preserves exact facts
+00:42 +33: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_estimate_test.dart: partial rounded allocation and source inputs unchanged
+00:42 +34: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_estimate_test.dart: missing facts and invalid links never fabricate estimate
+00:42 +35: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_estimate_test.dart: duplicates, ceilings, stale price/source quantity/identity and NaN reject
+00:42 +36: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_estimate_test.dart: zero base requires zero tax; free partial stays zero
+00:42 +37: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_estimate_test.dart: same item different positions remains distinct; full includes free lines
+00:42 +38: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_estimate_test.dart: mismatched original base, disabled-tax inconsistency or missing positions reject
+00:42 +39: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/site_navigation_test.dart
+00:43 +39: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/site_navigation_test.dart: group editor and appearance preview save only after confirmation
+00:46 +40: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/site_navigation_test.dart: offline reports reconcile synthetic categories, free invoices and dated stock
+00:47 +41: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/site_navigation_test.dart: home quick actions resolve a stock code and receive its quantity
+00:48 +42: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/site_navigation_test.dart: reports open the inventory and back returns to the report menu
+00:48 +43: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/invoice_pdf_preview_view_test.dart
+00:50 +43: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/invoice_pdf_preview_view_test.dart: preview never auto prints and double tap uses exact same PDF once
+00:51 +44: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/invoice_pdf_preview_view_test.dart: unavailable invoice never offers a send action; retry is available
+00:51 +45: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_manifest_test.dart
+00:52 +45: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_manifest_test.dart: accepts a valid signed APK release manifest
+00:52 +46: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_manifest_test.dart: rejects disabled update channels
+00:52 +47: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_manifest_test.dart: rejects non-HTTPS and foreign download origins
+00:52 +48: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_manifest_test.dart: rejects malformed digest, version and APK size
+00:52 +49: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_account_views_test.dart
+00:53 +49: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_account_views_test.dart: statement isolates currency/account and excludes non-posted records
+00:53 +50: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_account_views_test.dart: customer list opens statement and cashboxes only use cash flag
+00:55 +51: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_account_views_test.dart: missing account is explicit and narrow screen does not overflow
+00:55 +52: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_summary_views_test.dart
+00:56 +52: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_summary_views_test.dart: sales are isolated by currency and exclude purchases returns drafts unknown deleted
+00:56 +53: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_summary_views_test.dart: currency directory shows counts and commits only valid confirmed quote edits
+00:58 +54: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_summary_views_test.dart: sales dashboard labels limited local scope and never totals mixed currencies
+00:58 +55: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_workspace_view_test.dart
+00:59 +55: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_workspace_view_test.dart: read only on open, distinct explicit verify and isolated restore
+01:00 +56: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_workspace_view_test.dart: await create prevents duplicate actions and Back
+01:00 +57: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_workspace_view_test.dart: list failure can retry without creation
+01:00 +58: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_workspace_view_test.dart: failed isolated test keeps file, permits retry and narrow RTL
+01:01 +59: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_workspace_test.dart
+01:01 +59: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_workspace_test.dart: home offers purchase returns and opens sales drafts without posting
+01:04 +60: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/invoice_mode_navigation_test.dart
+01:05 +60: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/invoice_mode_navigation_test.dart: switching invoice modes preserves the typed drafts and posts only the visible free purchase
+01:08 +61: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_route_test.dart
+01:09 +61: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_route_test.dart: options opens backup workspace in read-only list state
+01:11 +62: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/document_cancel_test.dart
+01:12 +62: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/document_cancel_test.dart: cancel discards populated draft without writes
+01:14 +63: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/document_cancel_test.dart: close discards populated draft without writes
+01:15 +64: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/document_cancel_test.dart: navigator discards populated draft without writes
+01:16 +65: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/document_cancel_test.dart: system discards populated draft without writes
+01:16 +66: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/document_cancel_test.dart: nested system Back closes picker first; picker cannot add accounts
+01:17 +67: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/document_cancel_test.dart: empty data opens safely, disables save, and permits cancel
+01:17 +68: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/document_cancel_test.dart: explicit save invokes the persistence entry point exactly once
+01:17 +69: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_commit_storage_test.dart
+01:18 +69: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_commit_storage_test.dart: sales commit rolls back sale_lines failure, retry once survives reopen
+01:19 +70: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_commit_storage_test.dart: sales commit rolls back ledger_entries failure, retry once survives reopen
+01:19 +71: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_commit_storage_test.dart: sales commit rolls back sale_line_cost_facts failure, retry once survives reopen
+01:19 +72: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/supplier_currency_filter_test.dart
+01:20 +72: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/supplier_currency_filter_test.dart: supplier currency filter includes both sides of live period entries
+01:22 +73: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_storage_test.dart
+01:23 +73: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_storage_test.dart: v3 migration preserves financial rows; locked source values and stable edit
+01:23 +74: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_storage_test.dart: membership, duplicate position, ceiling and nonfinite rejection
+01:23 +75: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_storage_test.dart: reject deleted, untyped, non-sale and legacy without saved lines
+01:23 +76: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_storage_test.dart: line insert failure rolls draft edit back and never posts
+01:23 +77: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/parity_balance_style_test.dart
+01:24 +77: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/parity_balance_style_test.dart: restored balances follow CSS sign and color (dark=false)
+01:25 +78: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/parity_balance_style_test.dart: restored balances follow CSS sign and color (dark=true)
+01:25 +79: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_estimate_view_test.dart
+01:26 +79: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_estimate_view_test.dart: saved partial estimate from list is read only and back leaves list unchanged
+01:27 +80: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_estimate_view_test.dart: full estimate uses stored original totals on narrow RTL layout
+01:27 +81: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_estimate_view_test.dart: legacy missing facts do not become zero tax
+01:27 +82: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_return_estimate_view_test.dart: read failure retries; mismatched original positions never produce estimate
+01:28 +83: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_workspace_test.dart
+01:28 +83: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_workspace_test.dart: home routes to nonposting balanced simple journal drafts
+01:30 +84: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/workspace_navigation_test.dart
+01:32 +84: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/workspace_navigation_test.dart: existing ERP modules open from the drawer and return by Back
+01:40 +85: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/workspace_navigation_test.dart: RTL home scrolls and platform Back closes the drawer first
+01:41 +86: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/workspace_navigation_test.dart: settings can scroll vertically and Back returns to the home route
+01:42 +87: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/workspace_navigation_test.dart: home-inventory: RTL table drag reaches final column without moving page
+01:43 +88: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/workspace_navigation_test.dart: home-stock-movement: RTL table drag reaches final column without moving page
+01:43 +89: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_test.dart
+01:44 +89: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_test.dart: manifest rejects untrusted download locations and invalid checksums
+01:44 +90: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_test.dart: verified downloads and rejected or interrupted transfers preserve SQLite on reopen
+01:44 +91: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_test.dart: checks on open, waits for consent, and checks again from the toolbar
+01:45 +92: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_test.dart: a download accepted from the startup prompt reports failures
+01:46 +93: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_resume_test.dart
+01:46 +93: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_resume_test.dart: interrupted HTTP response then partial
+01:47 +94: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_resume_test.dart: interrupted HTTP response then full
+01:47 +95: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_resume_test.dart: interrupted HTTP response then wrong-range
+01:47 +96: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/dev_update_resume_test.dart: interrupted HTTP response then tampered
+01:47 +97: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_csv_export_view_test.dart
+01:48 +97: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_csv_export_view_test.dart: no entry export; preview then cancelled/saved destination distinction
+01:49 +98: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_csv_export_view_test.dart: await save guards duplicate taps and Back; error retains preview
+01:49 +99: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_csv_export_view_test.dart: Arabic date filter and edits invalidate stale preview; no empty export
+01:50 +100: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_csv_export_view_test.dart: read errors and invalid dates do not invent rows; narrow RTL
+01:50 +101: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_conversion_test.dart
+01:51 +101: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_conversion_test.dart: SQLite source values survive a mobile cold reopen in isolation
+01:51 +102: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_conversion_test.dart: all seven currency orphans are identifiable without guessing
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+01:52 +103: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_conversion_test.dart: explicit cash account and historical warehouse transfers survive staging
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+01:52 +104: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_conversion_test.dart: truncated SQLite cannot pass inspection or conversion
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+01:52 +105: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_conversion_test.dart: website nested transfer lines match flat export and reject missing items
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+01:52 +106: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_conversion_test.dart: unmapped financial fields cannot pass the website recovery trial
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+01:52 +107: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_conversion_test.dart: blocks missing product
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+01:52 +108: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_conversion_test.dart: blocks invalid date
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+01:52 +109: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_conversion_test.dart: blocks duplicate account
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+01:52 +110: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_conversion_test.dart: blocks unreconciled invoice
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+01:52 +111: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_conversion_test.dart: blocks unverified stock
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+01:52 +112: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_conversion_test.dart: blocks unknown financial column
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+01:52 +113: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_conversion_test.dart: blocks unsupported nonempty transfer table
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+01:52 +114: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/nonposting_document_views_test.dart
+01:53 +114: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/nonposting_document_views_test.dart: createOnOpen, Arabic input, commit awaited and duplicate taps blocked
+01:58 +115: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/nonposting_document_views_test.dart: cancel and system back never write
+01:59 +116: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/nonposting_document_views_test.dart: save failure stays in editor with values and explicit error
+02:00 +117: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/nonposting_document_views_test.dart: edit preserves id/revision, details update and list reloads
+02:01 +118: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/nonposting_document_views_test.dart: invalid date and quantity do not save; responsive RTL
+02:03 +119: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/hybrid_home_test.dart
+02:05 +119: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/hybrid_home_test.dart: bridge accepts only local view events and existing destinations
+02:05 +120: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/hybrid_home_test.dart: restored balances and UI preferences survive cold SQLite reopen without business writes
+02:05 +121: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_invoice_pdf_test.dart
+02:06 +121: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_invoice_pdf_test.dart: (setUpAll)
+02:07 +121: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_invoice_pdf_test.dart: multipage raster PDF has both previews and offsets to real objects
+02:07 +122: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_invoice_pdf_test.dart: legacy invoice with no recorded lines or tax remains printable
+02:07 +123: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_invoice_pdf_test.dart: (tearDownAll)
+02:08 +123: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/exchange_account_flow_test.dart
+02:09 +123: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/exchange_account_flow_test.dart: exchange can find an account by its Arabic code, create one and keep the entered amount
+02:13 +124: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/trial_balance_summary_test.dart
+02:15 +124: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/trial_balance_summary_test.dart: trial filters include boundary dates, exclude drafts and keep inventory in base currency
+02:15 +125: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_db_startup_view_test.dart
+02:16 +125: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_db_startup_view_test.dart: null diagnostic is loading and never retries automatically
+02:17 +126: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_db_startup_view_test.dart: retry awaits and blocks repeats before returning failure state
+02:18 +127: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_db_startup_view_test.dart: unknown errors sanitized and known codes described in RTL narrow screen
+02:18 +128: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_db_startup_view_test.dart: parent transitions from failure to loading after retry
+02:18 +129: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_draft_storage_test.dart
+02:20 +129: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_draft_storage_test.dart: v5 upgrade creates only the voucher table and preserves financial state
+02:20 +130: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_draft_storage_test.dart: create/read/edit preserve exact amount and all financial records; reopen
+02:20 +131: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_draft_storage_test.dart: stale/cross-type updates rejected and failed SQL update stays atomic
+02:20 +132: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_draft_storage_test.dart: reject nonexistent, same, noncash cash account, cash party and FX
+02:21 +133: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_draft_storage_test.dart: date and positive finite amount checks, no rounding or invented defaults
+02:21 +134: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_draft_storage_test.dart: schema additive and clear helper only removes drafts
+02:21 +135: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_register_workspace_test.dart
+02:22 +135: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_register_workspace_test.dart: main drawer opens the read-only sales register
+02:26 +136: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_lookup_views_test.dart
+02:27 +136: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_lookup_views_test.dart: search normalizes Arabic names and digits, hides deleted
+02:29 +137: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_lookup_views_test.dart: read-only detail opens and closes without changing records
+02:30 +138: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_lookup_views_test.dart: day filters date and deleted but labels quote nonfinancial
+02:31 +139: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_lookup_views_test.dart: empty day and no search match are explicit and narrow layout safe
+02:31 +140: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_workspace_test.dart
+02:32 +140: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_workspace_test.dart: home opens a nonposting internal cash-transfer workspace
+02:37 +141: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_draft_views_test.dart
+02:40 +141: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_draft_views_test.dart: create awaits commit, localized inputs and duplicate/back blocked
+02:43 +142: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_draft_views_test.dart: cancel and back never write
+02:45 +143: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_draft_views_test.dart: edit save failure retains draft, successful retry uses same id/revision
+02:45 +144: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_draft_views_test.dart: currency switch clears incompatible choices; narrow RTL validation
+02:46 +145: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/cash_transfer_draft_views_test.dart: list read error retries without writes
+02:46 +146: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_balance_groups_test.dart
+02:47 +146: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_balance_groups_test.dart: six stable category buckets, empty neutral, immutable output
+02:47 +147: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_balance_groups_test.dart: opening and opposite directions preserve web debit minus credit
+02:47 +148: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_balance_groups_test.dart: deleted, quote, order and unknown account have no financial effect
+02:47 +149: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_balance_groups_test.dart: filter entry currency independently from account; do not convert rates
+02:47 +150: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_balance_groups_test.dart: group balance does not apply account-summary cash washing
+02:47 +151: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_balance_groups_test.dart: category isolation and unique account counts; no input mutation
+02:47 +152: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_balance_groups_test.dart: display tolerance does not erase unrounded value; negative opening ignored
+02:47 +153: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_balance_panel_test.dart
+02:48 +153: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_balance_panel_test.dart: home balance shows per-currency amounts and opens member detail
+02:51 +154: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_balance_panel_test.dart: restored group name and balance open only its own accounts
+02:52 +155: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_balance_panel_test.dart: RTL balances fit width 320.0 at 130% text
+02:52 +156: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_balance_panel_test.dart: RTL balances fit width 900.0 at 130% text
+02:52 +157: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_balance_panel_test.dart: returning from the selected group keeps its scroll offset and currency
+02:55 +158: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/accounting_engine_test.dart
+02:57 +158: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/accounting_engine_test.dart: parses Arabic-Indic digits and formats amounts
+02:57 +159: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/accounting_engine_test.dart: weighted average cost updates accurately
+02:57 +160: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/accounting_engine_test.dart: submitting sales invoice updates ledger and deducts inventory
+02:57 +161: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_draft_views_test.dart
+03:00 +161: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_draft_views_test.dart: create awaits commit, localized inputs and duplicate/back blocked
+03:05 +162: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_draft_views_test.dart: cancel and back never write
+03:07 +163: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_draft_views_test.dart: edit save failure retains draft, successful retry uses same id/revision
+03:10 +164: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_draft_views_test.dart: currency switch clears incompatible choices; narrow RTL validation
+03:13 +165: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_draft_views_test.dart: list read error retries without writes
+03:13 +166: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/voucher_draft_views_test.dart: payment draft remains nonposting and preserves selected type
+03:15 +167: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/original_sale_facts_view_test.dart
+03:17 +167: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/original_sale_facts_view_test.dart: shows original values without rounding or tax recomputation and distinct unknown cost
+03:20 +168: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/original_sale_facts_view_test.dart: legacy absent facts explicitly unknown with no zero substitute
+03:20 +169: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/original_sale_facts_view_test.dart: loading and failure are explicit and retry reads again
+03:21 +170: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/original_sale_facts_view_test.dart: wrong-entry facts are not presented as requested original
+03:21 +171: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_parity_flows_test.dart
+03:23 +171: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_parity_flows_test.dart: inferExpenseCategory classifies Arabic voucher descriptions accurately
+03:23 +172: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_parity_flows_test.dart: transferWarehouseStock isolates same-name different-SKU items and persists across SQLite reopen
+03:24 +173: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_parity_flows_test.dart: computeSupplierMetrics uses dated deliveries, prioritizes explicit receipt id over duplicate doc numbers, and excludes opening balances and vouchers
+03:24 +174: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_parity_flows_test.dart: local entry supports smart expense category and account swap with balance strips
+03:26 +175: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_parity_flows_test.dart: landscape invoice preview shows recorded amount for entry 1140 without synthetic 3000 or 1500 lines
+03:27 +176: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_parity_flows_test.dart: settings default currency and inventory action buttons work without layout errors
+03:27 +177: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_parity_flows_test.dart: analytics charts show unavailable delivery when undated and auxiliary modals work
+03:28 +178: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_parity_flows_test.dart: roles and permissions persist across SQLite close and reopen
+03:28 +179: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_parity_flows_test.dart: mobile roles and permissions screen supports 11 CRUD modules and 18 actions
+03:31 +180: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_tax_register_storage_test.dart
+03:32 +180: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_tax_register_storage_test.dart: observed currencies separate; stored .06 exact and no FX or database writes
+03:33 +181: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_tax_register_storage_test.dart: range inclusive both ends; one-sided allowed and malformed bounds reject
+03:33 +182: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_tax_register_storage_test.dart: native missing and mismatched facts unknown; non-native excluded entirely
+03:33 +183: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_tax_register_storage_test.dart: inconsistent lines/amounts are unknown; malformed headers diagnostic
+03:34 +184: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_tax_register_storage_test.dart: empty read stays empty and zero-rate known distinct from missing
+03:34 +185: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sqlite_invoice_cancel_test.dart
+03:36 +185: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sqlite_invoice_cancel_test.dart: SQLite v1 migrates additively without inventing legacy sale lines
+03:36 +186: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sqlite_invoice_cancel_test.dart: draft cancel and platform back perform zero SQLite writes
+03:52 +187: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_storage_test.dart
+03:53 +187: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_storage_test.dart: v8 upgrade adds FX drafts without modifying financial records
+03:53 +188: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_storage_test.dart: both manual amounts exact, stable edit/reopen, no impact outside draft
+03:53 +189: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_storage_test.dart: failed update atomic; stale revision rejected
+03:53 +190: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_storage_test.dart: distinct accounts and currencies, matching cash flags and denominations
+03:53 +191: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_storage_test.dart: each amount independently positive finite, valid dates and revision
+03:53 +192: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_storage_test.dart: schema idempotent and clear only drafts; identifiers never reused
+03:54 +193: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_sales_csv_test.dart
+03:54 +193: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_sales_csv_test.dart: Excel UTF8 BOM CRLF, Arabic embedded newlines commas quotes, raw amount
+03:54 +194: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_sales_csv_test.dart: formula sigils hidden by whitespace/control/bidi/BOM are neutralized
+03:54 +195: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_sales_csv_test.dart: inclusive dates and currency, excludes nonnative/deleted/purchase/return; no mutate
+03:54 +196: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_sales_csv_test.dart: all currencies remain individual labeled rows with no FX or combined total
+03:54 +197: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_sales_csv_test.dart: malformed date/filter or invalid eligible amount reject; zero is retained
+03:54 +198: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_sales_csv_test.dart: empty export is headers only, bounds fail rather than truncate
+03:55 +199: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_views_test.dart
+03:56 +199: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_views_test.dart: manual independent localized amounts await commit and prevent duplicate/back
+03:59 +200: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_views_test.dart: cancel/back no writes; same-currency and noncash destinations excluded
+03:59 +201: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_views_test.dart: edit failure keeps amounts and retry preserves id/revision
+04:00 +202: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_views_test.dart: zero destination is invalid and never inferred; narrow RTL
+04:00 +203: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_views_test.dart: no viable cross-currency pair never writes and gives explicit notice
+04:01 +204: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_views_test.dart: failed list loading retries without persistence
+04:01 +205: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/database_startup_protection_test.dart
+04:02 +205: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/database_startup_protection_test.dart: empty accounts with existing ledger must not seed or overwrite
+04:02 +206: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/database_startup_protection_test.dart: empty accounts with existing inventory must not seed or overwrite
+04:02 +207: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/database_startup_protection_test.dart: empty accounts with existing settings must not seed or overwrite
+04:02 +208: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/database_startup_protection_test.dart: empty accounts with existing draft must not seed or overwrite
+04:02 +209: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/database_startup_protection_test.dart: malformed settings fails closed without overwriting existing rows
+04:02 +210: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/database_startup_protection_test.dart: database read failure cannot trigger destructive fallback or reseed
+04:02 +211: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/database_startup_protection_test.dart: v6 to v9 additive migration preserves existing rows exactly
+04:02 +212: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_backup_inspection_test.dart
+04:03 +212: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_backup_inspection_test.dart: legacy backup is inspected in isolation without changing source
+04:04 +213: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_backup_inspection_test.dart: v28 reports missing currency IDs and preserves source rate evidence
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+04:04 +214: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_backup_inspection_test.dart: non-SQLite input does not trigger legacy conversion
+04:04 +215: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/draft_amount_text_test.dart
+04:05 +215: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/draft_amount_text_test.dart: decimal draft editing does not round or lose existing small amounts
+04:05 +216: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_workspace_test.dart
+04:06 +216: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/fx_draft_workspace_test.dart: home tiles are navigable and FX is nonposting
+04:09 +217: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_warehouse_view_test.dart
+04:11 +217: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_warehouse_view_test.dart: lists local warehouses and counts item records, not quantities
+04:12 +218: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_warehouse_view_test.dart: opens existing inventory and movement screens scoped by ID without mutation
+04:13 +219: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_warehouse_view_test.dart: empty directory is explicit and read only
+04:13 +220: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_service_test.dart
+04:14 +220: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_service_test.dart: canonical roundtrip includes exact sequences/settings, disposable scratch, live unchanged
+04:15 +221: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_service_test.dart: malformed, tampered, incompatible and unexpected table rejected without live changes
+04:15 +222: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_service_test.dart: bound values preserve SQL-looking text; relational failure rolls isolated restore back
+04:15 +223: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_service_test.dart: size limit and private QA symlink guard fail closed
+04:16 +224: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_service_test.dart: oversized source is refused before row loading
+04:16 +225: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/local_backup_service_test.dart: unknown custom schema is deliberately unsupported
+04:16 +226: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_sales_register_view_test.dart
+04:17 +226: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_sales_register_view_test.dart: register filters active known sales and searches documents and customers
+04:18 +227: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_sales_register_view_test.dart: saved lines keep stable positions and do not mutate state
+04:18 +228: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_sales_register_view_test.dart: legacy missing lines explicitly remain unknown
+04:18 +229: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_sales_register_view_test.dart: no matching sales has honest empty state
+04:19 +230: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_backup_restore_test.dart
+04:19 +230: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_backup_restore_test.dart: reads a gzip-wrapped unified SQLite backup without touching the live database
+04:20 +231: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_backup_restore_test.dart: rejects duplicate ids and unsupported versions
+04:20 +232: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_backup_restore_test.dart: restores mobile records and retains the complete web export atomically
+04:20 +233: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/web_backup_restore_test.dart: web invoice, balance and stock survive a cold reopen
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+04:20 +234: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_directory_views_test.dart
+04:21 +234: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_directory_views_test.dart: directory exposes metadata and searches by name and Arabic code digits
+04:22 +235: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_directory_views_test.dart: directory opens real statement without changing state
+04:23 +236: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_directory_views_test.dart: trash exposes only deleted records and cancellation leaves ledger unchanged
+04:23 +237: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/home_directory_views_test.dart: empty local collections have explicit empty states
+04:23 +238: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_draft_views_test.dart
+04:24 +238: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_draft_views_test.dart: create awaits commit, localized inputs and duplicate/back blocked
+04:26 +239: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_draft_views_test.dart: cancel and back never write
+04:27 +240: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_draft_views_test.dart: edit save failure retains draft, successful retry uses same id/revision
+04:28 +241: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_draft_views_test.dart: currency switch clears incompatible choices; narrow RTL validation
+04:29 +242: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_draft_views_test.dart: list read error retries without writes
+04:29 +243: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/simple_journal_draft_views_test.dart: zero amount is not a balanced valid draft and never saves
+04:29 +244: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_csv_route_test.dart
+04:30 +244: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_csv_route_test.dart: sales register opens preview-only export and returns without mutating ledger
+04:34 +245: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_facts_storage_test.dart
+04:35 +245: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_facts_storage_test.dart: v4 migration preserves legacy and leaves facts unknown
+04:35 +246: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_facts_storage_test.dart: append committed facts, ordinary snapshot preserves, duplicate rejects, reopen
+04:35 +247: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_facts_storage_test.dart: invalid linkage, positions, totals and disabled tax roll back snapshot
+04:35 +248: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sale_facts_storage_test.dart: cost insert failure atomically rolls financial snapshot and facts back
+04:35 +249: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_website_backup_detection_test.dart
+04:36 +249: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_website_backup_detection_test.dart: recognizes legacy trans_details layout without changing source
+04:36 +250: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/legacy_website_backup_detection_test.dart: recognizes legacy input_move layout without changing source
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+04:36 +251: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/invoice_modes_test.dart
+04:37 +251: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/invoice_modes_test.dart: item invoice rounds each net line like the website, including lines without a discount
+04:38 +252: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/invoice_modes_test.dart: free sale and refund record tax without touching inventory; discounted sale refunds net value
+04:38 +253: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/invoice_modes_test.dart: split returns allocate the original net and VAT down to the last cent
+04:38 +254: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/invoice_modes_test.dart: partial cash purchase return uses discounted cost and rejects duplicate and excess after reopen
+04:38 +255: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/invoice_modes_test.dart: partial credit purchase return uses discounted cost and rejects duplicate and excess after reopen
+04:38 +256: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/android_csv_writer_test.dart
+04:39 +256: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/android_csv_writer_test.dart: calls file chooser once with the exact prepared bytes and reports cancel
+04:39 +257: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/android_csv_writer_test.dart: rejects invalid suggestions without calling Android
+04:39 +258: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/nonposting_storage_test.dart
+04:40 +258: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/nonposting_storage_test.dart: save/read/edit commits stable IDs and isolates type with no financial writes
+04:40 +259: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/nonposting_storage_test.dart: failed line insert rolls header and lines back atomically
+04:40 +260: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/nonposting_storage_test.dart: v2 migration additive, snapshot and clear semantics independent
+04:40 +261: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/nonposting_storage_test.dart: invalid input rejected without creating a document
+04:41 +262: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_stock_guard_test.dart
+04:41 +262: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_stock_guard_test.dart: combined duplicate demand rejects whole sale without ledger or stock change
+04:41 +263: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_stock_guard_test.dart: a warehouse mismatch rejects whole sale
+04:41 +264: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_stock_guard_test.dart: non-finite, negative, zero quantity and empty invoices reject before mutation
+04:41 +265: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_stock_guard_test.dart: exact stock boundary accepts and never makes stock negative
+04:41 +266: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_commit_ui_test.dart
+04:42 +266: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_commit_ui_test.dart: invoice awaits commit, blocks duplicate/back, failure retains draft and retry closes
+04:44 +267: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_commit_ui_test.dart: POS waits, keeps cart on failure and clears only after commit
+04:45 +268: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_commit_interleaving_test.dart
+04:46 +268: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_commit_interleaving_test.dart: partial cash returns reverse the account, stock and tax once and reject surplus
+04:46 +269: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_commit_interleaving_test.dart: partial credit returns reverse the account, stock and tax once and reject surplus
+04:46 +270: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_commit_interleaving_test.dart: pending SQLite commit blocks another writer and changes neither stock nor ledger yet
+04:47 +271: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_commit_interleaving_test.dart: older queued snapshot cannot overwrite a later committed sale
+04:47 +272: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/sales_commit_interleaving_test.dart: failed startup cannot post or initialize a synthetic sale behind the user
+04:47 +273: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/android_invoice_pdf_printer_test.dart
+04:47 +273: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/android_invoice_pdf_printer_test.dart: explicit call forwards generated PDF once; success only acknowledges dialog
+04:47 +274: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/android_invoice_pdf_printer_test.dart: empty invalid and oversized inputs never invoke native channel
+04:47 +275: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/android_invoice_pdf_printer_test.dart: native refusal and missing dialog acknowledgement are not success
+04:47 +276: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/android_invoice_pdf_printer_test.dart: unsupported platform propagates missing plugin rather than fake success
+04:48 +277: All tests passed!

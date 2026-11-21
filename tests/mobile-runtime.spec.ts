@@ -97,136 +97,62 @@ test("BottomSheet remains mounted while its default exit animation plays", async
   await expect(page.getByTestId("bottom-sheet")).toHaveCount(0);
 });
 
-test("keyboard and its attached footer dismiss on the same transition", async ({ page }) => {
+test("the native composer follows the available viewport while keeping its draft", async ({ page }) => {
   await page.goto("/tests/runtime-fixture.html?fixture=keyboard");
   const input = page.getByLabel("Message");
   const footer = page.getByTestId("flow-fixed-footer");
-  const keyboard = page.getByTestId("keyboard-dock");
+  await input.fill("رسالة تجريبية");
+  await expect(input).toBeFocused();
 
-  await input.click();
-  await expect(keyboard).toHaveAttribute("data-visible", "true");
-  await drag(page, footer, 0, 120, 5);
-  await expect(keyboard).toHaveAttribute("data-visible", "false");
+  for (const height of [740, 430, 740]) {
+    await page.setViewportSize({ width: 393, height });
+    await expect.poll(() => footer.evaluate((el) =>
+      Math.abs(el.getBoundingClientRect().bottom - window.innerHeight),
+    )).toBeLessThanOrEqual(1);
+    await expect(input).toBeInViewport();
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue("رسالة تجريبية");
+    await expect(page.getByTestId("keyboard-dock")).toHaveCount(0);
+  }
 
-  await page.waitForTimeout(100);
-  const progress = await page.evaluate(() => {
-    const footerElement = document.querySelector<HTMLElement>('[data-testid="flow-fixed-footer"]')!;
-    const keyboardElement = document.querySelector<HTMLElement>('[data-testid="keyboard-dock"]')!;
-    const fullHeight = Number.parseFloat(keyboardElement.style.height);
-    const footerRemaining = Number.parseFloat(getComputedStyle(footerElement).bottom);
-    const matrix = new DOMMatrixReadOnly(getComputedStyle(keyboardElement).transform);
-    return {
-      footer: footerRemaining / fullHeight,
-      keyboard: 1 - matrix.m42 / fullHeight,
-    };
-  });
-  expect(Math.abs(progress.footer - progress.keyboard)).toBeLessThan(0.18);
-
-  await page.waitForTimeout(300);
-  expect(await footer.evaluate((element) => getComputedStyle(element).bottom)).toBe("34px");
+  await input.press("Tab");
+  await expect(input).not.toBeFocused();
+  await expect(input).toHaveValue("رسالة تجريبية");
 });
 
-test("switching to Pixel keeps the composer above Android navigation", async ({ page }) => {
+test("portrait and landscape fill the device viewport with a single composer", async ({ page }) => {
   await page.goto("/tests/runtime-fixture.html?fixture=keyboard");
-  const input = page.getByLabel("Message");
-  await input.evaluate((element: HTMLInputElement) => {
-    element.value = "Draft message";
-  });
-
-  await page.getByTestId("device-picker").click();
-  await page.getByTestId("device-option-pixel-10").click();
-
-  const frame = page.getByTestId("phone-frame");
   const screen = page.getByTestId("device-screen");
-  const statusIndicators = page.getByTestId("status-indicators");
-  const navigation = page.getByTestId("android-navigation-bar");
-  const footer = page.getByTestId("flow-fixed-footer");
-
-  await expect(frame).toHaveAttribute("data-device", "pixel-10");
-  await expect(screen).toHaveAttribute("data-device", "pixel-10");
-  await expect(page.locator(".phone-bezel")).toHaveAttribute(
-    "src",
-    "/assets/android/Pixel10.png",
-  );
-  await expect(statusIndicators).toHaveAttribute("data-platform", "android");
-  await expect(statusIndicators).toHaveAttribute(
-    "src",
-    "/assets/status/status-icons.svg",
-  );
-  await expect(navigation).toBeVisible();
-  await expect(page.getByTestId("home-indicator")).toHaveCount(0);
-  await expect(input).toHaveValue("Draft message");
-  await page.waitForTimeout(300);
-
-  const layout = await page.evaluate(() => {
-    const footerElement = document.querySelector<HTMLElement>(
-      '[data-testid="flow-fixed-footer"]',
-    )!;
-    const navigationElement = document.querySelector<HTMLElement>(
-      '[data-testid="android-navigation-bar"]',
-    )!;
-    const appViewportElement = document.querySelector<HTMLElement>(
-      '[data-testid="mobile-app-viewport"]',
-    )!;
-    return {
-      footerBottom: footerElement.getBoundingClientRect().bottom,
-      appViewportBottom: appViewportElement.getBoundingClientRect().bottom,
-      navigationTop: navigationElement.getBoundingClientRect().top,
-      navigationHeight: Number.parseFloat(getComputedStyle(navigationElement).height),
-      safeAreaBottom: Number.parseFloat(
-        getComputedStyle(document.querySelector<HTMLElement>('[data-testid="device-screen"]')!).getPropertyValue(
-          "--device-safe-area-bottom",
-        ),
-      ),
-    };
-  });
-
-  expect(layout.safeAreaBottom).toBe(layout.navigationHeight);
-  expect(Math.abs(layout.appViewportBottom - layout.navigationTop)).toBeLessThanOrEqual(1);
-  expect(Math.abs(layout.footerBottom - layout.navigationTop)).toBeLessThanOrEqual(1);
-
-  await input.click();
-  await expect(page.getByTestId("keyboard-dock")).toHaveAttribute("data-visible", "true");
-  await expect(navigation).toHaveCount(0);
-  await page.waitForTimeout(300);
-
-  const keyboardLayout = await page.evaluate(() => {
-    const screen = document.querySelector<HTMLElement>('[data-testid="device-screen"]')!;
-    const viewport = document.querySelector<HTMLElement>('[data-testid="mobile-app-viewport"]')!;
-    const scroll = document.querySelector<HTMLElement>('[data-testid="mobile-scroll"]')!;
-    const footerElement = document.querySelector<HTMLElement>('[data-testid="flow-fixed-footer"]')!;
-    const keyboard = document.querySelector<HTMLElement>('[data-testid="keyboard-dock"]')!;
-
-    return {
-      screenBottom: screen.getBoundingClientRect().bottom,
-      viewportBottom: viewport.getBoundingClientRect().bottom,
-      scrollBottom: scroll.getBoundingClientRect().bottom,
-      footerBottom: footerElement.getBoundingClientRect().bottom,
-      keyboardTop: keyboard.getBoundingClientRect().top,
-      keyboardBottom: keyboard.getBoundingClientRect().bottom,
-    };
-  });
-
-  expect(keyboardLayout.viewportBottom).toBeCloseTo(keyboardLayout.screenBottom, 0);
-  expect(Math.abs(keyboardLayout.keyboardBottom - keyboardLayout.screenBottom)).toBeLessThanOrEqual(1);
-  expect(Math.abs(keyboardLayout.scrollBottom - keyboardLayout.keyboardTop)).toBeLessThanOrEqual(1);
-  expect(Math.abs(keyboardLayout.footerBottom - keyboardLayout.keyboardTop)).toBeLessThanOrEqual(1);
+  const input = page.getByLabel("Message");
+  await input.fill("Draft message");
+  for (const size of [{ width: 427, height: 952 }, { width: 760, height: 365 }]) {
+    await page.setViewportSize(size);
+    await expect.poll(() => screen.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      return [rect.x, rect.y, rect.width, rect.height].map(Math.round);
+    })).toEqual([0, 0, size.width, size.height]);
+    await expect(page.getByTestId("mobile-app-viewport")).toHaveCount(1);
+    await expect(page.getByTestId("flow-fixed-footer")).toHaveCount(1);
+    await expect(input).toBeInViewport();
+    await expect(input).toHaveValue("Draft message");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
+  }
 });
 
-test("FlowStack pushes and pops screens while dismissing the keyboard", async ({ page }) => {
+test("FlowStack pushes and pops screens and releases the native input focus", async ({ page }) => {
   await page.goto("/tests/runtime-fixture.html?fixture=flow");
-  await page.getByLabel("Flow message").click();
-  await expect(page.getByTestId("keyboard-dock")).toHaveAttribute("data-visible", "true");
+  const input = page.getByLabel("Flow message");
+  await input.fill("Draft");
+  await expect(input).toBeFocused();
 
   await page.getByRole("button", { name: "Push level 2" }).click();
   await expect(page.getByRole("heading", { name: "Screen stacking works" })).toBeVisible();
-  await expect(page.getByTestId("keyboard-dock")).toHaveAttribute("data-visible", "false");
-  const safeHeaderPlacement = await page.evaluate(() => {
-    const screen = document.querySelector<HTMLElement>('[data-testid="device-screen"]')!;
-    const toolbar = document.querySelector<HTMLElement>(".flow-fixture-header")!;
-    return toolbar.getBoundingClientRect().top - screen.getBoundingClientRect().top;
-  });
-  expect(safeHeaderPlacement).toBeGreaterThanOrEqual(54);
+  await expect.poll(() => page.evaluate(() =>
+    document.activeElement?.matches("input, textarea"),
+  )).toBe(false);
+  const back = page.getByRole("button", { name: "‹ Back" });
+  await expect(back).toBeInViewport();
+  await expect(back).toBeEnabled();
 
   await page.getByRole("button", { name: "Push level 3" }).click();
   await expect(page.getByRole("heading", { name: "Nested view level 3" })).toBeVisible();

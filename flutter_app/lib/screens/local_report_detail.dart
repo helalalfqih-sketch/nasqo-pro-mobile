@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/erp_models.dart';
 import '../services/accounting_engine.dart';
 import '../services/account_amounts.dart';
+import '../services/trial_balance_summary.dart';
 import '../state/erp_controller.dart';
 import '../services/invoice_movement_report.dart';
 
@@ -113,39 +114,9 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
 
   Widget closingReport() {
     final c = widget.controller;
-    final balances = <String,double>{
-      for(final a in c.accounts) a.id:
-        a.currency == currency && a.openingBalance>0
-          ? a.openingBalance*(a.openingDirection == EntryDirection.debit ? 1 : -1) : 0
-    };
-    var cash = 0.0, sales = 0.0, purchases = 0.0;
-    for(final e in c.ledger) {
-      if(e.deleted || e.currency!=currency || e.kind==LedgerKind.quote || e.kind==LedgerKind.order) continue;
-      if(widget.report==LocalReport.trial && period!=null &&
-        (e.entryDate.compareTo(day(period!.start))<0 || e.entryDate.compareTo(day(period!.end))>0)) continue;
-      final debit = e.direction==EntryDirection.debit;
-      final side = c.restoredGroups?.sides[e.id];
-      final settled = c.restoredGroups?.settledEntries.contains(e.id) ?? false;
-      if(!settled) {
-        final change = (side?.debit ?? (debit ? e.amount : 0.0)) -
-            (side?.credit ?? (debit ? 0.0 : e.amount));
-        balances[e.accountId] = (balances[e.accountId] ?? 0) + change;
-      }
-      if(e.payment==PaymentMethod.cash || settled) {
-        final type = c.restoredGroups?.documentTypes[e.id];
-        final cashDocument = [LedgerKind.voucher,LedgerKind.transfer,LedgerKind.simpleEntry].contains(e.kind);
-        final inflow = cashDocument ? !debit : type==null ? debit : [2,7,5].contains(type);
-        cash += inflow ? e.amount : -e.amount;
-      }
-      if(e.kind==LedgerKind.invoice) {
-        if(e.typeLabel.contains('بيع') || debit) {sales += e.amount;} else {purchases += e.amount;}
-      } else if(e.kind==LedgerKind.returnEntry) {
-        if(e.typeLabel.contains('مبيعات') || !debit) {sales -= e.amount;} else {purchases -= e.amount;}
-      }
-    }
-    final debit = balances.values.where((v)=>v>0.005).fold<double>(0,(s,v)=>s+v);
-    final credit = balances.values.where((v)=>v < -0.005).fold<double>(0,(s,v)=>s-v);
-    final inventory = c.inventory.where((i)=>i.avgCost>0).fold<double>(0,(s,i)=>s+i.quantity*i.avgCost);
+    final report = trialBalanceSummary(c, currency,
+        from: widget.report==LocalReport.trial ? day(period?.start) : '',
+        through: widget.report==LocalReport.trial ? day(period?.end) : '');
     return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
       if(widget.report==LocalReport.trial)...[
         Wrap(spacing:4,children:[for(final p in ['يومي','شهري','سنوي','الكل','مخصص'])
@@ -168,17 +139,17 @@ class _LocalReportDetailState extends State<LocalReportDetail> {
             });
           })]),
         if(period!=null) Text('${day(period!.start)} — ${day(period!.end)}'),
-        ListTile(title:const Text('نتيجة الميزان'),trailing:Text((debit-credit).abs()<0.005?'متزن':debit>credit?'فائض':'عجز')),
-        ListTile(title:const Text('نسبة السيولة'),trailing:Text('${credit>0?((cash<0?0:cash)/credit*100).toStringAsFixed(1):"0"}%'))
+        ListTile(title:const Text('نتيجة الميزان'),trailing:Text(report.result)),
+        ListTile(title:const Text('نسبة السيولة'),trailing:Text('${report.liquidity.toStringAsFixed(1)}%'))
       ],
       for(final (title,values) in [
-        ('الأرصدة',[('إجمالي المدين (عليهم)',debit),('إجمالي الدائن (لهم)',credit),
-          ('إجمالي النقدية',cash<0 ? 0.0 : cash),('صافي الرصيد',debit-credit)]),
-        ('نتيجة النشاط',[('المبيعات',sales),('المشتريات',purchases),('قيمة المخزون',inventory),
-          ('صافي الربح',sales+inventory-purchases)])
+        ('الأرصدة',[('إجمالي المدين (عليهم)',report.debit),('إجمالي الدائن (لهم)',report.credit),
+          ('إجمالي النقدية',report.cash),('صافي الرصيد',report.net)]),
+        ('نتيجة النشاط',[('المبيعات',report.sales),('المشتريات',report.purchases),('قيمة المخزون',report.inventory),
+          ('صافي الربح',report.profit)])
       ]) ...[
         Text(title,style:Theme.of(context).textTheme.titleMedium),
-        for(final (label,value) in values) ListTile(title:Text(label),trailing:Text(format(value)))
+        for(final (label,value) in values) ListTile(title:Text(label),trailing:Text(value==null?'—':format(value)))
       ]
     ]);
   }

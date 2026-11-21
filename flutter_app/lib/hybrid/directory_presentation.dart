@@ -1,6 +1,7 @@
 import '../models/erp_models.dart';
 import '../state/erp_controller.dart';
 import '../services/account_amounts.dart';
+import '../services/trial_balance_summary.dart';
 
 const homeCategories = [
   AccountCategory.sales,
@@ -17,7 +18,7 @@ class DirectoryPresentation {
   DirectoryPresentation(this.controller);
   final ErpController controller;
   String screen = 'home', period = 'الكل';
-  String currency = '';
+  String currency = '', from = '', through = '';
   int? group;
   AccountCategory? category;
 
@@ -29,6 +30,7 @@ class DirectoryPresentation {
     group = groupId;
     category = accountCategory;
     period = 'الكل';
+    from = through = '';
     currency = initialCurrency ?? controller.defaultCurrency.label;
   }
 
@@ -78,6 +80,20 @@ class DirectoryPresentation {
   }
 
   Map<String, Object?> snapshot() {
+    if (screen == 'trial') {
+      return {
+        'screen': screen,
+        'currency': currency,
+        'from': from,
+        'through': through,
+        'reports': [
+          for (final c in CurrencyCode.values)
+            if (currency == 'الكل' || currency == c.label)
+              trialBalanceSummary(controller, c, from: from, through: through)
+                  .toJson()
+        ]
+      };
+    }
     if (screen == 'warehouses') {
       return {
         'screen': screen,

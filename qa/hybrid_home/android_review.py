@@ -21,9 +21,9 @@ OUT = Path(os.environ.get("HYBRID_EVIDENCE", "hybrid-evidence"))
 DB = f"/data/user/0/{PACKAGE}/databases/nasqo_pro_erp.db"
 FIXTURE = json.loads((ROOT / "qa/groups_lab/assets/fixture.json").read_text())
 DEBUG = sys.argv[1:2] == ["--debug"]
-CANDIDATE = ({"source": os.environ.get("GITHUB_SHA")} if DEBUG
+CANDIDATE = ({"source": os.environ.get("HYBRID_APK_SOURCE") or os.environ.get("GITHUB_SHA")} if DEBUG
              else json.loads((OUT / "candidate.json").read_text()))
-RESULT = {"source": CANDIDATE["source"], "checks": {}, "paint_ms": [], "am_total_ms": []}
+RESULT = {"source": CANDIDATE["source"], "test_revision":os.environ.get("GITHUB_SHA"), "checks": {}, "paint_ms": [], "am_total_ms": []}
 def save(name, value):
     (OUT / name).write_text(json.dumps(value, ensure_ascii=False, indent=2)+"\n")
 def passed(test, detail=True):
@@ -67,7 +67,7 @@ def find(text, seconds=20):
         return next((n for n in nodes() if text in label(n)),None)
     return wait(match, text, seconds)
 def exact_button(text):
-    return wait(lambda: next((n for n in nodes() if n.get("class")=="android.widget.Button" and label(n)==text),None),text)
+    return wait(lambda: next((n for n in nodes() if n.get("class") in ("android.widget.Button","android.widget.ToggleButton") and label(n)==text),None),text)
 def center(n):
     x,y,r,b=bounds(n)
     return (x+r)/2,(y+b)/2
@@ -259,6 +259,31 @@ def run(baseline,candidate):
     back();find("مجموعة الشمال")
     tap(find("فتح القائمة"));find("الرسائل الفورية واتساب");back();find("مجموعة الشمال")
     passed("quick_actions_drawer_back")
+    report_tab=wait(lambda:next((n for n in nodes() if label(n)=="التقارير" and
+        n.get("class")=="android.widget.Button" and bounds(n)[1]>box[3]-75),None),"React reports tab")
+    tap(report_tab);tap(exact_button("ميزان المراجعة"));find("اجمالي المدين")
+    # WebView exposes the date pickers as spinners too. Use the select's
+    # accessible name or selected option to distinguish it from those controls.
+    tree = nodes()
+    (OUT/"trial-controls.xml").write_bytes(adb("exec-out","cat","/sdcard/window.xml"))
+    currency = next((n for n in tree if "عملة ميزان المراجعة" in label(n)), None)
+    if currency is None:
+        currency = next((n for n in tree if label(n) == "ريال (العملة الأساسية)"), None)
+    require(currency is not None, "Trial balance currency control missing")
+    tap(currency)
+    tap(wait(lambda: next((n for n in nodes() if label(n)=="الكل"), None), "all currencies option"))
+    for unit in ("دولار", "يورو"):
+        heading = "الحسابات — " + unit
+        for _ in range(10):
+            visible = any(heading in label(n) and bounds(n)[3]>bounds(n)[1] and
+                          box[1]+60 < center(n)[1] < box[3]-60 for n in nodes())
+            if visible:
+                break
+            swipe(205, box[3]-170, 205, box[1]+210, 430)
+        require(visible, "Missing section in the trial balance: "+unit)
+        shot("android-trial-all" if unit=="دولار" else "android-trial-eur")
+    back();find("اختر تقريرًا");back();find("مجموعة الشمال")
+    passed("trial_balance_separate_currencies_and_nested_back")
     # Test the real Android select popup; it returns the selection to Dart.
     taprect(box,geometry["select"]);tap(find("دولار"))
     wait(lambda:prefs().get("filters",{}).get("group-41")=="دولار","currency in SQLite")
@@ -323,6 +348,9 @@ def run(baseline,candidate):
     (OUT/"meminfo.txt").write_text(mem);(OUT/"gfxinfo.txt").write_text(frames)
     (OUT/"webview-version.txt").write_bytes(adb("shell","dumpsys","webviewupdate"))
     passed("frame_and_memory_samples", {"process":PACKAGE})
+    record_diag("review")
+    runtime=(OUT/"review-log.txt").read_text()
+    require("FATAL EXCEPTION" not in runtime and "Uncaught " not in runtime,"Runtime failure during device review")
     after=books();save("after-table-digests.json",after)
     require(after==baseline_books,"Business table difference: "+str([k for k in after if baseline_books.get(k)!=after[k]]))
     passed("accounting_and_stock_integrity",{"tables":len(after),"rows":sum(s[0] for s in after.values()),"foreign_key_errors":0})

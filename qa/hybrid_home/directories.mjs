@@ -37,7 +37,26 @@ export function directoryComponents(sourceOf, replace) {
   vendors=part(vendors,'                          void openWhatsAppChat(', '                        }','                          ctx.accountAction("whatsapp",vendor.id)\n');
   vendors=part(vendors,'                          {formatAmount(summary.netBalance)}', '                        </strong>',
     '                          {balanceLabel(vendor,currencyFilter)}\n');
+  let trial=sourceOf('TrialBalanceModal');
+  trial=part(trial,'  const report = useMemo(', '  if (!open)',`  const from=periodMode==='all'?'':fromDate, through=periodMode==='all'?'':toDate;
+  const invalid=from && through && from>through;
+  const ready=ctx.dir.currency===currency && ctx.dir.from===from && ctx.dir.through===through;
+  useEffect(()=>{
+    if(!invalid && !ready) ctx.requestTrial(currency,from,through);
+  },[currency,from,through,invalid,ready]);
+`);
+  trial=replace(trial,'        <div className="trial-balance-sections">',
+    '        {invalid ? <p role="alert">يجب أن يسبق تاريخ البداية تاريخ النهاية.</p> : !ready ? <p role="status">جارٍ تحميل الميزان…</p> : ctx.dir.reports.map(report=><div key={report.currency} className="trial-balance-sections" data-currency={report.currency}>');
+  trial=replace(trial,'{currency === "ريال" ? "ريال (العملة الأساسية المسجلة)" : currency === "الكل" ? "جميع العملات" : currency}',
+    '{report.currency === defaultCurrency ? report.currency+" (العملة الأساسية المسجلة)" : report.currency}');
+  for(const field of ['inventoryValue','netProfit']){
+    const format=field==='netProfit'?'formatSmartReportNumber(report.netProfit, true)':'formatSmartReportNumber(report.inventoryValue)';
+    trial=replace(trial,'{'+format+'}','{report.'+field+'===null?"—":'+format+'}');
+  }
+  trial=replace(trial,'        </div>\n      </section>',
+    '          {report.inventoryValue===null && <p>تُقيّم تكلفة المخزون بعملة المنشأة '+ '{defaultCurrency}.</p>}\n        </div>)}\n      </section>');
   return [
+    sourceOf('formatSmartReportNumber'), 'export '+trial,
     'const KeyboardInput="input";',
     'const inventoryReportScreen = id => ({operation:"movement",id});',
     'const supplierScreen = id => ({operation:"statement",id});',

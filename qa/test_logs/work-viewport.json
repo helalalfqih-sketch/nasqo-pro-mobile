@@ -1,0 +1,46 @@
+[
+  {
+    "viewport": [
+      320,
+      700
+    ],
+    "theme": "light",
+    "equal_geometry": true,
+    "scroll_range": 932,
+    "font_loaded": true,
+    "metrics": 8
+  },
+  {
+    "viewport": [
+      320,
+      700
+    ],
+    "theme": "dark",
+    "equal_geometry": true,
+    "scroll_range": 932,
+    "font_loaded": true,
+    "metrics": 8
+  },
+  {
+    "viewport": [
+      760,
+      365
+    ],
+    "theme": "light",
+    "equal_geometry": true,
+    "scroll_range": 1215,
+    "font_loaded": true,
+    "metrics": 8
+  },
+  {
+    "viewport": [
+      760,
+      365
+    ],
+    "theme": "dark",
+    "equal_geometry": true,
+    "scroll_range": 1215,
+    "font_loaded": true,
+    "metrics": 8
+  }
+]

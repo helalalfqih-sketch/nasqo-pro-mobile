@@ -151,6 +151,14 @@ class HomePresentation {
         controller.accounts.any((account) => account.category == category);
   }
 
+  static bool _validDay(Object? input) {
+    if (input == '') return true;
+    if (input is! String || !RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(input))
+      return false;
+    return DateTime.tryParse(input)?.toIso8601String().split('T').first ==
+        input;
+  }
+
   static bool _currency(Object? value) =>
       value == 'الكل' || CurrencyCode.values.any((c) => c.label == value);
   String selection(int id) =>
@@ -173,8 +181,16 @@ class HomePresentation {
     final id = msg['id'];
     final category = msg['category'];
     final valid = switch (msg['action']) {
+      'trialFilter' => directory.screen == 'trial' &&
+          _hasKeys(msg, {'action', 'currency', 'from', 'through'}) &&
+          _currency(msg['currency']) &&
+          _validDay(msg['from']) &&
+          _validDay(msg['through']) &&
+          (msg['from'] == '' ||
+              msg['through'] == '' ||
+              (msg['from'] as String).compareTo(msg['through']) <= 0),
       'browse' => _hasKeys(msg, {'action', 'screen'}) &&
-          const {'home', 'warehouses', 'picker', 'chart'}
+          const {'home', 'warehouses', 'picker', 'chart', 'trial'}
               .contains(msg['screen']),
       'members' => _hasKeys(msg, {'action', 'category'}) &&
           homeCategories.any((c) => c.name == category),
