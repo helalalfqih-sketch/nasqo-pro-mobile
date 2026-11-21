@@ -54,12 +54,17 @@ def find(text, seconds=20):
     def match():
         return next((n for n in nodes() if text in label(n)),None)
     return wait(match, text, seconds)
+def exact_button(text):
+    return wait(lambda: next((n for n in nodes() if n.get("class")=="android.widget.Button" and label(n)==text),None),text)
+def center(n):
+    x,y,r,b=bounds(n)
+    return (x+r)/2,(y+b)/2
 def bounds(n):
     return list(map(int,re.findall(r"-?\d+",n.get("bounds"))))
 def tapxy(x,y):
     adb("shell","input","tap", str(round(x)), str(round(y)))
 def tap(n):
-    x,y,r,b=bounds(n); tapxy((x+r)/2,(y+b)/2)
+    tapxy(*center(n))
 def back():
     adb("shell","input","keyevent","4");time.sleep(.55)
 def launch(expect_hybrid=True):
@@ -199,6 +204,7 @@ def run(baseline,candidate):
         swipe(185,box[1]+440,185,box[1]+160)
         swipe(185,box[1]+160,185,box[1]+440)
     swipe(185,box[1]+460,185,box[1]+160)
+    (OUT/"gfxinfo-scroll.txt").write_bytes(adb("shell","dumpsys","gfxinfo",PACKAGE))
     y=wait(lambda:prefs().get("scroll",0),"persisted real Android touch scroll")
     time.sleep(.4);y=prefs()["scroll"];shot("scrolled")
     stop();launch();find("الإعدادات")
@@ -214,9 +220,28 @@ def run(baseline,candidate):
     wait(lambda:prefs().get("scroll",0)==0,"top after swipe")
     tile=geometry["tile"];x=box[0]+tile["x"]+tile["w"]/2;y=box[1]+tile["y"]+tile["h"]/2
     swipe(x,y,x,y,740);find("تحرير البطائق")
-    # The accessible pin button belongs to the selected real tile.
-    tap(find("تثبيت سند جديد"))
+    # WebView exposes each tile as one accessibility node; its center selects
+    # the tile. The edit toolbar exposes separate, labelled native touch targets.
+    voucher=center(find("تثبيت سند جديد بالأعلى"))
+    transfer=center(find("تثبيت حوالة جديدة بالأعلى"))
+    swipe(*voucher,*transfer,510)
+    def moved_after_transfer():
+        order=(prefs().get("layout") or {}).get("order",[])
+        return "new-voucher" in order and "new-transfer" in order and order.index("new-voucher")>order.index("new-transfer")
+    wait(moved_after_transfer, "persisted real Android drag reorder")
+    dragged=prefs()["layout"]
+    back();find("مجموعة الشمال");stop();launch()
+    fresh_tile=find("سند جديد")
+    require(prefs()["layout"]==dragged and moved_after_transfer(),"dragged order before pin on cold reopen")
+    x,y=center(fresh_tile);swipe(x,y,x,y,740)
+    find("تحرير البطائق");passed("android_drag_reorder_and_cold_open")
+    tap(exact_button("تثبيت بالأعلى"))
     wait(lambda:"new-voucher" in (prefs().get("layout") or {}).get("pinned",[]),"pinned tile")
+    # The original React pin operation promotes the selected tile to the start
+    # of its pinned block while keeping every other tile in the same order.
+    pinned=prefs()["layout"]
+    expected_order=["new-voucher"]+[key for key in dragged["order"] if key!="new-voucher"]
+    require(pinned["order"]==expected_order and pinned["pinned"]==["new-voucher"],"pin promotion differs from React")
     back();time.sleep(.5);find("البطائق المثبّتة");passed("long_press_pin_and_hardware_back")
     mem=adb("shell","dumpsys","meminfo",PACKAGE).decode()
     frames=adb("shell","dumpsys","gfxinfo",PACKAGE).decode()
@@ -228,6 +253,7 @@ def run(baseline,candidate):
     passed("accounting_and_stock_integrity",{"tables":len(after),"rows":sum(s[0] for s in after.values()),"foreign_key_errors":0})
     launch();find("البطائق المثبّتة")
     require(prefs()["filters"]["group-41"]=="دولار","cold currency filter")
+    require(prefs()["layout"]==pinned,"lost post-pin layout on cold reopen")
     passed("preferences_after_cold_reopen")
     save("android.json", RESULT)
 

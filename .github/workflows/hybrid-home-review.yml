@@ -43,6 +43,13 @@ jobs:
           REVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ github.token }}
         run: bash qa/hybrid_home/verify-apks.sh
+      - name: Give the hosted runner access to its KVM device
+        run: |
+          test -c /dev/kvm
+          if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
+            sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+          fi
+          test -r /dev/kvm && test -w /dev/kvm
       - name: Run signed Android update in airplane mode
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -51,6 +58,7 @@ jobs:
           arch: x86_64
           profile: pixel_4
           disable-animations: true
+          disable-linux-hw-accel: false
           script: python3 qa/hybrid_home/android_review.py "$RUNNER_TEMP/baseline/app-release.apk" "$RUNNER_TEMP/candidate/app-release.apk"
       - uses: actions/upload-artifact@v4
         if: always()
