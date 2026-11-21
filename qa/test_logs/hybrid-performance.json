@@ -1,0 +1,28 @@
+{
+  "webview_create_to_react_paint_ms": [
+    6427,
+    3900,
+    3865,
+    4039,
+    3479,
+    4140
+  ],
+  "android_am_total_ms": [
+    2603,
+    1791,
+    1236,
+    1397,
+    1812,
+    1394
+  ],
+  "scroll_gfxinfo": [
+    "Total frames rendered: 123",
+    "Janky frames: 58 (47.15%)",
+    "50th percentile: 46ms",
+    "90th percentile: 121ms",
+    "95th percentile: 150ms",
+    "99th percentile: 200ms"
+  ],
+  "app_pss_kib": 123138,
+  "webview_package": "(com.google.android.webview, 124.0.6367.219)"
+}

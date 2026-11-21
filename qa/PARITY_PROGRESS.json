@@ -6,7 +6,7 @@
   "inventory": {
     "occurrences": 28681,
     "unique_static_entries": 22814,
-    "review_scenarios": 10
+    "review_scenarios": 15
   },
   "test_evidence": {
     "complete_flutter_suite": {
@@ -95,7 +95,7 @@
   },
   "arch": {
     "production": "Flutter Native",
-    "hybrid": "isolated read-only lab; Android hardware comparison pending"
+    "hybrid": "Android review build: bundled original React home and groups, native Flutter shell and navigation, local SQLite via Dart."
   },
   "release": {
     "status": "signed_artifact_ready_for_review",
@@ -115,8 +115,8 @@
     "published_by_this_batch": false
   },
   "matrix_status": {
-    "VERIFIED": 2,
-    "IMPLEMENTED_UNVERIFIED": 3,
+    "VERIFIED": 6,
+    "IMPLEMENTED_UNVERIFIED": 4,
     "UNREVIEWED": 2,
     "MISSING": 2,
     "BLOCKED": 1
@@ -223,5 +223,76 @@
       ]
     },
     "source_control_note": "batch 1 test_evidence, visual and release sections above are the archived 10014 baseline. Current results are under current_code_batch."
+  },
+  "current_hybrid_batch": {
+    "id": "03-hybrid-home",
+    "branch": "poc/hybrid-home-android",
+    "pr": 21,
+    "base": "e24d50cbd5914c67750c4606948767c20df043cb",
+    "source": "848a55527221d8982f32522b3f434c4d1c931b00",
+    "android_test_revision": "39f623a11ee3fff8be3977c8dbb9ebb14a7dd986",
+    "version_code": 10016,
+    "version_name": "1.0.18",
+    "signed_run": 44937765317,
+    "signed_artifact_id": 14720338046,
+    "android_run": 44939902641,
+    "android_evidence_artifact": 14720583870,
+    "apk_bytes": 82539058,
+    "apk_sha256": "94f91b50838df82a4c3063ad2d2eb2b36f0be5c907ff1193b579fc413b9b8d97",
+    "signer_sha256": "0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79",
+    "release_actions_by_editor": [
+      "feature_branch_push",
+      "draft_pr",
+      "review_artifact_build"
+    ],
+    "public_file_verified_equal_to_signed_artifact": true,
+    "public_read_checked_utc": "2026-11-21T19:06:14Z",
+    "flutter": {
+      "passed": 276,
+      "failed": 0,
+      "analyzer_errors": 0,
+      "analyzer_warnings": 0,
+      "analyzer_infos": 31
+    },
+    "android_test": {
+      "api": 35,
+      "airplane": true,
+      "upgrade": [
+        10014,
+        10016
+      ],
+      "sqlite": {
+        "tables": 19,
+        "rows": 23,
+        "foreign_key_errors": 0
+      },
+      "physical_device": "pending"
+    },
+    "android_visual": {
+      "light": {
+        "viewport": [
+          0,
+          76,
+          427,
+          860
+        ],
+        "pixels": 334768,
+        "pixels_over_16": 4961,
+        "share": 0.014819218085360608
+      },
+      "dark": {
+        "viewport": [
+          0,
+          76,
+          427,
+          860
+        ],
+        "pixels": 334768,
+        "pixels_over_16": 4563,
+        "share": 0.013630335037996464
+      }
+    },
+    "physical_acceptance": "pending",
+    "review": "HYBRID_HOME_10016_AR.md"
   }
 }
