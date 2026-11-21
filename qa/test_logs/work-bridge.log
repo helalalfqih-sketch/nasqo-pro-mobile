@@ -1,4 +1,6 @@
-00:00 +0: loading /home/chatgpt-admin/nasqo-hybrid-work-20261121/flutter_app/test/hybrid_home_test.dart
-00:00 +0: bridge accepts only local view events and existing destinations
-00:00 +1: restored balances and UI preferences survive cold SQLite reopen without business writes
-00:00 +2: All tests passed!
+00:00 +0: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/hybrid_home_test.dart
+00:00 +0: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/hybrid_home_test.dart: bridge accepts only local view events and existing destinations
+00:00 +1: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/hybrid_home_test.dart: restored balances and UI preferences survive cold SQLite reopen without business writes
+00:00 +2: loading /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/trial_balance_summary_test.dart
+00:02 +2: /home/chatgpt-admin/nasqo-hybrid-reports-work-20261121/flutter_app/test/trial_balance_summary_test.dart: trial filters include boundary dates, exclude drafts and keep inventory in base currency
+00:02 +3: All tests passed!

@@ -1,5 +1,6 @@
 Analyzing flutter_app...                                        
 
+   info • Statements in an if should be enclosed in a block • lib/hybrid/home_presentation.dart:157:7 • curly_braces_in_flow_control_structures
    info • Use 'const' with the constructor to improve performance • lib/main.dart:626:24 • prefer_const_constructors
    info • Statements in an if should be enclosed in a block • lib/screens/account_groups_view.dart:85:24 • curly_braces_in_flow_control_structures
    info • Use 'const' with the constructor to improve performance • lib/screens/dashboard_screen.dart:503:7 • prefer_const_constructors
@@ -11,7 +12,6 @@ Analyzing flutter_app...
    info • Statements in an if should be enclosed in a block • lib/screens/local_backup_workspace_view.dart:118:9 • curly_braces_in_flow_control_structures
    info • Statements in an if should be enclosed in a block • lib/screens/local_backup_workspace_view.dart:137:11 • curly_braces_in_flow_control_structures
    info • Statements in an if should be enclosed in a block • lib/screens/local_backup_workspace_view.dart:140:13 • curly_braces_in_flow_control_structures
-   info • Statements in an if should be enclosed in a block • lib/screens/local_report_detail.dart:125:101 • curly_braces_in_flow_control_structures
    info • Statements in an if should be enclosed in a block • lib/screens/workspace_views.dart:163:28 • curly_braces_in_flow_control_structures
    info • Statements in an if should be enclosed in a block • lib/services/invoice_movement_report.dart:62:53 • curly_braces_in_flow_control_structures
    info • Statements in an if should be enclosed in a block • lib/services/invoice_movement_report.dart:64:71 • curly_braces_in_flow_control_structures
@@ -32,4 +32,4 @@ Analyzing flutter_app...
    info • Use 'const' with the constructor to improve performance • test/backup_arabic_golden_test.dart:38:41 • prefer_const_constructors
    info • Use 'const' with the constructor to improve performance • test/invoice_modes_test.dart:76:23 • prefer_const_constructors
 
-31 issues found. (ran in 9.1s)
+31 issues found. (ran in 5.6s)

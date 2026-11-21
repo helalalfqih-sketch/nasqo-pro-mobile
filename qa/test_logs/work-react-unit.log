@@ -1,0 +1,148 @@
+TAP version 13
+# Subtest: parseArabicNumber parses Arabic/Persian digits and formatting commas
+ok 1 - parseArabicNumber parses Arabic/Persian digits and formatting commas
+  ---
+  duration_ms: 3.871222
+  type: 'test'
+  ...
+# Subtest: normalizeArabicSearch strips tatweel and normalizes alef variants
+ok 2 - normalizeArabicSearch strips tatweel and normalizes alef variants
+  ---
+  duration_ms: 0.90539
+  type: 'test'
+  ...
+# Subtest: computeAccountSummary computes balances from opening + debit/credit entries and ignores quotes/orders/deleted
+ok 3 - computeAccountSummary computes balances from opening + debit/credit entries and ignores quotes/orders/deleted
+  ---
+  duration_ms: 0.472109
+  type: 'test'
+  ...
+# Subtest: computeStatementRows calculates chronological running balances and filters by search mode
+ok 4 - computeStatementRows calculates chronological running balances and filters by search mode
+  ---
+  duration_ms: 72.981428
+  type: 'test'
+  ...
+# Subtest: computeCategoryTotals & computeInventorySummary aggregate across accounts and inventory items
+ok 5 - computeCategoryTotals & computeInventorySummary aggregate across accounts and inventory items
+  ---
+  duration_ms: 0.528019
+  type: 'test'
+  ...
+# Subtest: sanitizers clamp bounds and reject invalid enums; buildCsvContent adds UTF-8 BOM and escapes commas
+ok 6 - sanitizers clamp bounds and reject invalid enums; buildCsvContent adds UTF-8 BOM and escapes commas
+  ---
+  duration_ms: 6.187886
+  type: 'test'
+  ...
+# Subtest: computeDashboardSummary aggregates total sales, sorts recent invoices, and flags low-stock inventory
+ok 7 - computeDashboardSummary aggregates total sales, sorts recent invoices, and flags low-stock inventory
+  ---
+  duration_ms: 10.292534
+  type: 'test'
+  ...
+# Subtest: computeSalesTrend7Days builds a 7-day daily sales series
+ok 8 - computeSalesTrend7Days builds a 7-day daily sales series
+  ---
+  duration_ms: 12.675428
+  type: 'test'
+  ...
+# Subtest: parseQrStockPayload parses JSON, key-value strings, and plain SKU codes
+ok 9 - parseQrStockPayload parses JSON, key-value strings, and plain SKU codes
+  ---
+  duration_ms: 0.962697
+  type: 'test'
+  ...
+# Subtest: isBackupOverdue and computeWorkspaceNotifications surface due invoices, low stock, credit limits, and backup alerts
+ok 10 - isBackupOverdue and computeWorkspaceNotifications surface due invoices, low stock, credit limits, and backup alerts
+  ---
+  duration_ms: 1.426558
+  type: 'test'
+  ...
+# Subtest: inferExpenseCategory, normalizeExpenseCategory, computeSupplierPerformance, and computeExpenseTrendsByCategory
+ok 11 - inferExpenseCategory, normalizeExpenseCategory, computeSupplierPerformance, and computeExpenseTrendsByCategory
+  ---
+  duration_ms: 5.36744
+  type: 'test'
+  ...
+# Subtest: dashboardPrefs provides safe default metric order, widget order, and favorites in non-DOM contexts
+ok 12 - dashboardPrefs provides safe default metric order, widget order, and favorites in non-DOM contexts
+  ---
+  duration_ms: 0.96787
+  type: 'test'
+  ...
+# Subtest: normalizeWhatsAppPhone and buildWhatsAppMessageUrl format Arabic/international digits cleanly
+ok 13 - normalizeWhatsAppPhone and buildWhatsAppMessageUrl format Arabic/international digits cleanly
+  ---
+  duration_ms: 0.310142
+  type: 'test'
+  ...
+# Subtest: appSettings returns safe Arabic defaults and bounds in non-DOM contexts
+ok 14 - appSettings returns safe Arabic defaults and bounds in non-DOM contexts
+  ---
+  duration_ms: 4.511418
+  type: 'test'
+  ...
+# Subtest: normalizeExtendedSettings clamps numeric bounds and guards invalid enum values
+ok 15 - normalizeExtendedSettings clamps numeric bounds and guards invalid enum values
+  ---
+  duration_ms: 2.384263
+  type: 'test'
+  ...
+# Subtest: resolveHomeAppearanceTokens uses Modern Indigo (نيلي حديث) as default cleanly
+ok 16 - resolveHomeAppearanceTokens uses Modern Indigo (نيلي حديث) as default cleanly
+  ---
+  duration_ms: 1.316405
+  type: 'test'
+  ...
+# Subtest: resolveHomeAppearanceTokens resolves presets and adapts banner ink contrast
+ok 17 - resolveHomeAppearanceTokens resolves presets and adapts banner ink contrast
+  ---
+  duration_ms: 1.473923
+  type: 'test'
+  ...
+# Subtest: resolveHomeAppearanceTokens allows custom hex overrides and ignores malformed hex values
+ok 18 - resolveHomeAppearanceTokens allows custom hex overrides and ignores malformed hex values
+  ---
+  duration_ms: 0.207153
+  type: 'test'
+  ...
+# Subtest: isDarkHexColor handles 3-digit and 6-digit hex colors
+ok 19 - isDarkHexColor handles 3-digit and 6-digit hex colors
+  ---
+  duration_ms: 0.266297
+  type: 'test'
+  ...
+# Subtest: font family and main screen font size normalize and resolve cleanly
+ok 20 - font family and main screen font size normalize and resolve cleanly
+  ---
+  duration_ms: 0.524367
+  type: 'test'
+  ...
+# Subtest: home tile layout normalizes invalid entries, deduplicates ids, and protects settings
+ok 21 - home tile layout normalizes invalid entries, deduplicates ids, and protects settings
+  ---
+  duration_ms: 0.381075
+  type: 'test'
+  ...
+# Subtest: home tile pin, reorder, step, hide, and tone helpers behave predictably
+ok 22 - home tile pin, reorder, step, hide, and tone helpers behave predictably
+  ---
+  duration_ms: 4.29869
+  type: 'test'
+  ...
+# Subtest: default theme mode is light (فاتح)
+ok 23 - default theme mode is light (فاتح)
+  ---
+  duration_ms: 1.108831
+  type: 'test'
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1986.557397

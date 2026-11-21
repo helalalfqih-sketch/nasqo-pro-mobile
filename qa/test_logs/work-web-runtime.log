@@ -1,0 +1,15 @@
+
+Running 10 tests using 1 worker
+
+  ✓   1 tests/android-back-navigation.spec.ts:3:1 › Android/browser Back returns through nested screens without leaving the app (1.8s)
+  ✓   2 tests/android-back-navigation.spec.ts:25:1 › hardware Back dismisses an overlay before the underlying screen (754ms)
+  ✓   3 tests/mobile-runtime.spec.ts:25:1 › horizontal intent stays in Carousel and cannot create parent momentum (1.1s)
+  ✓   4 tests/mobile-runtime.spec.ts:42:1 › vertical intent over a carousel is handed to MobileScroll in both directions (1.4s)
+  ✓   5 tests/mobile-runtime.spec.ts:58:1 › tap activates a card but a completed drag does not (1.1s)
+  ✓   6 tests/mobile-runtime.spec.ts:67:1 › Carousel preserves momentum and edge rubber-banding (2.0s)
+  ✓   7 tests/mobile-runtime.spec.ts:90:1 › BottomSheet remains mounted while its default exit animation plays (1.4s)
+  ✓   8 tests/mobile-runtime.spec.ts:100:1 › the native composer follows the available viewport while keeping its draft (1.0s)
+  ✓   9 tests/mobile-runtime.spec.ts:123:1 › portrait and landscape fill the device viewport with a single composer (1.2s)
+  ✓  10 tests/mobile-runtime.spec.ts:142:1 › FlowStack pushes and pops screens and releases the native input focus (2.2s)
+
+  10 passed (17.0s)
