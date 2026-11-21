@@ -219,9 +219,19 @@ def run(baseline,candidate):
         order=(prefs().get("layout") or {}).get("order",[])
         return "new-voucher" in order and "new-transfer" in order and order.index("new-voucher")>order.index("new-transfer")
     wait(moved_after_transfer, "persisted real Android drag reorder")
-    passed("android_drag_reorder")
+    dragged=prefs()["layout"]
+    back();find("مجموعة الشمال");stop();launch()
+    fresh_tile=find("سند جديد")
+    require(prefs()["layout"]==dragged and moved_after_transfer(),"dragged order before pin on cold reopen")
+    x,y=center(fresh_tile);swipe(x,y,x,y,740)
+    find("تحرير البطائق");passed("android_drag_reorder_and_cold_open")
     tap(exact_button("تثبيت بالأعلى"))
     wait(lambda:"new-voucher" in (prefs().get("layout") or {}).get("pinned",[]),"pinned tile")
+    # The original React pin operation promotes the selected tile to the start
+    # of its pinned block while keeping every other tile in the same order.
+    pinned=prefs()["layout"]
+    expected_order=["new-voucher"]+[key for key in dragged["order"] if key!="new-voucher"]
+    require(pinned["order"]==expected_order and pinned["pinned"]==["new-voucher"],"pin promotion differs from React")
     back();time.sleep(.5);find("البطائق المثبّتة");passed("long_press_pin_and_hardware_back")
     mem=adb("shell","dumpsys","meminfo",PACKAGE).decode()
     frames=adb("shell","dumpsys","gfxinfo",PACKAGE).decode()
@@ -233,7 +243,7 @@ def run(baseline,candidate):
     passed("accounting_and_stock_integrity",{"tables":len(after),"rows":sum(s[0] for s in after.values()),"foreign_key_errors":0})
     launch();find("البطائق المثبّتة")
     require(prefs()["filters"]["group-41"]=="دولار","cold currency filter")
-    require(moved_after_transfer(),"lost tile order on reopen")
+    require(prefs()["layout"]==pinned,"lost post-pin layout on cold reopen")
     passed("preferences_after_cold_reopen")
     save("android.json", RESULT)
 
