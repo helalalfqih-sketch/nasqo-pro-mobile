@@ -178,8 +178,9 @@ try{
         await page.getByTestId('chart-of-accounts-modal').waitFor();
       } else {
         await page.getByTestId('account-picker-search-input').fill('دولار');
-        await page.getByRole('option').first().click();
+        await page.getByRole('listbox',{name:'الحسابات'}).getByRole('option',{name:/عميل دولار تجريبي/}).click();
         await page.getByRole('button',{name:'موافق',exact:true}).click();
+        await page.waitForFunction(()=>window.events.some(e=>e.action==='account'&&e.id==='qa-u'&&e.op==='statement'));
       }
       assert.ok(await page.evaluate(()=>window.nasqoBack()));
       await page.evaluate(s=>window.nasqoPresent(s),dto);
