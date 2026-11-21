@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nasqo_pro_erp/models/erp_models.dart';
+import 'package:nasqo_pro_erp/hybrid/hybrid_document_view.dart';
 import 'package:nasqo_pro_erp/screens/cash_supplier_statement_view.dart';
 import 'package:nasqo_pro_erp/screens/home_account_views.dart';
 import 'package:nasqo_pro_erp/state/erp_controller.dart';
@@ -35,6 +36,15 @@ const customer = AccountRecord(
     category: AccountCategory.clients,
     openingBalance: 50,
     openingDirection: EntryDirection.debit);
+
+class _LastRoute extends NavigatorObserver {
+  Route<dynamic>? route;
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    this.route = route;
+    super.didPush(route, previousRoute);
+  }
+}
 
 void main() {
   test('statement isolates currency/account and excludes non-posted records',
@@ -132,6 +142,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('#42'), findsOneWidget);
     expect(find.textContaining('#43'), findsNothing);
+  });
+
+  testWidgets('cash supplier document opens the selected SQLite identity in hybrid mode',
+      (tester) async {
+    final controller = ErpController(autoInitDb: false);
+    addTearDown(controller.dispose);
+    controller.ledger
+      ..clear()
+      ..add(entry('selected-receipt', number: 42))
+      ..add(entry('other-receipt', accountId: 'other', number: 43));
+    final history = _LastRoute();
+    await tester.pumpWidget(MaterialApp(
+      navigatorObservers: [history],
+      home: CashSupplierStatementView(controller: controller, account: customer,
+          onOpenModule: (_) {}, hybridDocuments: true),
+    ));
+    final row = find.textContaining('#42');
+    expect(find.textContaining('#43'), findsNothing);
+    await tester.tap(row);
+    final route = history.route! as MaterialPageRoute<void>;
+    final preview = route.builder(tester.element(row)) as HybridDocumentView;
+    expect(preview.accountId, customer.id);
+    expect(preview.entryId, 'selected-receipt');
+    history.navigator!.pop();
+    await tester.pumpAndSettle();
+    expect(row, findsOneWidget);
   });
 
   testWidgets('missing account is explicit and narrow screen does not overflow',
