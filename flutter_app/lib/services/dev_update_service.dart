@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -55,20 +56,33 @@ class DevUpdateService {
   Future<void> downloadAndInstall(DevRelease release) async {
     if (!supported) throw UnsupportedError('Android only');
     final cache = await getTemporaryDirectory();
-    final client =
-        HttpClient()..connectionTimeout = const Duration(seconds: 15);
-    try {
-      final response = await _get(client, release.apkUrl);
-      final apk = await release.saveVerified(
-        response.timeout(const Duration(seconds: 30)),
-        cache,
-      );
-      await _installer.invokeMethod<void>('install', {
-        'path': apk.path,
-        'versionCode': release.versionCode,
-      });
-    } finally {
-      client.close(force: true);
+    // Retry interrupted mobile-network transfers from the beginning. Each
+    // attempt writes to a disposable file and verifies the full SHA-256 before
+    // the Android installer is invoked. Never retry an integrity failure.
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      final client =
+          HttpClient()..connectionTimeout = const Duration(seconds: 20);
+      try {
+        final response = await _get(client, release.apkUrl);
+        final apk = await release.saveVerified(
+          response.timeout(const Duration(seconds: 60)),
+          cache,
+        );
+        await _installer.invokeMethod<void>('install', {
+          'path': apk.path,
+          'versionCode': release.versionCode,
+        });
+        return;
+      } on SocketException {
+        if (attempt == 3) rethrow;
+      } on HttpException {
+        if (attempt == 3) rethrow;
+      } on TimeoutException {
+        if (attempt == 3) rethrow;
+      } finally {
+        client.close(force: true);
+      }
+      await Future<void>.delayed(Duration(seconds: attempt * 2));
     }
   }
 }
