@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/posting_receipt.dart';
 import '../models/erp_models.dart';
 import '../services/accounting_engine.dart';
 import '../state/erp_controller.dart';
@@ -36,6 +37,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
   final _freeTotal = TextEditingController();
   String? _saleError;
   bool _saving = false;
+  final _requestId = PostingReceipt.newRequest();
   final List<InvoiceItemRow> _rows = [];
 
   @override
@@ -46,16 +48,15 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
     _cashboxId = _cashboxes.firstOrNull?.id;
     _selectedWhId = widget.controller.warehouses.firstOrNull?.id;
     final firstItem = _stockItems.firstOrNull;
+    if (firstItem == null) return;
     _rows.add(
       InvoiceItemRow(
             roundLineTotal: true,
         id: 'row_${DateTime.now().millisecondsSinceEpoch}',
-        itemId: firstItem?.id,
-        productName: firstItem?.name ?? 'صنف افتراضي',
+        itemId: firstItem.id,
+        productName: firstItem.name,
         quantity: 1,
-        unitPrice: firstItem != null
-            ? (firstItem.avgCost * 1.25).roundToDouble()
-            : 100,
+        unitPrice: (firstItem.avgCost * 1.25).roundToDouble(),
       ),
     );
   }
@@ -139,18 +140,12 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
 
   Future<void> _saveInvoice({bool printAfter = false}) async {
     if (_saving) return;
-    if (widget.controller.accounts.isEmpty ||
-        widget.controller.warehouses.isEmpty) {
+    final activeAcc = widget.controller.accounts.where((a) => a.id == _selectedAccountId).firstOrNull;
+    final wh = widget.controller.warehouses.where((w) => w.id == _selectedWhId).firstOrNull;
+    if (activeAcc == null || wh == null) {
+      setState(() => _saleError = 'اختر حسابًا ومستودعًا صالحين قبل حفظ الفاتورة.');
       return;
     }
-    final activeAcc = widget.controller.accounts.firstWhere(
-      (a) => a.id == _selectedAccountId,
-      orElse: () => widget.controller.accounts.first,
-    );
-    final wh = widget.controller.warehouses.firstWhere(
-      (w) => w.id == _selectedWhId,
-      orElse: () => widget.controller.warehouses.first,
-    );
     final customerName =
         _useCustomCustomer ? _customNameCtrl.text.trim() : activeAcc.name;
     if (customerName.isEmpty) {
@@ -172,6 +167,7 @@ class _InvoiceFormSheetState extends State<InvoiceFormSheet> {
     String? committedId;
     try {
       await widget.controller.submitSalesInvoice(
+        requestId: _requestId,
         accountId: activeAcc.id,
         customerName: customerName,
         warehouse: wh,
