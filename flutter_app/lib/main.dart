@@ -95,6 +95,7 @@ class _NasqoProErpAppState extends State<NasqoProErpApp> {
           ],
           theme: ThemeData(
             useMaterial3: true,
+            fontFamily: 'InvoiceArabic',
             colorScheme: colorScheme,
             scaffoldBackgroundColor: _controller.isDarkMode ? null : const Color(0xFFF5F7FF),
             appBarTheme: AppBarTheme(
