@@ -276,6 +276,7 @@ class DashboardScreen extends StatelessWidget {
             _QuickActionsGrid(tiles: administration, controller: controller),
             const SizedBox(height: 14),
             ExpansionTile(
+              key: const PageStorageKey('nasqo-home-metrics'),
               title: const Text('المؤشرات والأرصدة'),
               children: [
                 _MetricCardsGrid(controller: controller, onOpenModule: onOpenModule),
