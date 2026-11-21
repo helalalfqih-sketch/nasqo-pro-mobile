@@ -323,11 +323,11 @@ def verify_document_touch_layout(open_document):
             bl, bt, br, bb = bounds(back_button)
             require(br - bl >= 48 and bb - bt >= 48, "Undersized Back button")
             back_bottom = bounds(back_button)[3]
-            controls = {label: bounds(exact_button(label)) for label in labels}
-            for label, (left, top, right, bottom) in controls.items():
+            controls = {name: bounds(exact_button(name)) for name in labels}
+            for name, (left, top, right, bottom) in controls.items():
                 require(right - left >= 48 and bottom - top >= 48 and
                         box[0] <= left < right <= box[2] and back_bottom <= top < bottom <= box[3],
-                        f"Clipped or undersized document action: {label}, {controls[label]}")
+                        f"Clipped or undersized document action: {name}, {controls[name]}")
             shot(f"android-document-{width}-font-130")
             tap(exact_button("تكبير الفاتورة"))
             find("مرّر لقراءة بقية المستند")
