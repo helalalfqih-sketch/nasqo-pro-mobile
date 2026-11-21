@@ -124,8 +124,11 @@ jobs:
           echo 'fed19174edd70fcfca0593376aefc811f5701721cb90a6a1234b1d4f2c2514c4  candidate/app-release.apk' | sha256sum -c -
           signer="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
           for apk in baseline.apk candidate/app-release.apk; do
-            "$signer" verify --print-certs "$apk" > "$RUNNER_TEMP/certs.txt"
-            grep -Fx 'Signer #1 certificate SHA-256 digest: 0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79' "$RUNNER_TEMP/certs.txt"
+            "$signer" verify --verbose "$apk"
+            keytool -printcert -rfc -jarfile "$apk" > "$RUNNER_TEMP/signer.pem"
+            test "$(grep -c 'BEGIN CERTIFICATE' "$RUNNER_TEMP/signer.pem")" = 1
+            openssl x509 -in "$RUNNER_TEMP/signer.pem" -outform DER -out "$RUNNER_TEMP/signer.der"
+            echo "0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79  $RUNNER_TEMP/signer.der" | sha256sum -c -
           done
       - name: Enable KVM for the Android emulator
         run: |
