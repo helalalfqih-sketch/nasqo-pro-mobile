@@ -16,6 +16,7 @@ class MainActivity : FlutterActivity() {
     private var writing = false
     private var csvChannel: MethodChannel? = null
     private var invoicePrinter: InvoicePdfPrintBridge? = null
+    private var driveAuthorization: DriveAuthorization? = null
     private var devUpdateBridge: DevUpdateBridge? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -25,10 +26,12 @@ class MainActivity : FlutterActivity() {
         )
         invoicePrinter = InvoicePdfPrintBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         devUpdateBridge = DevUpdateBridge(this, flutterEngine.dartExecutor.binaryMessenger)
+        driveAuthorization = DriveAuthorization(this, flutterEngine.dartExecutor.binaryMessenger)
         csvChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         csvChannel?.setMethodCallHandler { call, result ->
             val report = call.method == "saveReport"
-            val backup = report || call.method == "saveBackup"
+            val driveFile = call.method == "saveDriveDownload"
+            val backup = report || driveFile || call.method == "saveBackup"
             if (!backup && call.method != "saveCsv") {
                 result.notImplemented()
                 return@setMethodCallHandler
@@ -41,7 +44,12 @@ class MainActivity : FlutterActivity() {
             val bytes = arguments?.get("bytes") as? ByteArray
             val name = arguments?.get("suggestedName") as? String
             val limit = if (backup) 16 * 1024 * 1024 else CSV_LIMIT
-            val pattern = if (report) Regex("nasqo-inspection[.]json") else if (backup) BACKUP_NAME else FILE_NAME
+            val pattern = when {
+                report -> Regex("nasqo-inspection[.]json")
+                driveFile -> Regex("nasqo-drive-backup[.](json|back)")
+                backup -> BACKUP_NAME
+                else -> FILE_NAME
+            }
             if (bytes == null || bytes.isEmpty() || bytes.size > limit ||
                 name == null || !pattern.matches(name)
             ) {
@@ -52,7 +60,11 @@ class MainActivity : FlutterActivity() {
             pending = CsvRequest(bytes, result)
             val chooser = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
-                type = if (backup) "application/json" else "text/csv"
+                type = when {
+                    driveFile && name.endsWith(".back") -> "application/octet-stream"
+                    backup -> "application/json"
+                    else -> "text/csv"
+                }
                 putExtra(Intent.EXTRA_TITLE, name)
                 putExtra(Intent.EXTRA_LOCAL_ONLY, true)
             }
@@ -72,6 +84,7 @@ class MainActivity : FlutterActivity() {
     @Deprecated("Activity result bridge for FlutterActivity")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (driveAuthorization?.onResult(requestCode, resultCode, data) == true) return
         if (requestCode != CREATE_CSV || writing) return
         val request = pending ?: return
         if (resultCode == Activity.RESULT_CANCELED) {
@@ -111,6 +124,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        driveAuthorization?.dispose()
+        driveAuthorization = null
         devUpdateBridge?.dispose()
         devUpdateBridge = null
         invoicePrinter?.dispose()

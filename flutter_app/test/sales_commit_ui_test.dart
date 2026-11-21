@@ -18,6 +18,7 @@ class PendingSalesController extends ErpController {
       double? freeAmount,
       DateTime? invoiceDate,
       ValueChanged<String>? onCommitted,
+      String? requestId,
       required String customerName,
       required WarehouseRecord warehouse,
       required PaymentMethod payment,

@@ -1,0 +1,112 @@
+name: Seven reference states review
+on:
+  pull_request:
+    branches: ['work/hybrid-android-parity-20261121']
+    paths: ['flutter_app/**', 'qa/hybrid_home/**', '.github/workflows/hybrid-seven-review.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  presentation:
+    if: github.head_ref == 'feat/hybrid-seven-reference-states'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --no-audit --no-fund
+      - name: Build packaged React from the reviewed source
+        run: node qa/hybrid_home/build.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reviewed-react-asset
+          path: flutter_app/android/app/src/main/assets/hybrid_home/home.js
+      - run: npx playwright install --with-deps chromium
+      - name: Compare synthetic Drive states with the original React modal
+        run: node qa/hybrid_home/drive-browser.mjs "$RUNNER_TEMP/drive-screens"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drive-reference-and-embedded
+          path: ${{ runner.temp }}/drive-screens
+          if-no-files-found: ignore
+
+  # Import the generated asset into the repository's immutable object store.
+  # This job never checks out code, changes a ref, or writes to a release.
+  review-object:
+    if: ${{ !cancelled() && github.head_ref == 'feat/hybrid-seven-reference-states' && github.event.pull_request.head.repo.full_name == github.repository }}
+    needs: presentation
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewed-react-asset
+          path: static-output
+      - name: Record the verified asset object
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -f static-output/home.js && test ! -L static-output/home.js
+          test "$(wc -c < static-output/home.js)" -lt 2000000
+          asset="$(git hash-object static-output/home.js)"
+          base64 -w0 static-output/home.js | jq -Rs '{content:.,encoding:"base64"}' > "$RUNNER_TEMP/asset.json"
+          stored="$(gh api "repos/$GITHUB_REPOSITORY/git/blobs" --input "$RUNNER_TEMP/asset.json" --jq .sha)"
+          test "$asset" = "$stored"
+          echo "REVIEW_ASSET=$asset"
+
+  android:
+    if: github.head_ref == 'feat/hybrid-seven-reference-states'
+    needs: presentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewed-react-asset
+          path: flutter_app/android/app/src/main/assets/hybrid_home
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.0'
+          cache: true
+      - name: Build disposable device APK
+        working-directory: flutter_app
+        run: |
+          flutter config --jdk-dir="$JAVA_HOME"
+          flutter pub get
+          flutter build apk --debug --android-skip-build-dependency-validation
+      - name: Prepare device
+        run: |
+          python3 -m pip install Pillow
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: python3 qa/hybrid_home/android_drive_review.py flutter_app/build/app/outputs/flutter-apk/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-drive-device
+          path: hybrid-evidence/

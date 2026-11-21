@@ -17,6 +17,7 @@ class LocalBackupWorkspaceView extends StatefulWidget {
       {super.key,
       required this.loadBackups,
       required this.createBackup,
+      this.initialFile,
       this.restoreWeb,
       this.onRestored,
       this.importLocal,
@@ -24,6 +25,7 @@ class LocalBackupWorkspaceView extends StatefulWidget {
       this.restoreLocal,
       required this.verifyBackup,
       required this.testRestore});
+  final XFile? initialFile;
   final Future<LocalBackupFile> Function(String)? importLocal;
   final Future<bool> Function(String)? exportLocal;
   final Future<void> Function(WebBackup)? restoreWeb;
@@ -53,6 +55,10 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
     _run('جارٍ قراءة النسخ المحلية…', () async {
       _files = await widget.loadBackups();
       return 'اكتملت قراءة قائمة النسخ.';
+    }).then((_) {
+      if (!mounted) return;
+      final file = widget.initialFile;
+      if (file != null) _importWeb(file);
     });
   }
 
@@ -122,8 +128,8 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
     }
   }
 
-  Future<void> _importWeb() => _importStep(() async {
-        final file = await openFile();
+  Future<void> _importWeb([XFile? initial]) => _importStep(() async {
+        final file = initial ?? await openFile();
         if (file == null || !mounted) return;
         _selectedBytes = null;
         _inspection = null;

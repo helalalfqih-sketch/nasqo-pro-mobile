@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/erp_models.dart';
 import '../services/accounting_engine.dart';
+import '../services/cash_statement.dart';
 import '../state/erp_controller.dart';
 import 'invoice_form_sheet.dart';
 
@@ -30,11 +31,13 @@ class CashSupplierStatementView extends StatefulWidget {
     super.key,
     required this.controller,
     required this.account,
+    this.initialCurrency,
     required this.onOpenModule,
   });
 
   final ErpController controller;
   final AccountRecord account;
+  final CurrencyCode? initialCurrency;
   final ValueChanged<String> onOpenModule;
 
   @override
@@ -43,7 +46,7 @@ class CashSupplierStatementView extends StatefulWidget {
 }
 
 class _CashSupplierStatementViewState extends State<CashSupplierStatementView> {
-  String _currency = 'ريال';
+  late String _currency = (widget.initialCurrency ?? widget.account.currency).label;
   String _period = 'شهري';
   bool _showPreviousBalance = false;
   String _searchCriterion = 'الكل';
@@ -59,46 +62,21 @@ class _CashSupplierStatementViewState extends State<CashSupplierStatementView> {
       context: context,
       isScrollControlled: true,
       enableDrag: false,
-      builder: (_) => InvoiceFormSheet(controller: widget.controller),
+      builder: (_) => InvoiceFormSheet(controller: widget.controller, initialAccountId: widget.account.id),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final ledger = widget.controller.ledger
-        .where((e) =>
-            e.accountId == widget.account.id &&
-            !e.deleted &&
-            e.kind != LedgerKind.quote &&
-            e.kind != LedgerKind.order)
-        .toList();
-
-    // Filter by query and criterion
-    final filtered = ledger.where((e) {
-      if (_searchQuery.trim().isEmpty) return true;
-      final q = _searchQuery.toLowerCase();
-      return switch (_searchCriterion) {
-        'الرقم' => e.entryNumber.toString().contains(q),
-        'البيان' => e.details.toLowerCase().contains(q),
-        'رقم المستند' => e.id.toLowerCase().contains(q),
-        'المبلغ عليه' =>
-          e.direction == EntryDirection.debit && e.amount.toString().contains(q),
-        'المبلغ له' => e.direction == EntryDirection.credit &&
-            e.amount.toString().contains(q),
-        _ => '${e.entryNumber} ${e.details} ${e.typeLabel} ${e.amount}'
-            .toLowerCase()
-            .contains(q),
-      };
-    }).toList();
-
-    final debitTotal = filtered
-        .where((e) => e.direction == EntryDirection.debit)
-        .fold(0.0, (sum, e) => sum + e.amount);
-    final creditTotal = filtered
-        .where((e) => e.direction == EntryDirection.credit)
-        .fold(0.0, (sum, e) => sum + e.amount);
-    final netBalance = debitTotal - creditTotal;
-
+    final statement = CashStatement.read(widget.controller, widget.account,
+        currency:_currency, period:_period, previous:_showPreviousBalance,
+        query:_searchQuery, criterion:_searchCriterion);
+    final filtered=statement.rows;
+    String side(double signed)=>signed.abs()<0.005?'متزن':signed>0?'له':'عليه';
+    final dateStart=statement.from.isNotEmpty?statement.from:
+        filtered.isEmpty?'—':filtered.last.entry.entryDate;
+    final dateEnd=statement.through.isNotEmpty?statement.through:
+        filtered.isEmpty?'—':filtered.first.entry.entryDate;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Directionality(
@@ -214,7 +192,7 @@ class _CashSupplierStatementViewState extends State<CashSupplierStatementView> {
                           ),
                           const Spacer(),
                           Text(
-                            'الفترة: من ${DateTime.now().year}-01-01 إلى ${DateTime.now().toIso8601String().substring(0, 10)}',
+                            'الفترة: من $dateStart إلى $dateEnd',
                             style: const TextStyle(
                                 fontSize: 10, color: Colors.grey),
                           ),
@@ -291,10 +269,10 @@ class _CashSupplierStatementViewState extends State<CashSupplierStatementView> {
                 // Statement Rows
                 Expanded(
                   child: filtered.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Text(
-                            'لا توجد حركات نقدية مسجلة بهذه العملة.',
-                            style: TextStyle(color: Colors.grey),
+                            statement.issue ?? 'لا توجد حركات نقدية مسجلة بهذه العملة.',
+                            style: const TextStyle(color: Colors.grey),
                           ),
                         )
                       : ListView.separated(
@@ -303,8 +281,9 @@ class _CashSupplierStatementViewState extends State<CashSupplierStatementView> {
                           separatorBuilder: (_, __) =>
                               const Divider(height: 1, thickness: 0.5),
                           itemBuilder: (context, index) {
-                            final e = filtered[index];
-                            final isDebit = e.direction == EntryDirection.debit;
+                            final line = filtered[index];
+                            final e = line.entry;
+                            final isDebit = line.debit;
                             return InkWell(
                               onTap: () => showLandscapeInvoicePreview(
                                 context,
@@ -331,7 +310,7 @@ class _CashSupplierStatementViewState extends State<CashSupplierStatementView> {
                                     SizedBox(
                                       width: 80,
                                       child: Text(
-                                        AccountingEngine.formatAmount(e.amount),
+                                        '${AccountingEngine.formatAmount(line.amount)} ${line.currency.label}',
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
@@ -357,10 +336,10 @@ class _CashSupplierStatementViewState extends State<CashSupplierStatementView> {
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(
+                                    SizedBox(
                                       width: 70,
                                       child: Text(
-                                        '0.00',
+                                        '${AccountingEngine.formatAmount(line.running.abs())} ${side(line.running)}',
                                         textAlign: TextAlign.end,
                                         style: TextStyle(
                                           fontSize: 11,
@@ -395,29 +374,10 @@ class _CashSupplierStatementViewState extends State<CashSupplierStatementView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Text(
-                                  'عليه: ${AccountingEngine.formatAmount(debitTotal)}',
-                                  style: const TextStyle(
-                                      fontSize: 10, color: Colors.white70),
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'له: ${AccountingEngine.formatAmount(creditTotal)}',
-                                  style: const TextStyle(
-                                      fontSize: 10, color: Colors.white70),
-                                ),
-                              ],
-                            ),
-                            Text(
-                              'الرصيد عليه: ${AccountingEngine.formatAmount(netBalance.abs())} $_currency',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
+                            for(final total in statement.totals.entries)
+                              Text('عليه: ${AccountingEngine.formatAmount(total.value.debit)}   له: ${AccountingEngine.formatAmount(total.value.credit)}'
+                                  '\nالرصيد ${side(total.value.closing)}: ${AccountingEngine.formatAmount(total.value.closing.abs())} ${total.key.label}',
+                                  style:const TextStyle(fontSize:11,color:Colors.white)),
                           ],
                         ),
                       ),
@@ -473,7 +433,9 @@ class _CashSupplierStatementViewState extends State<CashSupplierStatementView> {
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold)),
                             ),
-                            for (final opt in cashCurrencyOptions)
+                            for (final opt in {...cashCurrencyOptions.take(3),
+                              if (widget.account.currency==CurrencyCode.eur || widget.controller.ledger.any((e)=>e.currency==CurrencyCode.eur && e.accountId==widget.account.id)) CurrencyCode.eur.label,
+                              ...cashCurrencyOptions.skip(3)})
                               InkWell(
                                 onTap: () {
                                   setState(() {

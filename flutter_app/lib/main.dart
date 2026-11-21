@@ -1,6 +1,8 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'hybrid/hybrid_home_view.dart';
+import 'hybrid/drive_backup_view.dart';
+import 'package:file_selector/file_selector.dart' show XFile;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/dashboard_screen.dart';
@@ -193,7 +195,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         initialCurrency: widget.controller.defaultCurrency,
       );
 
-  Future<void> _openModulePage(String moduleId, {AccountRecord? account}) async {
+  Future<void> _openModulePage(String moduleId, {AccountRecord? account, XFile? backupFile}) async {
     if (moduleId == 'sms-settings') {
       showNasqoSmsSettingsDialog(context);
       return;
@@ -399,11 +401,15 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           WorkspaceSettingsScreen(
             controller: widget.controller,
             openLocalBackups: () => _openModulePage('local-backups'),
+            openDrive: !kIsWeb && Platform.isAndroid ? () => _openModulePage('google-drive') : null,
           )
         ),
+      'google-drive' => ('Google Drive', DriveBackupView(controller:widget.controller,
+          inspect:(file)=>_openModulePage('local-backups',backupFile:file))),
       'local-backups' => (
           'النسخ المحلية واختبار الاستعادة',
           LocalBackupWorkspaceView(
+            initialFile: backupFile,
             onRestored: (message) {
               Navigator.of(context).popUntil((route) => route.isFirst);
               if (_homeScroll.hasClients) _homeScroll.jumpTo(0);
@@ -492,7 +498,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
             'cash-transfer-drafts',
             'simple-journal-drafts',
             'fx-drafts',
-            'local-backups',
+            'local-backups', 'google-drive',
             'measurements',
             'cash-statement',
           }.contains(moduleId)

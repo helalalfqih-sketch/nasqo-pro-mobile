@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/posting_receipt.dart';
 import 'invoice_actions.dart';
 import '../models/erp_models.dart';
 import '../services/account_csv.dart';
@@ -20,6 +21,7 @@ class _PurchaseInvoiceState extends State<PurchaseInvoiceView> {
   final price=TextEditingController(),quantity=TextEditingController(text:'1');
   String reference='',error='',rate='1';
   bool saving=false,free=false;
+  final _requestId = PostingReceipt.newRequest();
   DateTime date=DateTime.now();
   String? cashbox;
   final discount=TextEditingController(), freeTotal=TextEditingController();
@@ -52,7 +54,7 @@ class _PurchaseInvoiceState extends State<PurchaseInvoiceView> {
     widget.onSaving?.call(true);
     try {
       if(payment==PaymentMethod.cash && cashbox==null) throw const FormatException('اختر صندوق النقدية.');
-      final number=await widget.controller.postPurchaseInvoice(accountId:account??'',warehouseId:warehouse??'',
+      final number=await widget.controller.postPurchaseInvoice(requestId:_requestId,accountId:account??'',warehouseId:warehouse??'',
         payment:payment,rows:free?[]:rows,reference:reference,invoiceDate:date,cashboxAccountId:payment==PaymentMethod.cash?cashbox:null,
         freeAmount:free?parseAccountAmount(freeTotal.text):null,exchangeRate:parseAccountAmount(rate));
       if(!mounted) return;

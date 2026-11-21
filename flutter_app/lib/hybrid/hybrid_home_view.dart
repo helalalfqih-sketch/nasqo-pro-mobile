@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../screens/home_account_views.dart';
+import '../screens/cash_supplier_statement_view.dart';
 import '../models/erp_models.dart';
 import '../screens/account_tools.dart';
 import '../screens/home_warehouse_view.dart';
@@ -252,6 +253,8 @@ class HybridHomeState extends State<HybridHomeView> {
                   appBar: AppBar(title: Text('تعديل ${a.name}')),
                   body:
                       AccountEditor(controller: widget.controller, account: a))
+              : a.isCashAccount ? CashSupplierStatementView(controller:widget.controller, account:a,
+                  initialCurrency:cur, onOpenModule:(route)=>widget.openModule(route,account:a))
               : HomeAccountStatementView(
                   controller: widget.controller,
                   accountId: a.id,

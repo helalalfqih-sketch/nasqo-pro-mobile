@@ -1,6 +1,7 @@
 import '../services/website_restore_trial.dart';
 import 'dart:async';
 import '../services/account_csv.dart';
+import '../services/posting_receipt.dart';
 import '../services/cash_sale_settlement.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -1039,13 +1040,16 @@ class ErpController extends ChangeNotifier {
       (await _openLocalBackupFiles()).importBackup(envelope);
 
   Future<bool> exportLocalBackup(String id) async {
-    final bytes = await (await _openLocalBackupFiles()).exportBytes(id);
+    final bytes = await readLocalBackupBytes(id);
     const channel = MethodChannel('com.indexesstore.nasqo_qa/csv_export');
     return await channel.invokeMethod<bool>('saveBackup', {'suggestedName': id, 'bytes': Uint8List.fromList(bytes)}) ?? false;
   }
 
   Future<LocalBackupFile> createLocalBackup() async =>
       (await _openLocalBackupFiles()).createBackup();
+
+  Future<Uint8List> readLocalBackupBytes(String id) async =>
+      Uint8List.fromList(await (await _openLocalBackupFiles()).exportBytes(id));
 
   Future<LocalBackupCheck> verifyLocalBackup(String id) async =>
       (await _openLocalBackupFiles()).verifyBackup(id);
@@ -1189,7 +1193,8 @@ class ErpController extends ChangeNotifier {
     try {
       final files = await _openLocalBackupFiles();
       await _writeTail;
-      await files.createBackup();
+      final rollback = await files.createBackup();
+      await files.testRestore(rollback.id);
       await files.restoreLocal(id);
       _nextEntryNumber = 0;
       _loadModules(const ErpWorkspaceSnapshot());
@@ -1665,6 +1670,8 @@ class ErpController extends ChangeNotifier {
     required String accountId,
     required LedgerKind kind,
     String? counterpartId,
+    String? cashboxAccountId,
+    String? requestId,
     String documentNumber = '',
     required EntryDirection direction,
     required PaymentMethod payment,
@@ -1683,7 +1690,19 @@ class ErpController extends ChangeNotifier {
         if (!dbReady) throw const SaleValidationException('قاعدة البيانات غير جاهزة.');
         await _writeTail;
       }
+      final receipt = requestId == null ? null : PostingReceipt('entry', requestId, [
+        accountId, kind.name, counterpartId, cashboxAccountId, documentNumber.trim(), direction.name,
+        payment.name, amount.toString(), currency.name, fromCurrency?.name, exchangeRate.toString(),
+        note.trim(), expenseCategory.trim(),
+      ]);
+      final prior = receipt?.previous(ledger);
+      if (prior != null) return prior.entryNumber;
       final account = accounts.where((a) => a.id == accountId).firstOrNull;
+      final box = accounts.where((a) => a.id == cashboxAccountId).firstOrNull;
+      if (cashboxAccountId != null && (kind != LedgerKind.voucher || payment != PaymentMethod.cash ||
+          box == null || !box.isCashAccount || box.currency != currency || box.id == accountId)) {
+        throw const SaleValidationException('اختر صندوقًا آخر صالحًا بعملة السند.');
+      }
       final exchange = kind == LedgerKind.currency;
       final paired = kind == LedgerKind.simpleEntry || kind == LedgerKind.transfer;
       final other = accounts.where((a) => a.id == counterpartId).firstOrNull;
@@ -1708,7 +1727,7 @@ class ErpController extends ChangeNotifier {
       };
       final reference = documentNumber.trim().isEmpty && paired ? 'TX-$nextNumber' : documentNumber.trim();
       final entry = LedgerEntryRecord(
-        id: 'local_${DateTime.now().microsecondsSinceEpoch}_$nextNumber',
+        id: receipt?.primaryId('local') ?? 'local_${DateTime.now().microsecondsSinceEpoch}_$nextNumber',
         accountId: account.id, accountName: account.name,
         kind: kind, typeLabel: label, payment: payment, direction: direction,
         amount: total, currency: currency, exchangeRate: exchangeRate,
@@ -1719,8 +1738,9 @@ class ErpController extends ChangeNotifier {
         warehouseId: '', warehouseName: '', documentNumber: reference,
       );
       final postings = [entry];
-      if (paired && other != null) {
-        postings.add(LedgerEntryRecord(id: '${entry.id}_counter', accountId: other.id, accountName: other.name,
+      final opposite = paired ? other : box;
+      if (opposite != null) {
+        postings.add(LedgerEntryRecord(id: '${entry.id}_counter', accountId: opposite.id, accountName: opposite.name,
           kind: kind, typeLabel: label, payment: payment,
           direction: direction == EntryDirection.credit ? EntryDirection.debit : EntryDirection.credit,
           amount: total, currency: currency, details: entry.details, documentNumber: reference,
@@ -1765,7 +1785,7 @@ class ErpController extends ChangeNotifier {
 
   Future<int> postPurchaseInvoice({required String accountId,required String warehouseId,
       required PaymentMethod payment,required List<InvoiceItemRow> rows, String reference='',double exchangeRate=1,
-      double? freeAmount, String? cashboxAccountId, DateTime? invoiceDate}) async {
+      double? freeAmount, String? cashboxAccountId, DateTime? invoiceDate, String? requestId}) async {
     _requireAvailableMutation();
     _editingWorkspace=true;
     final draftRows = [for (final row in rows) InvoiceItemRow(id:row.id, itemId:row.itemId,
@@ -1776,6 +1796,12 @@ class ErpController extends ChangeNotifier {
         if(!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
         await _writeTail;
       }
+      final receipt = requestId == null ? null : PostingReceipt('purchase', requestId, [
+        accountId, warehouseId, payment.name, reference.trim(), exchangeRate.toString(), freeAmount?.toString(),
+        cashboxAccountId, invoiceDate?.toIso8601String().substring(0, 10), draftRows.map(PostingReceipt.row).toList(),
+      ]);
+      final prior = receipt?.previous(ledger);
+      if (prior != null) return prior.entryNumber;
       final supplier=accounts.where((a)=>a.id==accountId && a.category==AccountCategory.purchases).firstOrNull;
       final warehouse=warehouses.where((w)=>w.id==warehouseId).firstOrNull;
       if(freeAmount!=null && (!freeAmount.isFinite || freeAmount<=0 || draftRows.isNotEmpty)) {
@@ -1790,7 +1816,7 @@ class ErpController extends ChangeNotifier {
       final rate=supplier.currency==defaultCurrency?1.0:exchangeRate;
       if(!rate.isFinite || rate<=0) throw const FormatException('تحقق من سعر الصرف.');
       final prefix = freeAmount == null ? 'purchase' : 'purchase_service';
-      final number=_nextEntryNumber+1, id='${prefix}_${DateTime.now().microsecondsSinceEpoch}_$number';
+      final number=_nextEntryNumber+1, id=receipt?.primaryId(prefix) ?? '${prefix}_${DateTime.now().microsecondsSinceEpoch}_$number';
       final stock=List.of(inventory), lines=List.of(saleLines);
       var total=freeAmount??0.0;
       if(freeAmount!=null) lines.add(SavedSaleLine(entryId:id,position:0,itemId:'',itemName:'فاتورة حرة',unit:'خدمة',quantity:1,unitPrice:freeAmount));
@@ -2005,6 +2031,7 @@ class ErpController extends ChangeNotifier {
     double? freeAmount,
     DateTime? invoiceDate,
     ValueChanged<String>? onCommitted,
+    String? requestId,
     String documentNumber = '',
     String memo = '',
   }) async {
@@ -2051,6 +2078,16 @@ class ErpController extends ChangeNotifier {
               'قاعدة البيانات المحلية غير جاهزة.');
         }
         await _writeTail;
+      }
+      final receipt = requestId == null ? null : PostingReceipt('sale', requestId, [
+        accountId, customerName.trim(), warehouse.id, payment.name, includeVat, cashboxAccountId,
+        freeAmount?.toString(), invoiceDate?.toIso8601String().substring(0, 10), reference, description,
+        defaultCurrency.name, draftRows.map(PostingReceipt.row).toList(),
+      ]);
+      final prior = receipt?.previous(ledger);
+      if (prior != null) {
+        onCommitted?.call(prior.id);
+        return;
       }
       final cashbox = accounts.where((a) => a.id == cashboxAccountId).firstOrNull;
       if (cashboxAccountId != null && (payment != PaymentMethod.cash ||
@@ -2136,7 +2173,7 @@ class ErpController extends ChangeNotifier {
 
       final entryNum = _nextEntryNumber + 1;
       final prefix = isFree ? 'service-sale' : draftRows.any((r)=>r.discount>0) ? 'discount-sale' : 'led';
-      final entryId = '${prefix}_${DateTime.now().microsecondsSinceEpoch}_$entryNum';
+      final entryId = receipt?.primaryId(prefix) ?? '${prefix}_${DateTime.now().microsecondsSinceEpoch}_$entryNum';
       final postedCurrency = defaultCurrency;
       final stagedCosts = <SaleLineCostFact>[];
       final stagedLines = List<SavedSaleLine>.of(saleLines);

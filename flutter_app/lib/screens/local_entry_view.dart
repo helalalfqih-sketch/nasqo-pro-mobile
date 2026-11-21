@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/posting_receipt.dart';
 import 'account_tools.dart';
 import '../models/erp_models.dart';
 import '../services/accounting_engine.dart';
@@ -18,7 +19,12 @@ class LocalEntryView extends StatefulWidget {
 }
 
 class _LocalEntryState extends State<LocalEntryView> {
-  String? accountId, counterpart, error;
+  String? accountId, counterpart, cashbox, error;
+  Iterable<AccountRecord> get cashboxes => widget.controller.accounts.where(
+      (a) => a.isCashAccount && a.currency == currency && a.id != accountId);
+  void selectCashbox() {
+    if (!cashboxes.any((a) => a.id == cashbox)) cashbox = cashboxes.firstOrNull?.id;
+  }
   String expenseCategory = '';
   String? categoryNotice;
   final document = TextEditingController(), sender = TextEditingController(), recipient = TextEditingController(), company = TextEditingController();
@@ -27,6 +33,7 @@ class _LocalEntryState extends State<LocalEntryView> {
   PaymentMethod payment = PaymentMethod.cash;
   final amount = TextEditingController(), rate = TextEditingController(text: '1'), note = TextEditingController();
   bool saving = false;
+  final _requestId = PostingReceipt.newRequest();
   final accountSearch = TextEditingController();
 
   double _accountBalance(String? id) {
@@ -126,6 +133,7 @@ class _LocalEntryState extends State<LocalEntryView> {
     if (widget.journal || widget.exchange) { payment = PaymentMethod.balance; direction = EntryDirection.credit; }
     fromCurrency = first?.currency ?? widget.controller.defaultCurrency;
     currency = widget.exchange ? widget.controller.defaultCurrency : fromCurrency;
+    selectCashbox();
     if (widget.exchange) {
       fromCurrency = CurrencyCode.values.firstWhere((c) => c != currency);
       applyExchangeQuote();
@@ -147,7 +155,11 @@ class _LocalEntryState extends State<LocalEntryView> {
       if (widget.exchange && accountSearch.text.trim().isNotEmpty) {
         throw const SaleValidationException('اختر حسابًا من نتائج البحث.');
       }
-      final number = await widget.controller.postLocalEntry(accountId: accountId ?? '',
+      final cashVoucher = widget.kind == LedgerKind.voucher && payment == PaymentMethod.cash;
+      if (cashVoucher && cashbox == null) {
+        throw const SaleValidationException('اختر صندوقًا بعملة السند أو غيّر طريقة السداد إلى أرصدة.');
+      }
+      final number = await widget.controller.postLocalEntry(cashboxAccountId: cashVoucher ? cashbox : null, requestId: _requestId, accountId: accountId ?? '',
         kind: widget.kind, direction: direction, counterpartId: counterpart, documentNumber: document.text,
         payment: payment, amount: AccountingEngine.parseArabicNumber(amount.text), currency: currency,
         fromCurrency: widget.exchange ? fromCurrency : null, exchangeRate: widget.exchange
@@ -211,6 +223,7 @@ class _LocalEntryState extends State<LocalEntryView> {
             if (counterpart == v) counterpart = null;
             final c = widget.controller.accounts.where((a) => a.id == v).firstOrNull?.currency;
             if (!widget.exchange && c != null) currency = c;
+            selectCashbox();
           })),
         if (widget.journal || widget.transfer) ...[
           _balanceStrip(accountId),
@@ -237,7 +250,12 @@ class _LocalEntryState extends State<LocalEntryView> {
           TextField(controller: company, decoration: const InputDecoration(labelText: 'شركة التحويل')),
         ],
         if (widget.exchange) currencyField('من عملة', fromCurrency, (c) { fromCurrency = c; applyExchangeQuote(); }),
-        currencyField(widget.exchange ? 'إلى عملة' : 'العملة', currency, (c) { currency = c; if (widget.exchange) applyExchangeQuote(); }),
+        currencyField(widget.exchange ? 'إلى عملة' : 'العملة', currency, (c) { currency = c; selectCashbox(); if (widget.exchange) applyExchangeQuote(); }),
+        if (widget.kind == LedgerKind.voucher && payment == PaymentMethod.cash)
+          DropdownButtonFormField<String>(value: cashbox, isExpanded: true,
+            decoration: const InputDecoration(labelText: 'صندوق النقد'),
+            items: [for (final box in cashboxes) DropdownMenuItem(value: box.id, child: Text(box.name))],
+            onChanged: (id) => setState(() => cashbox = id)),
         TextField(controller: amount, onChanged: (_) => setState(() {}),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(labelText: 'المبلغ')),
