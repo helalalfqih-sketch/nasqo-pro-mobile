@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { chromium } from 'playwright';
 
@@ -83,6 +84,17 @@ try {
           assert.equal(await readZoom(), fit);
           await page.getByRole('button', { name: 'طباعة الفاتورة' }).tap();
           await page.getByRole('button', { name: 'حفظ المستند PDF عبر Android' }).tap();
+          if (width === 393 && fontScale === 1.3) {
+            for (const format of ['Letter', 'A4']) {
+              const pdf = path.join(out, `browser-print-${format}.pdf`);
+              await page.pdf({ path: pdf, format });
+              const content = execFileSync('pdftotext', ['-layout', pdf, '-'], {encoding: 'utf8'})
+                .replace(/\p{Cf}/gu, '');
+              for (const field of ['QA-41', '9041', 'خيط', 'تجريبي', '8.5', '25.5']) {
+                assert.ok(content.includes(field), `Missing printable field ${field} on ${format}`);
+              }
+            }
+          }
           await back.tap();
           assert.deepEqual(await page.evaluate(() => window.events.filter(e => ['documentOutput', 'documentClose'].includes(e.action))),
             [{ action: 'documentOutput', op: 'print' }, { action: 'documentOutput', op: 'pdf' }, { action: 'documentClose' }]);
