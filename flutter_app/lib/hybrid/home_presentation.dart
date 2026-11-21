@@ -42,6 +42,7 @@ const homeNavigationRoutes = {
   'home-mode',
   'theme',
   'local-backups',
+  'google-drive',
   'account-import',
   'message-settings',
   'notifications',

@@ -62,3 +62,51 @@ jobs:
           stored="$(gh api "repos/$GITHUB_REPOSITORY/git/blobs" --input "$RUNNER_TEMP/asset.json" --jq .sha)"
           test "$asset" = "$stored"
           echo "REVIEW_ASSET=$asset"
+
+  android:
+    if: github.head_ref == 'feat/hybrid-seven-reference-states'
+    needs: presentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewed-react-asset
+          path: flutter_app/android/app/src/main/assets/hybrid_home
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.0'
+          cache: true
+      - name: Build disposable device APK
+        working-directory: flutter_app
+        run: |
+          flutter config --jdk-dir="$JAVA_HOME"
+          flutter pub get
+          flutter build apk --debug --android-skip-build-dependency-validation
+      - name: Prepare device
+        run: |
+          python3 -m pip install Pillow
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: python3 qa/hybrid_home/android_drive_review.py flutter_app/build/app/outputs/flutter-apk/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-drive-device
+          path: hybrid-evidence/

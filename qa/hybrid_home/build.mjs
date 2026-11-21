@@ -87,7 +87,7 @@ for (const id of ['options-seed-demo-btn','options-reset-db-btn']) {
   headerOptions=replaceOnce(headerOptions,'data-testid="'+id+'"','disabled aria-description="غير متاح في مساحة Android المحلية" data-testid="'+id+'"');
 }
 headerOptions=replaceOnce(headerOptions,'      </aside>',`        <div className="opt-menu-divider" role="separator"/>
-        {[[GearIcon,"تبديل المظهر","theme"],[ReloadIcon,"التحقق من تحديثات التطبيق","app-update"],[HomeIcon,"الرئيسية الأصلية","home-mode"]].map(([Icon,label,route])=>
+        {[[FileTextIcon,"Google Drive السحابي","google-drive"],[GearIcon,"تبديل المظهر","theme"],[ReloadIcon,"التحقق من تحديثات التطبيق","app-update"],[HomeIcon,"الرئيسية الأصلية","home-mode"]].map(([Icon,label,route])=>
           <button key={route} type="button" role="menuitem" className="opt-tile" onClick={()=>{onClose();ctx.openAndroidOption(route);}}>
             <Icon aria-hidden="true"/><span>{label}</span>
           </button>)}
