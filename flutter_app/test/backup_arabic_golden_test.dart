@@ -10,7 +10,11 @@ void main() {
   setUpAll(() async {
     final font = FontLoader('InvoiceArabic')
       ..addFont(rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'));
-    await font.load();
+    final latin = FontLoader('InvoiceLatin')
+      ..addFont(rootBundle.load('assets/fonts/NotoSans-Regular.ttf'));
+    final icons = FontLoader('MaterialIcons')
+      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+    await Future.wait([font.load(), latin.load(), icons.load()]);
   });
   for (final brightness in Brightness.values) {
     testWidgets(
@@ -24,7 +28,8 @@ void main() {
           theme: ThemeData(
               useMaterial3: true,
               brightness: brightness,
-              fontFamily: 'InvoiceArabic'),
+              fontFamily: 'InvoiceArabic',
+              fontFamilyFallback: const ['InvoiceLatin']),
           locale: const Locale('ar'),
           supportedLocales: const [Locale('ar')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,

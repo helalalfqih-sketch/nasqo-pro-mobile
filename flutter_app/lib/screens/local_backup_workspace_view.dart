@@ -301,15 +301,23 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
           canPop: !_busy,
           child: Stack(children: [
             Scaffold(
-              appBar:
-                  AppBar(title: const Text('النسخ المحلية واختبار التعافي')),
+              appBar: AppBar(
+                  toolbarHeight:
+                      MediaQuery.textScalerOf(context).scale(24) * 2 + 16,
+                  title: Text('النسخ المحلية واختبار التعافي',
+                      maxLines: 2,
+                      softWrap: true,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontSize: 18))),
               body: ListView(padding: const EdgeInsets.all(16), children: [
                 if (widget.restoreWeb != null)
                   FilledButton.icon(
                       onPressed: _busy ? null : _importWeb,
                       icon: const Icon(Icons.file_open),
                       label: const Text(
-                          'استيراد نسخة الموقع أو الهاتف (.back أو .json)')),
+                          'استيراد نسخة الموقع أو الهاتف (\u2066.back\u2069 أو \u2066.json\u2069)')),
                 if (_fileName != null)
                   Card(
                       child: Padding(
