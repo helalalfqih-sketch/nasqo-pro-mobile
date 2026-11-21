@@ -692,49 +692,19 @@ class LandscapeInvoicePreviewDialog extends StatelessWidget {
         .where((l) => l.entryId == entry.id)
         .toList()
       ..sort((a, b) => a.position.compareTo(b.position));
-    final rows = savedLines.isNotEmpty
-        ? [
-            for (final (i, l) in savedLines.indexed)
-              (
-                index: i + 1,
-                name: l.itemName,
-                unit: l.unit,
-                qty: l.quantity,
-                price: l.unitPrice,
-                total: l.quantity * l.unitPrice,
-              )
-          ]
-        : entry.entryNumber == 1140
-            ? const [
-                (
-                  index: 1,
-                  name: 'بند مشتريات نقدية (1)',
-                  unit: 'وحدة',
-                  qty: 1.0,
-                  price: 1500.0,
-                  total: 1500.0,
-                ),
-                (
-                  index: 2,
-                  name: 'بند مشتريات نقدية (2)',
-                  unit: 'وحدة',
-                  qty: 1.0,
-                  price: 1500.0,
-                  total: 1500.0,
-                ),
-              ]
-            : [
-                (
-                  index: 1,
-                  name: entry.details.isEmpty ? entry.typeLabel : entry.details,
-                  unit: 'بيان',
-                  qty: 1.0,
-                  price: entry.amount,
-                  total: entry.amount,
-                ),
-              ];
+    final rows = [
+      for (final (i, l) in savedLines.indexed)
+        (
+          index: i + 1,
+          name: l.itemName,
+          unit: l.unit,
+          qty: l.quantity,
+          price: l.unitPrice,
+          total: l.quantity * l.unitPrice,
+        ),
+    ];
     final totalQty = rows.fold<double>(0, (s, r) => s + r.qty);
-    final totalAmount = entry.entryNumber == 1140 ? 3000.0 : entry.amount;
+    final totalAmount = entry.amount;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -855,47 +825,68 @@ class LandscapeInvoicePreviewDialog extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                // 5-Column RTL Item Table
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    headingRowHeight: 34,
-                    dataRowMinHeight: 32,
-                    dataRowMaxHeight: 44,
-                    columnSpacing: 18,
-                    headingRowColor:
-                        const WidgetStatePropertyAll(Color(0xFF0B5CA8)),
-                    headingTextStyle: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
+                if (entry.details.trim().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'البيان: ${entry.details}',
+                      style: const TextStyle(fontSize: 11),
                     ),
-                    columns: const [
-                      DataColumn(label: Text('م')),
-                      DataColumn(label: Text('البيان / الصنف')),
-                      DataColumn(label: Text('الوحدة')),
-                      DataColumn(label: Text('الكمية')),
-                      DataColumn(label: Text('السعر')),
-                      DataColumn(label: Text('الإجمالي')),
-                    ],
-                    rows: [
-                      for (final r in rows)
-                        DataRow(
-                          cells: [
-                            DataCell(Text('${r.index}')),
-                            DataCell(Text(r.name)),
-                            DataCell(Text(r.unit)),
-                            DataCell(
-                                Text(AccountingEngine.formatAmount(r.qty))),
-                            DataCell(
-                                Text(AccountingEngine.formatAmount(r.price))),
-                            DataCell(
-                                Text(AccountingEngine.formatAmount(r.total))),
-                          ],
-                        ),
-                    ],
                   ),
-                ),
+                if (rows.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: const Text(
+                      'تفاصيل البنود غير متاحة',
+                      style: TextStyle(fontSize: 12, color: Colors.black87),
+                    ),
+                  )
+                else
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      headingRowHeight: 34,
+                      dataRowMinHeight: 32,
+                      dataRowMaxHeight: 44,
+                      columnSpacing: 18,
+                      headingRowColor:
+                          const WidgetStatePropertyAll(Color(0xFF0B5CA8)),
+                      headingTextStyle: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                      columns: const [
+                        DataColumn(label: Text('م')),
+                        DataColumn(label: Text('البيان / الصنف')),
+                        DataColumn(label: Text('الوحدة')),
+                        DataColumn(label: Text('الكمية')),
+                        DataColumn(label: Text('السعر')),
+                        DataColumn(label: Text('الإجمالي')),
+                      ],
+                      rows: [
+                        for (final r in rows)
+                          DataRow(
+                            cells: [
+                              DataCell(Text('${r.index}')),
+                              DataCell(Text(r.name)),
+                              DataCell(Text(r.unit)),
+                              DataCell(
+                                  Text(AccountingEngine.formatAmount(r.qty))),
+                              DataCell(
+                                  Text(AccountingEngine.formatAmount(r.price))),
+                              DataCell(
+                                  Text(AccountingEngine.formatAmount(r.total))),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 10),
                 Container(
                   padding: const EdgeInsets.all(10),
@@ -911,8 +902,11 @@ class LandscapeInvoicePreviewDialog extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                              'إجمالي الكميات: ${AccountingEngine.formatAmount(totalQty)}',
-                              style: const TextStyle(fontSize: 11)),
+                            rows.isEmpty
+                                ? 'إجمالي الكميات: غير متاح'
+                                : 'إجمالي الكميات: ${AccountingEngine.formatAmount(totalQty)}',
+                            style: const TextStyle(fontSize: 11),
+                          ),
                           Text(
                             'الإجمالي الصافي: ${AccountingEngine.formatAmount(totalAmount)} ${entry.currency.label}',
                             style: const TextStyle(

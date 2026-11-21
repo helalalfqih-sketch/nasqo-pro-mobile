@@ -432,7 +432,8 @@ void main() {
     expect(find.textContaining('رصيد '), findsWidgets);
   });
 
-  testWidgets('landscape invoice preview renders transaction 1140 two 1500 lines and 3000 total',
+  testWidgets(
+      'landscape invoice preview shows recorded amount for entry 1140 without synthetic 3000 or 1500 lines',
       (tester) async {
     final c = ErpController(autoInitDb: false);
     addTearDown(c.dispose);
@@ -444,12 +445,16 @@ void main() {
       typeLabel: 'ف.مشتريات نقدية',
       payment: PaymentMethod.cash,
       direction: EntryDirection.credit,
-      amount: 3000,
+      amount: 4250,
       currency: CurrencyCode.sar,
       entryNumber: 1140,
       entryDate: '2026-11-21',
       documentNumber: 'DOC-1140',
+      details: 'توريد بضاعة للمخزن',
     );
+
+    // 1. Without saved lines: shows explicit unavailable message and recorded amount 4,250.
+    c.saleLines.clear();
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -461,9 +466,52 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('بند مشتريات نقدية (1)'), findsOneWidget);
-    expect(find.text('بند مشتريات نقدية (2)'), findsOneWidget);
-    expect(find.textContaining('3,000'), findsWidgets);
+    expect(find.text('تفاصيل البنود غير متاحة'), findsOneWidget);
+    expect(find.textContaining('4,250'), findsWidgets);
+    expect(find.text('بند مشتريات نقدية (1)'), findsNothing);
+    expect(find.text('بند مشتريات نقدية (2)'), findsNothing);
+    expect(find.textContaining('3,000'), findsNothing);
+    expect(find.textContaining('1,500'), findsNothing);
+
+    // 2. With saved lines: renders the saved lines and the recorded amount 4,250.
+    c.saleLines.addAll(const [
+      SavedSaleLine(
+        entryId: 'tx_1140',
+        position: 0,
+        itemId: 'item_1',
+        itemName: 'شاشة عرض صناعية',
+        unit: 'قطعة',
+        quantity: 2,
+        unitPrice: 1750,
+      ),
+      SavedSaleLine(
+        entryId: 'tx_1140',
+        position: 1,
+        itemId: 'item_2',
+        itemName: 'حامل جداري',
+        unit: 'قطعة',
+        quantity: 3,
+        unitPrice: 250,
+      ),
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LandscapeInvoicePreviewDialog(
+            key: const ValueKey('preview-with-lines'),
+            controller: c,
+            entry: tx1140,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('تفاصيل البنود غير متاحة'), findsNothing);
+    expect(find.text('شاشة عرض صناعية'), findsOneWidget);
+    expect(find.text('حامل جداري'), findsOneWidget);
+    expect(find.text('إجمالي الكميات: 5'), findsOneWidget);
+    expect(find.textContaining('4,250'), findsWidgets);
+    expect(find.textContaining('3,000'), findsNothing);
   });
 
   testWidgets('settings default currency and inventory action buttons work without layout errors',
