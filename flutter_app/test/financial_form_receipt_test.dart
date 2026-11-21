@@ -180,7 +180,7 @@ void main() {
     expect(savedDoc.entry.amount, 8);
     expect(savedDoc.lines.single.quantity, 2);
     expect(savedDoc.lines.single.unitPrice, 4);
-    await expectLater(store.readStatementDocument('s', original!), throwsStateError);
+    await expectLater(store.readStatementDocument('s', original), throwsStateError);
     final voucherDoc = await store.readStatementDocument('a',
         c.ledger.singleWhere((e) => e.entryNumber == voucherNumber && e.accountId == 'a').id);
     expect(voucherDoc.lines, isEmpty);

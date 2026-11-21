@@ -101,8 +101,10 @@ class _HybridDocumentState extends State<HybridDocumentView> {
         try {
           await _channel?.invokeMethod<void>('printDocument');
         } on PlatformException {
-          if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('تعذّر فتح مربع طباعة Android.')));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('تعذّر فتح مربع طباعة Android.')));
+          }
         } finally {
           _busy = false;
           await _present();
