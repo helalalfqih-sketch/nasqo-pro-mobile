@@ -39,6 +39,8 @@ const homeDestinations = <String, String>{
 };
 const homeNavigationRoutes = {
   'app-update',
+  'about-modal',
+  'activation-modal',
   'home-mode',
   'theme',
   'local-backups',

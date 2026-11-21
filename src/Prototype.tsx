@@ -9096,12 +9096,18 @@ function AppDrawer({
   open,
   onClose,
   onNavigate,
+  onDeviceAction,
 }: {
   open: boolean;
   onClose: () => void;
   onNavigate: (target: DrawerTarget) => void;
+  onDeviceAction?: (target: "local-backups" | "about-modal" | "activation-modal" | "app-update") => void;
 }) {
   const ctx = useWorkspace();
+  const openPanel = (action: () => void) => () => { onClose(); action(); };
+  const unavailable = (label: string) => openPanel(() => ctx.showToast(`${label} غير متاح في مساحة العمل الحالية.`));
+  const backup = openPanel(() => onDeviceAction ? onDeviceAction("local-backups") : ctx.openBackupModal());
+  const restore = openPanel(() => onDeviceAction ? onDeviceAction("local-backups") : ctx.openOptionsMenu());
   const sections: {
     title?: string;
     items: { label: string; ariaLabel?: string; icon: IconComponent; target?: DrawerTarget; action?: () => void }[];
@@ -9146,6 +9152,53 @@ function AppDrawer({
         { label: "نقطة البيع ومتابعة العملاء", icon: CardStackIcon, target: "erp-crm" },
         { label: "أوامر الشراء وسلسلة التوريد", icon: BackpackIcon, target: "erp-procurement" },
         { label: "التصنيع ومراكز التكلفة", icon: LayersIcon, target: "erp-manufacturing" },
+      ],
+    },
+    {
+      title: "النسخ الاحتياطي",
+      items: [
+        { label: "حفظ نسخة احتياطية على الهاتف", icon: DownloadIcon, action: backup },
+        { label: "حفظ نسخة احتياطية على التلجرام", icon: PaperPlaneIcon, action: unavailable("النسخ إلى التلجرام") },
+        { label: "مشاركة نسخة احتياطية", icon: Share1Icon, action: backup },
+        { label: "استعادة نسخة احتياطية", icon: ReloadIcon, action: restore },
+      ],
+    },
+    {
+      title: "جوجل درايف",
+      items: [
+        { label: "جوجل درايف", icon: GlobeIcon, action: openPanel(ctx.openGoogleDriveModal) },
+        { label: "إعدادات جوجل درايف", icon: GearIcon, action: openPanel(ctx.openGoogleDriveModal) },
+        { label: "استعادة نسخة احتياطية من جوجل درايف", icon: ReloadIcon, action: openPanel(ctx.openGoogleDriveModal) },
+      ],
+    },
+    {
+      title: "ملفات الصور المرفقة",
+      items: [
+        { label: "نسخ مجلد الصور إلى جوجل درايف", icon: GlobeIcon, action: unavailable("نسخ الصور") },
+        { label: "مشاركة مجلد الصور", icon: Share1Icon, action: unavailable("مشاركة المجلد") },
+        { label: "استعادة نسخة احتياطية للصور", icon: CameraIcon, action: unavailable("استيراد الصور") },
+        { label: "استعادة الصور من جوجل درايف", icon: DownloadIcon, action: unavailable("استيراد الصور") },
+      ],
+    },
+    {
+      title: "أخرى",
+      items: [
+        { label: "معالجة الأخطاء", icon: ExclamationTriangleIcon, action: unavailable("معالج الأخطاء") },
+        { label: "تفعيل التطبيق", icon: LockClosedIcon, action: onDeviceAction ? openPanel(() => onDeviceAction("activation-modal")) : unavailable("التفعيل") },
+        { label: "مقترحات", icon: ChatBubbleIcon, action: unavailable("إرسال المقترحات") },
+      ],
+    },
+    {
+      title: "عن التطبيق",
+      items: [
+        { label: "شرح عن التطبيق على اليوتيوب", icon: RocketIcon, action: unavailable("رابط الشرح") },
+        { label: "شروط الخدمة", icon: LockClosedIcon, action: unavailable("رابط شروط الخدمة") },
+        { label: "سياسة الخصوصية", icon: LockClosedIcon, action: unavailable("رابط سياسة الخصوصية") },
+        { label: "تواصل معنا", icon: MobileIcon, action: unavailable("رابط التواصل") },
+        { label: "تحديث التطبيق", icon: DownloadIcon, action: onDeviceAction ? openPanel(() => onDeviceAction("app-update")) : unavailable("فحص تحديث Android") },
+        { label: "مشاركة التطبيق", icon: Share1Icon, action: unavailable("رابط المشاركة") },
+        { label: "عن التطبيق", icon: InfoCircledIcon, action: openPanel(() => onDeviceAction ? onDeviceAction("about-modal") : ctx.showToast("نسقو برو لإدارة الحسابات والمبيعات")) },
+        { label: "قيم التطبيق", icon: BookmarkIcon, action: unavailable("رابط التقييم") },
       ],
     },
     {

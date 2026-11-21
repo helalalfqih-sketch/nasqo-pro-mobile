@@ -138,6 +138,7 @@ function Shell({snapshot}) {
     openChartOfAccounts: () => navigate('chart-accounts'), openCurrenciesManager: () => tile('currencies'),
     triggerCsvImport: () => navigate('account-import'),
     openLocalBackups: () => navigate('local-backups'), triggerJsonRestore: () => navigate('local-backups'),
+    openGoogleDriveModal: () => setToast('خدمة Google Drive غير مفعّلة في هذه النسخة المحلية.'),
     openAndroidOption: navigate,
     handleSignOut: () => {close(); setToast('تعمل مساحة الجهاز محليًا دون تسجيل دخول');},
   };
@@ -159,7 +160,7 @@ function Shell({snapshot}) {
       <div className="flow-scenes"><div className="flow-screen"><DashboardPage host={host}/></div></div>
       <div className="flow-fixed-footer"><DashboardBottomNav flow={flow}/></div>
     </div>
-    <AppDrawer open={overlay === 'drawer'} onClose={close} onNavigate={target => {
+    <AppDrawer open={overlay === 'drawer'} onClose={close} onDeviceAction={navigate} onNavigate={target => {
       close();
       if (target === 'dashboard') {window.nasqoTop(); return;}
       const [action,id] = drawerRoutes[target]; (action==='tile'?tile:navigate)(id);
