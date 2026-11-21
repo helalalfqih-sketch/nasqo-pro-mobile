@@ -6,7 +6,7 @@
   "inventory": {
     "occurrences": 28681,
     "unique_static_entries": 22814,
-    "review_scenarios": 9
+    "review_scenarios": 10
   },
   "test_evidence": {
     "complete_flutter_suite": {
@@ -115,9 +115,113 @@
     "published_by_this_batch": false
   },
   "matrix_status": {
-    "BLOCKED": 1,
-    "IMPLEMENTED_UNVERIFIED": 4,
+    "VERIFIED": 2,
+    "IMPLEMENTED_UNVERIFIED": 3,
+    "UNREVIEWED": 2,
     "MISSING": 2,
-    "UNREVIEWED": 2
+    "BLOCKED": 1
+  },
+  "current_code_batch": {
+    "id": "02-account-groups",
+    "branch": "feat/native-account-table-review",
+    "base_sha": "a1246e4a07a8a9c59baf131f25fe7062aaa00716",
+    "source_sha": "5a60a04ca63a1b826c7ece2a6dc85ae1f77efd53",
+    "changed_source_and_visuals": [
+      "flutter_app/lib/screens/dashboard_screen.dart",
+      "flutter_app/test/home_balance_panel_test.dart",
+      "qa/groups_lab/test/lab_test.dart",
+      "qa/screenshots/compare-dark.png",
+      "qa/screenshots/compare-light.png",
+      "qa/screenshots/native-dark.png",
+      "qa/screenshots/native-light.png"
+    ],
+    "tests": {
+      "full_flutter": 273,
+      "focused_widgets": 5,
+      "sqlite_and_visual_lab": 5,
+      "analyzer_errors": 0,
+      "analyzer_warnings": 0,
+      "analyzer_infos": 31,
+      "protected_runtime_files": 28
+    },
+    "visual": [
+      {
+        "mode": "light",
+        "dimensions": [
+          [
+            427,
+            151
+          ],
+          [
+            427,
+            151
+          ]
+        ],
+        "canvas": [
+          427,
+          151
+        ],
+        "differing": 5849,
+        "tolerance": 16
+      },
+      {
+        "mode": "dark",
+        "dimensions": [
+          [
+            427,
+            151
+          ],
+          [
+            427,
+            151
+          ]
+        ],
+        "canvas": [
+          427,
+          151
+        ],
+        "differing": 5452,
+        "tolerance": 16
+      }
+    ],
+    "verified_scenarios": [
+      "AB-01",
+      "AB-04"
+    ],
+    "remaining": [
+      "AB-02",
+      "AB-03",
+      "AB-05",
+      "HOME-01",
+      "HOME-02",
+      "HOME-03",
+      "AB-06",
+      "AB-07"
+    ],
+    "reference_tree": "7ff0b83b07f2925254311a8663900533f1eef936",
+    "application_data": "synthetic fixtures; SQLite integrity_check ok; all table rows matched across two cold opens",
+    "source_candidate": "1.0.18+10015 if the existing signing workflow next allocates run number 15; unreserved",
+    "previous_signed_baseline": 10014,
+    "release_owner": "separate release conversation",
+    "visual_review": "Flutter widget engine vs Chromium at 427×952 DPR1. Physical phone and TalkBack pending.",
+    "evidence": {
+      "pr": "https://github.com/helalalfqih-sketch/nasqo-pro-mobile/pull/20",
+      "screenshots": [
+        "screenshots/compare-light.png",
+        "screenshots/compare-dark.png"
+      ],
+      "logs": [
+        "test_logs/table-review-full.log",
+        "test_logs/table-review-lab.log",
+        "test_logs/table-review-targets.log",
+        "test_logs/table-review-drill-before.log",
+        "test_logs/table-review-visual.log",
+        "test_logs/table-review-browser.log",
+        "test_logs/table-review-runtime.log",
+        "test_logs/table-review-analyze.log",
+        "test_logs/table-review-dart-analyze.log"
+      ]
+    },
+    "source_control_note": "batch 1 test_evidence, visual and release sections above are the archived 10014 baseline. Current results are under current_code_batch."
   }
 }

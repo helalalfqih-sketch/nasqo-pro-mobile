@@ -1,0 +1,29 @@
+00:00 +0: loading /home/chatgpt-admin/nasqo-parity-table-review/flutter_app/test/home_balance_panel_test.dart
+00:00 +0: home balance shows per-currency amounts and opens member detail
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "كشف حساب مورد اصطناعي": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///home/chatgpt-admin/nasqo-parity-table-review/flutter_app/test/home_balance_panel_test.dart:71:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///home/chatgpt-admin/nasqo-parity-table-review/flutter_app/test/home_balance_panel_test.dart line 71
+The test description was:
+  home balance shows per-currency amounts and opens member detail
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:01 +0 -1: home balance shows per-currency amounts and opens member detail [E]
+  Test failed. See exception logs above.
+  The test description was: home balance shows per-currency amounts and opens member detail
+  
+00:01 +0 -1: restored group name and balance open only its own accounts
+00:02 +1 -1: Some tests failed.

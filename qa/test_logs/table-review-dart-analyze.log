@@ -1,0 +1,31 @@
+INFO|LINT|PREFER_CONST_CONSTRUCTORS|flutter_app/lib/main.dart|584|24|52|Use 'const' with the constructor to improve performance.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/screens/account_groups_view.dart|85|24|841|Statements in an if should be enclosed in a block.
+INFO|LINT|PREFER_CONST_CONSTRUCTORS|flutter_app/lib/screens/dashboard_screen.dart|503|7|154|Use 'const' with the constructor to improve performance.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/screens/dev_update_action.dart|31|11|123|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/screens/dev_update_action.dart|64|9|489|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/screens/home_navigation.dart|107|18|320|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/screens/home_navigation.dart|113|50|222|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/screens/home_navigation.dart|136|20|196|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/screens/local_backup_workspace_view.dart|118|9|79|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/screens/local_backup_workspace_view.dart|137|11|60|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/screens/local_backup_workspace_view.dart|140|13|61|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/screens/local_report_detail.dart|142|101|9|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/screens/workspace_views.dart|163|28|147|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/services/invoice_movement_report.dart|62|53|35|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/services/invoice_movement_report.dart|64|71|9|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/services/legacy_backup_inspection.dart|152|15|43|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/services/legacy_backup_inspection.dart|158|59|7|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/services/web_backup.dart|228|69|9|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/services/website_backup_file.dart|11|5|59|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/services/website_backup_file.dart|83|9|64|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/services/website_backup_file.dart|124|13|53|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/services/website_restore_trial.dart|46|7|66|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/services/website_restore_trial.dart|127|7|9|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/services/website_restore_trial.dart|213|9|96|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/services/website_restore_trial.dart|224|9|93|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/state/erp_controller.dart|79|32|142|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/state/erp_controller.dart|1756|51|50|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/state/erp_controller.dart|1819|32|118|Statements in an if should be enclosed in a block.
+INFO|LINT|CURLY_BRACES_IN_FLOW_CONTROL_STRUCTURES|flutter_app/lib/state/erp_controller.dart|1900|33|122|Statements in an if should be enclosed in a block.
+INFO|LINT|PREFER_CONST_CONSTRUCTORS|flutter_app/test/backup_arabic_golden_test.dart|38|41|22|Use 'const' with the constructor to improve performance.
+INFO|LINT|PREFER_CONST_CONSTRUCTORS|flutter_app/test/invoice_modes_test.dart|76|23|43|Use 'const' with the constructor to improve performance.

@@ -1,0 +1,7 @@
+00:00 +0: loading /home/chatgpt-admin/nasqo-parity-table-review/flutter_app/test/home_balance_panel_test.dart
+00:00 +0: home balance shows per-currency amounts and opens member detail
+00:02 +1: restored group name and balance open only its own accounts
+00:03 +2: RTL balances fit width 320.0 at 130% text
+00:03 +3: RTL balances fit width 900.0 at 130% text
+00:03 +4: returning from the selected group keeps its scroll offset and currency
+00:04 +5: All tests passed!
