@@ -1,0 +1,17 @@
+PASS reference-light {"table":{"x":15,"y":89,"w":397,"h":148.65625},"select":{"x":21,"y":146.40625,"w":63,"h":30},"name":{"x":193.265625,"y":136,"w":173.734375,"h":49.828125},"row":{"x":15.5,"y":135.5,"w":396.5,"h":50.828125},"tile":{"x":218,"y":252.65625,"w":195,"h":48},"search":{"x":218,"y":483.65625,"w":195,"h":48},"scrollRange":390,"background":"rgb(248, 250, 252)","fontLoaded":true,"balanceColor":"rgb(159, 18, 57)"}
+PASS reference-dark {"table":{"x":15,"y":89,"w":397,"h":148.65625},"select":{"x":21,"y":146.40625,"w":63,"h":30},"name":{"x":193.265625,"y":136,"w":173.734375,"h":49.828125},"row":{"x":15.5,"y":135.5,"w":396.5,"h":50.828125},"tile":{"x":218,"y":252.65625,"w":195,"h":48},"search":{"x":218,"y":483.65625,"w":195,"h":48},"scrollRange":390,"background":"rgb(11, 18, 32)","fontLoaded":true,"balanceColor":"rgb(251, 113, 133)"}
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: real reference keyframes while editing
+    at file:///home/chatgpt-admin/nasqo-parity-table-review/qa/hybrid_home/browser.mjs:60:12 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.4

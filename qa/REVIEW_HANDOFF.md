@@ -1,3 +1,9 @@
+# تسليم الدفعة 03 — الرئيسية الهجينة 10016
+
+اجتازت الحزمة الموقّعة 10016 ترقية Android المباشرة من 10014 دون شبكة، مع 276 اختبار Flutter. مصدر البناء `848a55527221d8982f32522b3f434c4d1c931b00`. يحدد التقرير أرقام التشغيل والمرفق والأدلة وتعليمات الاختبار للهاتف. [تسليم 10016](HYBRID_HOME_10016_AR.md) · [تشغيل Android](https://github.com/helalalfqih-sketch/nasqo-pro-mobile/actions/runs/44939902641) · [APK](https://erp.indexesstore.com/flutter-updates/nasqo-dev-10016.apk).
+
+## سجل تسليم الدفعات السابقة
+
 # تسليم الكود 02 — جدول مجموعات الحسابات والأرصدة
 
 [طلب المراجعة 20](https://github.com/helalalfqih-sketch/nasqo-pro-mobile/pull/20) يستهدف فرع التدقيق. أصل الدفعة `a1246e4`، وتعديل الواجهة `a0df737`، وآخر تعديل اختبار `5a60a04`. [فروق الكود والملفات](https://github.com/helalalfqih-sketch/nasqo-pro-mobile/compare/a1246e4...5a60a04).
