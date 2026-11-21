@@ -96,7 +96,6 @@ def verify_saved_document():
         'amount', e.amount, 'item', l.itemName, 'quantity', l.quantity, 'unitPrice', l.unitPrice)
         FROM ledger_entries e JOIN sale_lines l ON l.entryId=e.id
         WHERE e.id='qa-document' AND e.accountId='qa-u' AND l.position=0;"""))
-    tap(exact_button("حفظ المستند PDF عبر Android"))
     spooler = "com.android.printspooler"
     def spooler_control(control):
         return wait(lambda: next((n for n in nodes()
@@ -147,7 +146,6 @@ def verify_saved_document():
         number = re.escape(format(fields[key], "g"))
         require(re.search(r"(?<![0-9.])" + number + r"(?:\.0+)?(?![0-9.])", normalized),
                 "Missing saved invoice " + key)
-    find("معاينة المستند")
     passed("native_saved_pdf_matches_sqlite_invoice", {
         **fields, "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(),
     })
@@ -382,7 +380,10 @@ def verify_document_touch_layout(open_document):
             for action in ("طباعة الفاتورة", "حفظ المستند PDF عبر Android"):
                 press(action)
                 wait(rendered_print_page, f"Rendered Android page for {action} at {width}px", 35)
-                back()
+                if width == 427 and action == "حفظ المستند PDF عبر Android":
+                    verify_saved_document()
+                else:
+                    back()
                 document_text("معاينة المستند")
             press("رجوع")
             find("الرصيد الختامي: 25.00 دولار")
@@ -525,10 +526,6 @@ def run(baseline,candidate):
     passed("react_document_saved_lines_zoom_and_back")
     if DEBUG:
         verify_document_touch_layout(lambda: tap(statement_entry()))
-        tap(statement_entry())
-        find("خيط تجريبي")
-        verify_saved_document()
-        back()
         statement_entry()
     back();find("عميل دولار تجريبي");back();find("مجموعة الشمال")
     require(prefs()["filters"]["group-41"]=="دولار","lost filter on return");passed("native_statement_back")
