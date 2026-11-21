@@ -1,19 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 mkdir -p hybrid-evidence
-src=$(jq -er .source qa/hybrid_home/candidate.json)
-run=$(jq -er .run qa/hybrid_home/candidate.json)
-code=$(jq -er .versionCode qa/hybrid_home/candidate.json)
-[[ "$src" =~ ^[0-9a-f]{40}$ && "$run" =~ ^[0-9]+$ && "$code" =~ ^[0-9]+$ ]]
+# The PR head can also contain QA-only commits. Resolve the last change to
+# running code and test the signed output of precisely that revision.
+src=$(git log -1 --format=%H "$REVIEW_HEAD_SHA" -- flutter_app/android flutter_app/lib flutter_app/assets flutter_app/pubspec.yaml flutter_app/pubspec.lock src qa/hybrid_home/build.mjs qa/hybrid_home/host.tsx)
+[[ "$src" =~ ^[0-9a-f]{40}$ ]]
 git merge-base --is-ancestor "$src" HEAD
-git diff --exit-code "$src" HEAD -- flutter_app src
+git diff --exit-code "$src" HEAD -- flutter_app/android flutter_app/lib flutter_app/assets src
+run=''
 for i in $(seq 1 80); do
-  gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" > "$RUNNER_TEMP/run.json"
-  jq -e --arg src "$src" '.head_sha==$src and .path==".github/workflows/flutter-dev-release.yml"' "$RUNNER_TEMP/run.json" >/dev/null
-  if jq -e '.status=="completed"' "$RUNNER_TEMP/run.json" >/dev/null; then break; fi
+  gh api "repos/$GITHUB_REPOSITORY/actions/workflows/flutter-dev-release.yml/runs?head_sha=$src&branch=poc%2Fhybrid-home-android&event=workflow_dispatch&per_page=20" > "$RUNNER_TEMP/runs.json"
+  run=$(jq -r --arg sha "$src" '[.workflow_runs[] | select(.head_sha==$sha and .path==".github/workflows/flutter-dev-release.yml")][0].id // empty' "$RUNNER_TEMP/runs.json")
+  if [[ "$run" =~ ^[0-9]+$ ]]; then
+    gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" > "$RUNNER_TEMP/run.json"
+    if jq -e '.status=="completed"' "$RUNNER_TEMP/run.json" >/dev/null; then break; fi
+  fi
   sleep 15
 done
-jq -e '.conclusion=="success"' "$RUNNER_TEMP/run.json" >/dev/null
+jq -e --arg sha "$src" '.head_sha==$sha and .conclusion=="success"' "$RUNNER_TEMP/run.json" >/dev/null
+code=$(jq -r '.run_number+10000' "$RUNNER_TEMP/run.json"); test "$code" -gt 10014
+jq -n --arg src "$src" --argjson run "$run" --argjson code "$code" '{source:$src,run:$run,versionCode:$code,baseline:10014}' > hybrid-evidence/candidate.json
 gh run download "$run" --name nasqo-signed-dev-apk --dir "$RUNNER_TEMP/candidate"
 gh run download 44929394951 --name nasqo-signed-dev-apk --dir "$RUNNER_TEMP/baseline"
 echo "fed19174edd70fcfca0593376aefc811f5701721cb90a6a1234b1d4f2c2514c4  $RUNNER_TEMP/baseline/app-release.apk" | sha256sum -c -

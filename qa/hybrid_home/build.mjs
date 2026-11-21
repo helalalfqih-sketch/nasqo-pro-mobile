@@ -54,7 +54,12 @@ for(const [start,end,replacement] of changes.sort((a,b)=>b[0]-a[0]))
 body=body.replace('const selectedTile =', 'useEffect(() => {if(!tileEditMode)suppressNextClickRef.current=false; host.editing(tileEditMode);},[tileEditMode]); const selectedTile =');
 const amount='<bdi>{formatSignedSmartBalance(row.netDebitMinusCredit)}</bdi>';
 if(!body.includes(amount)) throw Error('Missing reference amount cell');
-if(!reference) body=body.replace(amount,'{row.amounts ? row.amounts.map(a => <span key={a.currency} style={{display:"block"}}><bdi>{formatSignedSmartBalance(a.value)}</bdi> · {a.currency}</span>) : '+amount+'}');
+if(!reference) {
+  body=body.replace('isNeg ? "neg" : isPos ? "pos" : "zero"', 'row.amounts ? "separate-currencies" : isNeg ? "neg" : isPos ? "pos" : "zero"');
+  const cell='<strong>\n                                  '+amount+'\n                                </strong>';
+  if(!body.includes(cell)) throw Error('Missing reference amount wrapper');
+  body=body.replace(cell,'{row.amounts ? row.amounts.map(a => <span key={a.currency} className={"smart-col-bal "+(a.value < -0.005 ? "neg" : a.value > 0.005 ? "pos" : "zero")} style={{display:"block"}}><strong><bdi>{formatSignedSmartBalance(a.value)}</bdi> · {a.currency}</strong></span>) : <strong>'+amount+'</strong>}');
+}
 const icons=ast.program.body.find(n=>n.type==='ImportDeclaration' && n.source.value==='@radix-ui/react-icons');
 const extras=['PeopleIcon','QrScanIcon','GaugeIcon','TagPriceIcon'].map(n=>slice(decl(n))).join('\n');
 const virtual=[
@@ -76,23 +81,37 @@ if(used.some(([p])=>/firebase|\/src\/services\/|\/server\/|[\\/]motion[\\/]/.tes
 function stylesheet(file,keep) {
  const sheet=postcss.parse(fs.readFileSync(path.join(root,file),'utf8'));
  if(reference) return sheet.toString();
+ const animations = new Set();
  sheet.walkRules(rule=>{
+   if(rule.parent?.type==='atrule' && /keyframes$/.test(rule.parent.name)) return;
    const selected=rule.selectors.filter(s=>keep.test(s));
-   if(selected.length)rule.selectors=selected;else rule.remove();
+   if(!selected.length) {rule.remove();return;}
+   rule.selectors=selected;
+   rule.walkDecls(/^(?:-webkit-)?animation(?:-name)?$/,decl=>{
+     for(const word of decl.value.match(/[\w-]+/g) ?? []) animations.add(word);
+   });
  });
- sheet.walkAtRules(rule=>{if(!rule.nodes?.length)rule.remove();});
+ sheet.walkAtRules(rule=>{
+   if(!rule.nodes?.length || (/keyframes$/.test(rule.name) && !animations.has(rule.params))) rule.remove();
+ });
  sheet.walkComments(c=>c.remove());
  return sheet.toString();
 }
-const css=stylesheet('src/styles.css',/^(:root|\*|body|button|input|textarea)$|\.mobile-(page|scroll)/)+'\n'+
-  stylesheet('src/prototype.css',/^:root(?:\.dark)?$|^\.nasqo-app(?:$| \*| button$)|\.smart-|\.app-screen\b|\.dashboard-page\b|\.page-with-footer\b|\.mobile-scroll\b|\.workspace-sync-error\b|^\.toast\b/)+
-  '\n@font-face{font-family:NasqoPilot;src:url("arabic.ttf")}html,body{margin:0;height:100%}.nasqo-app{--nasqo-font-family:NasqoPilot,sans-serif}.smart-tile.editing{touch-action:none}';
+const fontWeights={Regular:400,Medium:500,SemiBold:600,Bold:700};
+const fonts=Object.entries(fontWeights).map(([name,weight])=>
+  '@font-face{font-family:"IBM Plex Sans Arabic";font-style:normal;font-weight:'+weight+';src:url("fonts/IBMPlexSansArabic-'+name+'.ttf") format("truetype")}').join('\n');
+const css=fonts+'\n'+stylesheet('src/styles.css',/^(:root|\*|body|button|input|textarea)$|\.mobile-(page|scroll)/)+'\n'+
+  stylesheet('src/prototype.css',/^:root(?:\.dark)?$|^\.nasqo-app(?:$| \*| button$)|\.smart-|\.app-screen\b|\.dashboard-page\b|\.page-with-footer\b|\.mobile-scroll\b|\.workspace-sync-error\b|^\.toast\b|^\.app-brand-icon-img$/)+
+  '\n@font-face{font-family:NasqoPilot;src:url("arabic.ttf")}html,body{margin:0;height:100%}.nasqo-app{font-family:"IBM Plex Sans Arabic",NasqoPilot,sans-serif}.smart-tile.editing{touch-action:none}';
 const html='<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'self\'; style-src \'self\' \'unsafe-inline\'; font-src \'self\'; img-src \'self\'; connect-src \'none\'; frame-src \'none\'; base-uri \'none\'; form-action \'none\'"><link rel="stylesheet" href="home.css"></head><body><div id="home" class="nasqo-app"></div><script src="home.js"></script></body></html>\n';
+const logo=fs.readFileSync(path.join(root,'flutter_app/assets/nasqo_logo.png'));
+if(!logo.equals(fs.readFileSync(path.join(root,'public/assets/aistudio/NASQO_PRO_ERP_800_022d325f.png')))) throw Error('Android logo differs from the React brand mark');
 fs.mkdirSync(out,{recursive:true});
 fs.writeFileSync(path.join(out,'home.js'),bundled.outputFiles[0].contents);
 fs.writeFileSync(path.join(out,'home.css'),css);
 fs.writeFileSync(path.join(out,'index.html'),html);
 if(reference){
+ fs.cpSync(path.join(pilot,'fonts'),path.join(out,'fonts'),{recursive:true});
  fs.copyFileSync(path.join(root,'flutter_app/assets/fonts/NotoSansArabic-Regular.ttf'),path.join(out,'arabic.ttf'));
  fs.copyFileSync(path.join(root,'flutter_app/assets/nasqo_logo.png'),path.join(out,'logo.png'));
 }

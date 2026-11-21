@@ -261,8 +261,16 @@ class HomePresentation {
         });
       }
     }
+    String rgb(int argb) =>
+        '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
     return {
       'dark': dark,
+      'appearance': {
+        'primary': rgb(controller.primaryTint),
+        'secondary': rgb(controller.secondaryTint),
+        // 24 is the existing native default. The React pill default is 26.
+        if (controller.homeRadius != 24) 'radius': controller.homeRadius,
+      },
       'company': controller.companyName,
       'defaultCurrency': controller.defaultCurrency.label,
       'currencies': [for (final c in CurrencyCode.values) c.label],

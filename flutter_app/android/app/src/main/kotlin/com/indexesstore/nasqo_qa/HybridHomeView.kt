@@ -44,8 +44,13 @@ private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: I
             "logo.png" to Pair("image/png", "flutter_assets/assets/nasqo_logo.png"),
             "arabic.ttf" to Pair("font/ttf", "flutter_assets/assets/fonts/NotoSansArabic-Regular.ttf"),
         )
+        val fontFiles = listOf("Regular", "Medium", "SemiBold", "Bold").associate {
+            val name = "fonts/IBMPlexSansArabic-$it.ttf"
+            name to Pair("font/ttf", "hybrid_home/$name")
+        }
+        val resources = assets + fontFiles
         val loader = WebViewAssetLoader.Builder().addPathHandler("/home/") { path ->
-            assets[path]?.let { (mime, file) ->
+            resources[path]?.let { (mime, file) ->
                 WebResourceResponse(mime, if (mime.startsWith("text/") || path == "home.js") "utf-8" else null,
                     context.assets.open(file))
             }

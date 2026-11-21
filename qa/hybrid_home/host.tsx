@@ -3,6 +3,9 @@ import {createRoot} from 'react-dom/client';
 import {DashboardPage} from 'dashboard:presentation';
 import {normalizeHomeTileLayout} from '../../src/utils/dashboardPrefs';
 
+import {applyCardAppearanceSettings, DEFAULT_EXTENDED_SETTINGS} from '../../src/utils/appSettings';
+import {applyBrandColor} from '../../src/utils/brandColor';
+
 const root=createRoot(document.getElementById('home')!);
 let initialized=false;
 function send(action:string, fields:object={}) {
@@ -36,6 +39,13 @@ window.nasqoPresent=(snapshot)=>{
     }
   };
   document.documentElement.classList.toggle('dark',snapshot.dark);
+  const appearance=snapshot.appearance ?? {};
+  applyBrandColor(appearance.primary ?? DEFAULT_EXTENDED_SETTINGS.homePrimaryBtnColor);
+  applyCardAppearanceSettings({...DEFAULT_EXTENDED_SETTINGS,
+    homePrimaryBtnColor:appearance.primary ?? DEFAULT_EXTENDED_SETTINGS.homePrimaryBtnColor,
+    homeSecondaryBtnColor:appearance.secondary ?? DEFAULT_EXTENDED_SETTINGS.homeSecondaryBtnColor,
+    homeButtonRadius:appearance.radius ?? DEFAULT_EXTENDED_SETTINGS.homeButtonRadius,
+  });
   const host={context,rows:snapshot.rows,layout:normalizeHomeTileLayout(snapshot.layout),
     selectCurrency:update=>{const [[id,currency]]=Object.entries(update({}));send('currency',{id:Number(id),currency});},
     openGroup:(id:number)=>send('group',{id}),openTile:(id:string)=>send('tile',{id}),

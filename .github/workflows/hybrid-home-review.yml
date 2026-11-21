@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [feat/native-account-table-review]
     paths:
-      - 'qa/hybrid_home/candidate.json'
+      - 'qa/hybrid_home/host.tsx'
       - 'qa/hybrid_home/android_review.py'
       - 'qa/hybrid_home/browser.mjs'
       - 'qa/hybrid_home/verify-apks.sh'
@@ -40,6 +40,7 @@ jobs:
           python3 -m pip install Pillow
       - name: Verify immutable APK inputs
         env:
+          REVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ github.token }}
         run: bash qa/hybrid_home/verify-apks.sh
       - name: Run signed Android update in airplane mode

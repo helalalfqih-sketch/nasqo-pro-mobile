@@ -20,7 +20,7 @@ from android_upgrade_smoke import installed_code
 OUT = Path(os.environ.get("HYBRID_EVIDENCE", "hybrid-evidence"))
 DB = f"/data/user/0/{PACKAGE}/databases/nasqo_pro_erp.db"
 FIXTURE = json.loads((ROOT / "qa/groups_lab/assets/fixture.json").read_text())
-CANDIDATE = json.loads((ROOT / "qa/hybrid_home/candidate.json").read_text())
+CANDIDATE = json.loads((OUT / "candidate.json").read_text())
 RESULT = {"source": CANDIDATE["source"], "checks": {}, "paint_ms": [], "am_total_ms": []}
 def save(name, value):
     (OUT / name).write_text(json.dumps(value, ensure_ascii=False, indent=2)+"\n")

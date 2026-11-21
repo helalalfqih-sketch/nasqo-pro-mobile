@@ -17,6 +17,11 @@ void main() {
           id: 'qa', name: 'مثال', category: AccountCategory.clients));
     c.ledger.clear();
     final home = HomePresentation(c);
+    c.primaryTint = 0xff047857;
+    c.secondaryTint = 0xff0f766e;
+    c.homeRadius = 9;
+    expect(home.snapshot(false)['appearance'],
+        {'primary': '#047857', 'secondary': '#0f766e', 'radius': 9.0});
     final row = (home.snapshot(false)['rows'] as List).single;
     expect(row['name'], 'العملاء');
     expect(home.categoryFor(row['id']), AccountCategory.clients);
