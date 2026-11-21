@@ -1,4 +1,4 @@
-import 'cash_sale_settlement.dart' show linkedCashVoucherIds;
+import 'cash_sale_settlement.dart' show isCashSaleSettlement, linkedCashVoucherIds;
 import '../models/erp_models.dart';
 import '../state/erp_controller.dart';
 
@@ -71,6 +71,7 @@ Map<(String, CurrencyCode), AccountAmounts> accountAmountsByCurrency(
             (archive?.sides[e.id] == null &&
                 primary.isCashAccount &&
                 !linkedVouchers.contains(e.id) &&
+                !isCashSaleSettlement(e) &&
                 e.payment == PaymentMethod.cash);
         b.add(e.amount, credit);
         if (wash) b.add(e.amount, !credit);

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqlite3/open.dart';
 import 'package:nasqo_pro_erp/models/erp_models.dart';
+import 'package:nasqo_pro_erp/hybrid/home_presentation.dart';
 import 'package:nasqo_pro_erp/screens/invoice_actions.dart';
 import 'package:nasqo_pro_erp/services/local_database.dart';
 import 'package:nasqo_pro_erp/services/posting_receipt.dart';
@@ -133,11 +134,29 @@ void main() {
       return (amount?.debit ?? 0) - (amount?.credit ?? 0);
     }
     final boxBefore = boxNet();
+    expect(cashBefore, 8);
+    expect(boxBefore, 8);
+    void verifyHybridNavigation() {
+      final home = HomePresentation(c);
+      final before = home.snapshot(false);
+      expect(before['metrics'], containsPair('transfers', -11.25));
+      final cashGroup = (before['rows'] as List)
+          .singleWhere((row) => row['category'] == 'transfers');
+      expect(cashGroup['netDebitMinusCredit'], 11.25);
+      home.directory.open('trial');
+      final report = (home.snapshot(false)['directory']['reports'] as List).single;
+      expect(report['cashTotal'], 11.25);
+      expect(report['salesTotal'], 8);
+      home.directory.open('home');
+      expect(home.snapshot(false), before);
+    }
+
     final pendingVoucher = voucher();
     await expectLater(voucher(), throwsA(isA<SaleValidationException>()));
     final voucherNumber = await pendingVoucher;
     expect(trialBalanceSummary(c, CurrencyCode.sar).cash, cashBefore + 3.25);
     expect(boxNet(), boxBefore + 3.25);
+    verifyHybridNavigation();
     expect(trialBalanceSummary(c, CurrencyCode.usd).cash, 0);
     expect(c.inventory.single.quantity, 10);
     expect(c.saleLines.length, 2);
@@ -164,6 +183,7 @@ void main() {
     expect(await voucher(), voucherNumber);
     expect(trialBalanceSummary(c, CurrencyCode.sar).cash, cashBefore + 3.25);
     expect(boxNet(), boxBefore + 3.25);
+    verifyHybridNavigation();
     await expectLater(sale(tax: true), throwsA(isA<SaleValidationException>()));
     await expectLater(
         voucher(amount: 4), throwsA(isA<SaleValidationException>()));
