@@ -24,7 +24,8 @@ class MainActivity : FlutterActivity() {
         devUpdateBridge = DevUpdateBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         csvChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         csvChannel?.setMethodCallHandler { call, result ->
-            val backup = call.method == "saveBackup"
+            val report = call.method == "saveReport"
+            val backup = report || call.method == "saveBackup"
             if (!backup && call.method != "saveCsv") {
                 result.notImplemented()
                 return@setMethodCallHandler
@@ -37,7 +38,7 @@ class MainActivity : FlutterActivity() {
             val bytes = arguments?.get("bytes") as? ByteArray
             val name = arguments?.get("suggestedName") as? String
             val limit = if (backup) 16 * 1024 * 1024 else CSV_LIMIT
-            val pattern = if (backup) BACKUP_NAME else FILE_NAME
+            val pattern = if (report) Regex("nasqo-inspection[.]json") else if (backup) BACKUP_NAME else FILE_NAME
             if (bytes == null || bytes.isEmpty() || bytes.size > limit ||
                 name == null || !pattern.matches(name)
             ) {

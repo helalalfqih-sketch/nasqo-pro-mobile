@@ -192,9 +192,14 @@ class RestoredGroups {
       if (item['legacyId'] is int) result.itemNumbers[id] = item['legacyId'];
     }
     final headers = {for(final row in data['stockTransfers'] ?? []) row['id']:row};
-    for(final line in data['stockTransferLines'] ?? []) {
-      final header = headers[line['transferId']];
-      if(header==null || line['inventoryItemId'] is! String || line['quantity'] is! num) continue;
+    final flat = data['stockTransferLines'] ?? [];
+    final nested = [for(final h in headers.values) for(final l in h['lines'] ?? []) {...l as Map,'transferId':h['id']}];
+    if(flat.isNotEmpty && nested.isNotEmpty) throw const FormatException('تمثيل مكرر لبنود التحويل المخزني.');
+    for(final line in [...flat,...nested]) {
+      final header=headers[line['transferId']];
+      if(header==null || line['inventoryItemId'] is! String || line['quantity'] is! num) {
+        throw const FormatException('بند تحويل مخزني بلا مستند أو صنف أو كمية.');
+      }
       result.transfers.add((item:line['inventoryItemId'] as String,date:(header['transferDate'] ?? '') as String,
         source:(header['fromWarehouseId'] ?? '') as String,destination:(header['toWarehouseId'] ?? '') as String,
         quantity:(line['quantity'] as num).toDouble(),unit:(line['unitNum'] as num?)?.toInt() ?? 1));

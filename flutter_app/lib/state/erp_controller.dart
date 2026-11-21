@@ -1,5 +1,5 @@
+import '../services/website_restore_trial.dart';
 import 'dart:async';
-import 'dart:convert';
 import '../services/account_csv.dart';
 import '../services/cash_sale_settlement.dart';
 import 'package:flutter/foundation.dart';
@@ -926,17 +926,10 @@ class ErpController extends ChangeNotifier {
     try {
       final files = await _openLocalBackupFiles();
       await _writeTail;
-      await files.createBackup();
-      final workspace = jsonDecode(backup.original)['workspace'];
-      final preferences = {'provider':workspace['whatsappProvider'],'phone':workspace['whatsappPhone'],
-        'instant':workspace['whatsappInstantEnabled']};
-      await _localDatabase.saveSnapshot(
-        accounts: backup.accounts, ledger: backup.ledger, warehouses: backup.warehouses,
-        inventory: backup.inventory, saleLines: backup.lines, companyName: backup.company,
-        isDarkMode: isDarkMode, nextEntryNumber: backup.lastNumber,
-        restoredWebExport: backup.original,
-        erpData: {...backup.modules.toJson(),'messagePreferences':preferences,'currencyDetails':backup.currencyDetails},
-      );
+      final rollback = await files.createBackup();
+      await files.testRestore(rollback.id);
+      final preferences = websitePreferences(backup);
+      await writeWebsiteSnapshot(_localDatabase, backup, isDarkMode);
       accounts..clear()..addAll(backup.accounts);
       ledger..clear()..addAll(backup.ledger);
       warehouses..clear()..addAll(backup.warehouses);
