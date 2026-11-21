@@ -58,11 +58,26 @@ html, body { margin: 0; height: 100%; }
   .hybrid-document .cash-invoice-controls {
     position: static;
     height: auto;
-    min-height: 44px;
+    min-height: 48px;
     flex-wrap: wrap;
     overflow: visible;
   }
-  .hybrid-document .cash-invoice-reader-hint {position: static;}
+  .hybrid-document .cash-invoice-controls button,
+  .hybrid-document .cash-invoice-reader-hint button {
+    box-sizing: border-box;
+    min-width: 48px;
+    min-height: 48px;
+  }
+  .hybrid-document .cash-invoice-controls button {font-size: 1rem;}
+  .hybrid-document .cash-invoice-controls :is(.cash-invoice-fit, .cash-invoice-actual, .cash-invoice-download, .cash-invoice-drive),
+  .hybrid-document .cash-invoice-reader-hint {font-size: .6875rem;}
+  .hybrid-document .cash-invoice-reader-hint {
+    position: static;
+    height: auto;
+    min-height: 35px;
+    padding: 2px 6px;
+    text-align: center;
+  }
   .hybrid-document .cash-invoice-scroll {position: relative; inset: auto; min-height: 0;}
 }
 

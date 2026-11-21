@@ -261,6 +261,54 @@ def visible_button(text,box,direction="down"):
         time.sleep(.25)
     raise AssertionError("No unobstructed button: "+text)
 
+def verify_document_touch_layout(open_document):
+    labels = (
+        "تكبير الفاتورة", "تصغير الفاتورة", "ملاءمة العرض", "100%",
+        "طباعة الفاتورة", "حفظ المستند PDF عبر Android",
+    )
+    layouts = []
+    adb("shell", "settings", "put", "system", "font_scale", "1.3")
+    try:
+        for width in (320, 393, 427):
+            adb("shell", "wm", "size", f"{width}x952")
+            open_document()
+            find("معاينة المستند")
+            box = viewport()
+            require(box[2] - box[0] == width, f"Unexpected document width: {box}")
+            back_button = exact_button("رجوع")
+            back_bottom = bounds(back_button)[3]
+            controls = {label: bounds(exact_button(label)) for label in labels}
+            for label, (left, top, right, bottom) in controls.items():
+                require(right - left >= 48 and bottom - top >= 48 and
+                        box[0] <= left < right <= box[2] and back_bottom <= top < bottom <= box[3],
+                        f"Clipped or undersized document action: {label}, {controls[label]}")
+            shot(f"android-document-{width}-font-130")
+            tap(exact_button("تكبير الفاتورة"))
+            find("مرّر لقراءة بقية المستند")
+            tap(exact_button("تصغير الفاتورة"))
+            find("يمكن طباعة المستند أو حفظه")
+            tap(exact_button("100%"))
+            find("مرّر لقراءة بقية المستند")
+            # Crop the stable document area so changes in status chrome cannot
+            # satisfy the swipe check.
+            content_top = bounds(exact_button("تحريك الفاتورة إلى اليمين"))[3] + 16
+            region = (16, content_top, width - 16, min(content_top + 160, box[3]))
+            before = shot(f"android-document-{width}-zoomed").crop(region)
+            swipe(45, content_top + 80, width - 45, content_top + 80)
+            time.sleep(.6)
+            after = shot(f"android-document-{width}-panned").crop(region)
+            require(ImageChops.difference(before, after).getbbox(),
+                    f"Horizontal swipe did not move the document at width {width}")
+            tap(exact_button("ملاءمة العرض"))
+            find("يمكن طباعة المستند أو حفظه")
+            tap(exact_button("رجوع"))
+            layouts.append({"width": width, "font_scale": 1.3, "controls": controls})
+    finally:
+        adb("shell", "wm", "size", "427x952")
+        adb("shell", "settings", "put", "system", "font_scale", "1.0")
+    passed("rtl_document_touch_layouts", layouts)
+
+
 def record_diag(name):
     logs=adb("logcat","-d","NasqoHybrid:I","chromium:I","AndroidRuntime:E","flutter:I","*:S").decode(errors="replace")
     (OUT/(name+"-log.txt")).write_text(logs[-20000:])
@@ -389,6 +437,9 @@ def run(baseline,candidate):
     back()
     statement_entry()
     passed("react_document_saved_lines_zoom_and_back")
+    if DEBUG:
+        verify_document_touch_layout(lambda: tap(statement_entry()))
+        statement_entry()
     back();find("عميل دولار تجريبي");back();find("مجموعة الشمال")
     require(prefs()["filters"]["group-41"]=="دولار","lost filter on return");passed("native_statement_back")
     tap(exact_button("بحث"));find("البحث السريع المحلي")

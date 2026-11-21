@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 test.use({ viewport: { width: 1400, height: 1200 }, deviceScaleFactor: 1, launchOptions: { executablePath: process.env.CHROME_BIN } });
 
-function observePreview(page: Page) {
+function observePreview(page: Page, allowReferenceFonts = false) {
   const errors: string[] = [];
   const externalRequests: string[] = [];
   const writeRequests: string[] = [];
@@ -17,7 +17,10 @@ function observePreview(page: Page) {
   page.on("popup", () => { popups += 1; });
   page.on("request", request => {
     const url = new URL(request.url());
-    if (/^https?:$/.test(url.protocol) && !["127.0.0.1", "localhost"].includes(url.hostname)) {
+    const referenceFont = allowReferenceFonts && request.method() === "GET" &&
+      request.resourceType() === "font" && url.origin === "https://fonts.gstatic.com" &&
+      url.pathname.startsWith("/s/ibmplexsansarabic/");
+    if (!referenceFont && /^https?:$/.test(url.protocol) && !["127.0.0.1", "localhost"].includes(url.hostname)) {
       externalRequests.push(`${request.method()} ${url.origin}${url.pathname}`);
     }
     if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method())) writeRequests.push(`${request.method()} ${url.pathname}`);
@@ -57,7 +60,7 @@ async function capture(page: Page, name: string) {
 test("seventh drawer opens phone backup and keeps unavailable actions local", async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
   await page.goto("/", { waitUntil: "networkidle" });
-  const observed = observePreview(page);
+  const observed = observePreview(page, true);
   const openDrawer = page.getByRole("button", { name: "فتح القائمة", exact: true });
   const drawer = page.getByRole("complementary", { name: "قائمة نسقو" });
   await openDrawer.click();
