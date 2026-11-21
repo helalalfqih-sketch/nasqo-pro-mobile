@@ -604,39 +604,78 @@ List<SupplierPerformanceMetric> computeSupplierMetrics(
             po.status == PurchaseOrderStatus.received)
         .toList();
 
-    for (final po in supplierReceivedPos) {
-      final orderDt = DateTime.tryParse(po.orderDate);
-      final expectedDt = DateTime.tryParse(po.expectedDate);
-      final explicitId = po.postedLedgerEntryId?.trim() ?? '';
-      final docNum = po.poNumber.trim();
-      LedgerEntryRecord? linked;
+    final allExplicitTargetIds = purchaseOrders
+        .map((po) => po.postedLedgerEntryId?.trim() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final usedInvoiceIds = <String>{};
+    final matchedPoIndices = <int>{};
+    final matchedPairs = <({ErpPurchaseOrder po, LedgerEntryRecord invoice})>[];
 
-      if (explicitId.isNotEmpty) {
-        final idMatches = purchaseInvoices.where((e) => e.id == explicitId).toList();
-        if (idMatches.length == 1) {
-          final candidate = idMatches.single;
-          final docConsistent = docNum.isEmpty ||
-              candidate.documentNumber.trim().isEmpty ||
-              candidate.documentNumber.trim() == docNum;
-          if (docConsistent) {
-            linked = candidate;
-          }
-        }
-      } else if (docNum.isNotEmpty) {
-        final sameDocPos = supplierReceivedPos
-            .where((other) =>
-                (other.postedLedgerEntryId?.trim() ?? '').isEmpty &&
-                other.poNumber.trim() == docNum)
-            .length;
-        final docMatches = purchaseInvoices
-            .where((e) => e.documentNumber.trim() == docNum)
-            .toList();
-        if (sameDocPos == 1 && docMatches.length == 1) {
-          linked = docMatches.single;
+    // Pass 1: Explicit postedLedgerEntryId links take priority regardless of PO order.
+    for (var i = 0; i < supplierReceivedPos.length; i++) {
+      final po = supplierReceivedPos[i];
+      final explicitId = po.postedLedgerEntryId?.trim() ?? '';
+      if (explicitId.isEmpty || usedInvoiceIds.contains(explicitId)) continue;
+
+      final sameExplicitCount = supplierReceivedPos
+          .where((other) =>
+              (other.postedLedgerEntryId?.trim() ?? '') == explicitId)
+          .length;
+      if (sameExplicitCount != 1) continue;
+
+      final idMatches = purchaseInvoices
+          .where((e) => e.id == explicitId && !usedInvoiceIds.contains(e.id))
+          .toList();
+      if (idMatches.length == 1) {
+        final candidate = idMatches.single;
+        final docNum = po.poNumber.trim();
+        final docConsistent = docNum.isEmpty ||
+            candidate.documentNumber.trim().isEmpty ||
+            candidate.documentNumber.trim() == docNum;
+        if (docConsistent) {
+          usedInvoiceIds.add(candidate.id);
+          matchedPoIndices.add(i);
+          matchedPairs.add((po: po, invoice: candidate));
         }
       }
+    }
 
-      final receivedDt = linked != null ? DateTime.tryParse(linked.entryDate) : null;
+    // Pass 2: Fallback to unique documentNumber only against unclaimed receipt entries.
+    for (var i = 0; i < supplierReceivedPos.length; i++) {
+      if (matchedPoIndices.contains(i)) continue;
+      final po = supplierReceivedPos[i];
+      final explicitId = po.postedLedgerEntryId?.trim() ?? '';
+      final docNum = po.poNumber.trim();
+      if (explicitId.isNotEmpty || docNum.isEmpty) continue;
+
+      var unmatchedSameDocCount = 0;
+      for (var j = 0; j < supplierReceivedPos.length; j++) {
+        if (!matchedPoIndices.contains(j) &&
+            supplierReceivedPos[j].poNumber.trim() == docNum) {
+          unmatchedSameDocCount++;
+        }
+      }
+      if (unmatchedSameDocCount != 1) continue;
+
+      final docMatches = purchaseInvoices
+          .where((e) =>
+              !usedInvoiceIds.contains(e.id) &&
+              !allExplicitTargetIds.contains(e.id) &&
+              e.documentNumber.trim() == docNum)
+          .toList();
+      if (docMatches.length == 1) {
+        final candidate = docMatches.single;
+        usedInvoiceIds.add(candidate.id);
+        matchedPoIndices.add(i);
+        matchedPairs.add((po: po, invoice: candidate));
+      }
+    }
+
+    for (final pair in matchedPairs) {
+      final orderDt = DateTime.tryParse(pair.po.orderDate);
+      final expectedDt = DateTime.tryParse(pair.po.expectedDate);
+      final receivedDt = DateTime.tryParse(pair.invoice.entryDate);
       if (orderDt != null && receivedDt != null && !receivedDt.isBefore(orderDt)) {
         deliveryDays.add(receivedDt.difference(orderDt).inDays.toDouble());
         if (expectedDt != null) {

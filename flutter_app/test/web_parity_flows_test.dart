@@ -397,6 +397,82 @@ void main() {
     expect(mAmbForward.onTimeScore, isNull);
     expect(mAmbReversed.avgDeliveryDays, isNull);
     expect(mAmbReversed.onTimeScore, isNull);
+
+    // Single receipt invoice must be used at most once, with priority to the explicitly linked PO
+    // even when a second received PO shares the same documentNumber without postedLedgerEntryId.
+    const sSingleReceipt = AccountRecord(
+      id: 'sup_single_receipt',
+      name: 'مورد استلام مفرد',
+      category: AccountCategory.purchases,
+      codeNumber: 205,
+    );
+    const singleReceiptInvoice = LedgerEntryRecord(
+      id: 'inv_single_100',
+      accountId: 'sup_single_receipt',
+      accountName: 'مورد استلام مفرد',
+      kind: LedgerKind.invoice,
+      typeLabel: 'ف.مشتريات',
+      payment: PaymentMethod.credit,
+      direction: EntryDirection.credit,
+      amount: 1200,
+      currency: CurrencyCode.sar,
+      details: 'فاتورة استلام وحيدة',
+      documentNumber: 'PO-100',
+      entryNumber: 50,
+      entryDate: '2026-03-03',
+    );
+    const poExplicit = ErpPurchaseOrder(
+      id: 'po_explicit_100',
+      poNumber: 'PO-100',
+      supplierAccountId: 'sup_single_receipt',
+      supplierName: 'مورد استلام مفرد',
+      warehouseId: 'wh_main',
+      warehouseName: 'الرئيسي',
+      currency: CurrencyCode.sar,
+      status: PurchaseOrderStatus.received,
+      orderDate: '2026-03-01',
+      expectedDate: '2026-03-05',
+      notes: '',
+      lines: [],
+      postedLedgerEntryId: 'inv_single_100',
+    );
+    const poUnlinkedSameDoc = ErpPurchaseOrder(
+      id: 'po_unlinked_100',
+      poNumber: 'PO-100',
+      supplierAccountId: 'sup_single_receipt',
+      supplierName: 'مورد استلام مفرد',
+      warehouseId: 'wh_main',
+      warehouseName: 'الرئيسي',
+      currency: CurrencyCode.sar,
+      status: PurchaseOrderStatus.received,
+      orderDate: '2026-02-22',
+      expectedDate: '2026-02-25',
+      notes: '',
+      lines: [],
+    );
+
+    final singleForward = computeSupplierMetrics(
+      [sSingleReceipt],
+      [singleReceiptInvoice],
+      CurrencyCode.sar,
+      purchaseOrders: [poExplicit, poUnlinkedSameDoc],
+    ).single;
+    final singleReversed = computeSupplierMetrics(
+      [sSingleReceipt],
+      [singleReceiptInvoice],
+      CurrencyCode.sar,
+      purchaseOrders: [poUnlinkedSameDoc, poExplicit],
+    ).single;
+
+    expect(singleForward.orderCount, 1);
+    expect(singleForward.totalSpend, 1200);
+    expect(singleForward.avgDeliveryDays, 2.0);
+    expect(singleForward.onTimeScore, 100);
+
+    expect(singleReversed.orderCount, 1);
+    expect(singleReversed.totalSpend, 1200);
+    expect(singleReversed.avgDeliveryDays, 2.0);
+    expect(singleReversed.onTimeScore, 100);
   });
 
   testWidgets('local entry supports smart expense category and account swap with balance strips',
