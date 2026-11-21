@@ -8,6 +8,8 @@ import 'package:nasqo_pro_erp/models/erp_models.dart';
 import 'package:nasqo_pro_erp/screens/invoice_actions.dart';
 import 'package:nasqo_pro_erp/services/local_database.dart';
 import 'package:nasqo_pro_erp/services/posting_receipt.dart';
+import 'package:nasqo_pro_erp/services/account_amounts.dart';
+import 'package:nasqo_pro_erp/services/cash_statement.dart';
 import 'package:nasqo_pro_erp/state/erp_controller.dart';
 
 void main() {
@@ -153,6 +155,15 @@ void main() {
     expect(c.inventory.single.quantity, 10);
     expect(c.inventory.single.avgCost, cost);
     expect(c.saleLines.length, 2);
+    final cash = c.accounts.singleWhere((a)=>a.id=='b');
+    final stmt = CashStatement.read(c,cash,currency:'ريال',period:'الكل',previous:true);
+    expect(stmt.issue,isNull);
+    expect(stmt.totals[CurrencyCode.sar]!.debit,11.25);
+    expect(stmt.totals[CurrencyCode.sar]!.credit,0);
+    expect(stmt.rows.first.running,-11.25);
+    expect(accountAmountsByCurrency(c,[cash])[('b',CurrencyCode.sar)]!.debit,11.25);
+    final customer=c.accounts.singleWhere((a)=>a.id=='a');
+    expect(CashStatement.read(c,customer,currency:'ريال',period:'الكل',previous:true).totals[CurrencyCode.sar]!.closing,3.25);
     final db = await store.database;
     expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
     expect((await db.rawQuery('PRAGMA integrity_check')).single.values.single,

@@ -141,6 +141,7 @@ class RestoredGroups {
   final documentTypes = <String,int>{};
   final counterparts = <String,String>{};
   final settledEntries = <String>{};
+  final rateToBase = <String>{};
   final serviceInvoices = <String>{};
   final expiryDates = <String,String>{};
   final transfers = <({String item,String date,String source,String destination,double quantity,int unit})>[];
@@ -174,6 +175,8 @@ class RestoredGroups {
     }
     for (final e in data['ledger'] ?? []) {
       final id = e['id'] as String;
+      final rate = e['exchangeRate'];
+      if (rate is num && rate.isFinite && rate > 0 && e['kind'] != 'currency') result.rateToBase.add(id);
       final lines = (e['lines'] ?? []) as List;
       for (var i=0;i<lines.length;i++) {
         result.reportLines[(id,i)] = Map<String,dynamic>.from(lines[i] as Map);

@@ -1,5 +1,6 @@
 import '../models/erp_models.dart';
 import '../state/erp_controller.dart';
+import 'account_posting.dart';
 
 class AccountAmounts {
   double debit = 0, credit = 0;
@@ -50,6 +51,7 @@ Map<(String, CurrencyCode), AccountAmounts> accountAmountsByCurrency(
     _ => '',
   };
   final archive = controller.restoredGroups;
+  final posting = AccountPosting(controller.ledger, archive);
   for (final e in controller.ledger) {
     if (e.deleted ||
         (start.isNotEmpty &&
@@ -59,24 +61,13 @@ Map<(String, CurrencyCode), AccountAmounts> accountAmountsByCurrency(
     }
     final primary = accounts[e.accountId];
     final other = accounts[archive?.counterparts[e.id]];
-    final posting = e.kind != LedgerKind.quote && e.kind != LedgerKind.order;
-    final credit = e.direction == EntryDirection.credit;
-    if (primary != null) {
-      final b = bucket(primary.id, e.currency);
+    for (final account in {primary, other}.nonNulls) {
+      final side = posting.forAccount(account,e);
+      if (side == null) continue;
+      final b = bucket(account.id,e.currency);
       b.entries++;
-      if (posting) {
-        final wash = (archive?.settledEntries.contains(e.id) ?? false) ||
-            (archive?.sides[e.id] == null &&
-                primary.isCashAccount &&
-                e.payment == PaymentMethod.cash);
-        b.add(e.amount, credit);
-        if (wash) b.add(e.amount, !credit);
-      }
-    }
-    if (other != null && other.id != primary?.id) {
-      final b = bucket(other.id, e.currency);
-      b.entries++;
-      if (posting) b.add(e.amount, !credit);
+      b.debit += side.debit;
+      b.credit += side.credit;
     }
   }
   return result;
