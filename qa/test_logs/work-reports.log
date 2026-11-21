@@ -1,0 +1,4 @@
+PASS before light 10 report routes, currency/warehouse selection, back, close; no external requests or page errors
+PASS before dark 10 report routes, currency/warehouse selection, back, close; no external requests or page errors
+PASS after light 10 report routes, currency/warehouse selection, back, close; no external requests or page errors
+PASS after dark 10 report routes, currency/warehouse selection, back, close; no external requests or page errors

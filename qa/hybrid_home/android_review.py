@@ -21,9 +21,9 @@ OUT = Path(os.environ.get("HYBRID_EVIDENCE", "hybrid-evidence"))
 DB = f"/data/user/0/{PACKAGE}/databases/nasqo_pro_erp.db"
 FIXTURE = json.loads((ROOT / "qa/groups_lab/assets/fixture.json").read_text())
 DEBUG = sys.argv[1:2] == ["--debug"]
-CANDIDATE = ({"source": os.environ.get("GITHUB_SHA")} if DEBUG
+CANDIDATE = ({"source": os.environ.get("HYBRID_APK_SOURCE") or os.environ.get("GITHUB_SHA")} if DEBUG
              else json.loads((OUT / "candidate.json").read_text()))
-RESULT = {"source": CANDIDATE["source"], "checks": {}, "paint_ms": [], "am_total_ms": []}
+RESULT = {"source": CANDIDATE["source"], "test_revision":os.environ.get("GITHUB_SHA"), "checks": {}, "paint_ms": [], "am_total_ms": []}
 def save(name, value):
     (OUT / name).write_text(json.dumps(value, ensure_ascii=False, indent=2)+"\n")
 def passed(test, detail=True):
@@ -67,7 +67,7 @@ def find(text, seconds=20):
         return next((n for n in nodes() if text in label(n)),None)
     return wait(match, text, seconds)
 def exact_button(text):
-    return wait(lambda: next((n for n in nodes() if n.get("class")=="android.widget.Button" and label(n)==text),None),text)
+    return wait(lambda: next((n for n in nodes() if n.get("class") in ("android.widget.Button","android.widget.ToggleButton") and label(n)==text),None),text)
 def center(n):
     x,y,r,b=bounds(n)
     return (x+r)/2,(y+b)/2
@@ -332,6 +332,9 @@ def run(baseline,candidate):
     (OUT/"meminfo.txt").write_text(mem);(OUT/"gfxinfo.txt").write_text(frames)
     (OUT/"webview-version.txt").write_bytes(adb("shell","dumpsys","webviewupdate"))
     passed("frame_and_memory_samples", {"process":PACKAGE})
+    record_diag("review")
+    runtime=(OUT/"review-log.txt").read_text()
+    require("FATAL EXCEPTION" not in runtime and "Uncaught " not in runtime,"Runtime failure during device review")
     after=books();save("after-table-digests.json",after)
     require(after==baseline_books,"Business table difference: "+str([k for k in after if baseline_books.get(k)!=after[k]]))
     passed("accounting_and_stock_integrity",{"tables":len(after),"rows":sum(s[0] for s in after.values()),"foreign_key_errors":0})

@@ -294,5 +294,38 @@
     },
     "physical_acceptance": "pending",
     "review": "HYBRID_HOME_10016_AR.md"
+  },
+  "hybrid_work_20261121": {
+    "branch": "work/hybrid-android-parity-20261121",
+    "application_sha": "96d99ea0bbca4e585434c3e8aaba580423521171",
+    "reviewed_base": "625ef2d9d84226fde9dc8c1b95f2fa268cbaeece",
+    "flutter": {
+      "passed": 276,
+      "failed": 0,
+      "analyzer_infos": 31,
+      "analyzer_errors": 0,
+      "analyzer_warnings": 0
+    },
+    "browser": {
+      "home_modes": 2,
+      "variants": 2,
+      "metrics": 8,
+      "quick_tiles": 24,
+      "network_requests_outside_local_assets": 0,
+      "reference_and_after_reports": {
+        "commit": "848a55527221d8982f32522b3f434c4d1c931b00",
+        "module_blob": "58de38bdfe7f6af5fb31386b6cad3f2dcc4f539b",
+        "routes": 10,
+        "menu_pixels_identical": true,
+        "runs": 2
+      }
+    },
+    "android": {
+      "run": 44940563567,
+      "api": 35,
+      "result": "pending"
+    },
+    "signed_release": "owned_by_release_chat",
+    "phone_acceptance": "pending"
   }
 }
