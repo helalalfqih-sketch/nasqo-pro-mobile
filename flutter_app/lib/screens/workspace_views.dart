@@ -116,15 +116,16 @@ class _RtlScrollableTableState extends State<RtlScrollableTable> {
 Widget _notice(String text) =>
     Card(child: Padding(padding: const EdgeInsets.all(16), child: Text(text)));
 
-/// Informational only: no reset, edits, credentials, exports or network calls.
 class WorkspaceSettingsScreen extends StatelessWidget {
   const WorkspaceSettingsScreen({
     super.key,
     required this.controller,
     this.openLocalBackups,
+    this.openDrive,
   });
   final ErpController controller;
   final VoidCallback? openLocalBackups;
+  final VoidCallback? openDrive;
 
   Future<void> _editAppearance(BuildContext context) async {
     var primary=controller.primaryTint,secondary=controller.secondaryTint,radius=controller.homeRadius;
@@ -178,6 +179,9 @@ class WorkspaceSettingsScreen extends StatelessWidget {
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
 
+              if (openDrive != null)
+                OutlinedButton.icon(onPressed:openDrive, icon:const Icon(Icons.cloud_outlined),
+                  label:const Text('Google Drive السحابي')),
               if (openLocalBackups != null)
                 OutlinedButton.icon(
                   key: const ValueKey('settings-open-backup-workspace'),

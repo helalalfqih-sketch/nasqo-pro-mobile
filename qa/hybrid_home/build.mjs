@@ -2,6 +2,7 @@
 // cannot silently switch the Android pilot to a stale handwritten dashboard.
 import fs from 'node:fs';
 import {directoryComponents} from './directories.mjs';
+import {drivePresentation} from './drive-presentation.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
@@ -12,7 +13,8 @@ const pilot = path.join(root, 'flutter_app/android/app/src/main/assets/hybrid_ho
 const reference = process.argv[2] === '--reference';
 const out = process.argv[3] ?? pilot;
 if (reference && path.resolve(out) === pilot) throw Error('Use a separate reference directory');
-const source = fs.readFileSync(path.join(root,'src/Prototype.tsx'),'utf8');
+const source = fs.readFileSync(path.join(root,'src/Prototype.tsx'),'utf8').replaceAll('\r\n','\n');
+const driveSource=fs.readFileSync(path.join(root,'src/components/GoogleDriveModal.tsx'),'utf8').replaceAll('\r\n','\n');
 const ast = parseSync('Prototype.tsx',source);
 if (ast.errors.length) throw Error(ast.errors[0].message);
 const decl = name => {
@@ -111,11 +113,15 @@ const bundled=await build({entryPoints:[path.join(root,'qa/hybrid_home/host.tsx'
   target:'chrome83',jsx:'automatic',minify:true,legalComments:'eof',metafile:true,
   define:{'process.env.NODE_ENV':'"production"','__REFERENCE__':String(reference)},
   plugins:[{name:'dashboard-presentation',setup(b){
+    b.onResolve({filter:/^\.\.\/utils\/appBrand$/}, args => args.importer.endsWith('NasqoBrandLoader.tsx') ? {path:'logo',namespace:'local-brand'} : undefined);
+    b.onLoad({filter:/.*/,namespace:'local-brand'},()=>({contents:'export const APP_ICON_URL="logo.png";',loader:'js'}));
+    b.onResolve({filter:/^drive:presentation$/},()=>({path:'drive',namespace:'drive'}));
+    b.onLoad({filter:/.*/,namespace:'drive'},()=>({contents:drivePresentation(driveSource),loader:'tsx',resolveDir:root}));
     b.onResolve({filter:/^dashboard:presentation$/},()=>({path:'home',namespace:'presentation'}));
     b.onLoad({filter:/.*/,namespace:'presentation'},()=>({contents:virtual,loader:'tsx',resolveDir:root}));
   }}]});
 const used=Object.entries(Object.values(bundled.metafile.outputs)[0].inputs).filter(([,v])=>v.bytesInOutput);
-if (used.some(([p]) => /firebase|(?:^|[/\\\\])(?:services|server)[/\\\\]/.test(p))) {
+if (used.some(([p]) => !p.endsWith('src/services/googleDriveHelpers.ts') && /firebase|(?:^|[/\\\\])(?:services|server)[/\\\\]/.test(p))) {
   throw Error('Service dependency in the Android presentation bundle');
 }
 function stylesheet(file) {
@@ -143,4 +149,3 @@ if(reference){
  fs.copyFileSync(path.join(root,'flutter_app/assets/nasqo_logo.png'),path.join(out,'logo.png'));
 }
 console.log((reference?'Standalone React':'Android React')+' assets built from DashboardPage and '+used.length+' bundled modules.');
-

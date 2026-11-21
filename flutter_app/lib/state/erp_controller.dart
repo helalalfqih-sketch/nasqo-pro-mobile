@@ -1040,13 +1040,16 @@ class ErpController extends ChangeNotifier {
       (await _openLocalBackupFiles()).importBackup(envelope);
 
   Future<bool> exportLocalBackup(String id) async {
-    final bytes = await (await _openLocalBackupFiles()).exportBytes(id);
+    final bytes = await readLocalBackupBytes(id);
     const channel = MethodChannel('com.indexesstore.nasqo_qa/csv_export');
     return await channel.invokeMethod<bool>('saveBackup', {'suggestedName': id, 'bytes': Uint8List.fromList(bytes)}) ?? false;
   }
 
   Future<LocalBackupFile> createLocalBackup() async =>
       (await _openLocalBackupFiles()).createBackup();
+
+  Future<Uint8List> readLocalBackupBytes(String id) async =>
+      Uint8List.fromList(await (await _openLocalBackupFiles()).exportBytes(id));
 
   Future<LocalBackupCheck> verifyLocalBackup(String id) async =>
       (await _openLocalBackupFiles()).verifyBackup(id);
@@ -1190,7 +1193,8 @@ class ErpController extends ChangeNotifier {
     try {
       final files = await _openLocalBackupFiles();
       await _writeTail;
-      await files.createBackup();
+      final rollback = await files.createBackup();
+      await files.testRestore(rollback.id);
       await files.restoreLocal(id);
       _nextEntryNumber = 0;
       _loadModules(const ErpWorkspaceSnapshot());
