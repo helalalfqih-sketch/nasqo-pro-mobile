@@ -1,0 +1,59 @@
+name: Signed hybrid Android review
+on:
+  pull_request:
+    branches: [feat/native-account-table-review]
+    paths:
+      - 'qa/hybrid_home/candidate.json'
+      - 'qa/hybrid_home/android_review.py'
+      - 'qa/hybrid_home/browser.mjs'
+      - 'qa/hybrid_home/verify-apks.sh'
+      - '.github/workflows/hybrid-home-review.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  offline-upgrade-and-ui:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'poc/hybrid-home-android'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CHROME_BIN: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Prepare synthetic React reference
+        run: |
+          npm ci --ignore-scripts
+          node qa/hybrid_home/build.mjs
+          git diff --exit-code -- flutter_app/android/app/src/main/assets/hybrid_home
+          node qa/hybrid_home/build.mjs --reference /tmp/nasqo-hybrid-ref
+          python3 -m pip install Pillow
+      - name: Verify immutable APK inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash qa/hybrid_home/verify-apks.sh
+      - name: Run signed Android update in airplane mode
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: python3 qa/hybrid_home/android_review.py "$RUNNER_TEMP/baseline/app-release.apk" "$RUNNER_TEMP/candidate/app-release.apk"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hybrid-home-android-evidence
+          path: hybrid-evidence/
+          retention-days: 14
