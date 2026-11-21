@@ -22,8 +22,9 @@ aapt=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)
 for kind in baseline candidate; do
   apk="$RUNNER_TEMP/$kind/app-release.apk"
   "$sign" verify --verbose --print-certs "$apk" > "hybrid-evidence/$kind-signature.txt"
-  grep -Eiq '^Signer #1 certificate SHA-256 digest: 0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79$' "hybrid-evidence/$kind-signature.txt"
-  test "$(grep -Ec '^Signer #[0-9]+ certificate SHA-256 digest:' "hybrid-evidence/$kind-signature.txt")" -eq 1
+  grep -Fx 'Number of signers: 1' "hybrid-evidence/$kind-signature.txt"
+  certs=$(awk '/certificate SHA-256 digest:/ {print tolower($NF)}' "hybrid-evidence/$kind-signature.txt" | sort -u)
+  test "$certs" = 0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79
   "$aapt" dump badging "$apk" > "$RUNNER_TEMP/$kind-badging"
   head -1 "$RUNNER_TEMP/$kind-badging" > "hybrid-evidence/$kind-identity.txt"
   grep -F "name='com.indexesstore.nasqo_qa'" "hybrid-evidence/$kind-identity.txt"
