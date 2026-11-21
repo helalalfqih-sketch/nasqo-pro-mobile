@@ -76,26 +76,40 @@ const homeNavigationRoutes = {
 bool _hasKeys(Map map, Set<String> keys) =>
     map.length == keys.length && keys.every(map.containsKey);
 
-bool _validLayout(Object? value) {
+const homeMetricIds = {
+  'sales',
+  'purchases',
+  'clients',
+  'employees',
+  'transfers',
+  'shop',
+  'measurements',
+  'measurement-new',
+};
+
+bool _validLayout(Object? value, {bool metrics = false}) {
   if (value is! Map ||
       !_hasKeys(value, {'order', 'pinned', 'hidden', 'toneOverrides'})) {
     return false;
   }
-  bool known(Object? id) =>
-      id != 'qr-scanner' && homeDestinations.containsKey(id);
+  bool known(Object? id) => metrics
+      ? homeMetricIds.contains(id)
+      : id != 'qr-scanner' && homeDestinations.containsKey(id);
+  final size = metrics ? homeMetricIds.length : homeDestinations.length - 1;
   for (final key in ['order', 'pinned', 'hidden']) {
     final ids = value[key];
     if (ids is! List ||
-        ids.length > 24 ||
+        ids.length > size ||
         ids.toSet().length != ids.length ||
         !ids.every(known)) {
       return false;
     }
   }
   final order = value['order'] as List;
-  if (order.length != 24) return false;
+  if (order.length != size) return false;
   final hidden = value['hidden'] as List;
   if (hidden.contains('settings') ||
+      (metrics && hidden.length > size - 2) ||
       (value['pinned'] as List).any(hidden.contains)) {
     return false;
   }
@@ -112,6 +126,7 @@ class HomePresentation {
   static const preferenceKey = 'hybrid_home_ui_v1';
   final filters = <String, String>{};
   Map<String, dynamic>? layout;
+  Map<String, dynamic>? metricLayout;
   int scroll = 0;
   int measurementCount = 0;
 
@@ -211,6 +226,8 @@ class HomePresentation {
           msg['y'] is int &&
           (msg['y'] as int) >= 0 &&
           (msg['y'] as int) <= 1000000,
+      'metricLayout' => _hasKeys(msg, {'action', 'value'}) &&
+          _validLayout(msg['value'], metrics: true),
       'layout' =>
         _hasKeys(msg, {'action', 'value'}) && _validLayout(msg['value']),
       'haptic' => _hasKeys(msg, {'action', 'kind'}) &&
@@ -238,6 +255,9 @@ class HomePresentation {
     if (_validLayout(prefs['layout'])) {
       layout = Map<String, dynamic>.from(prefs['layout'] as Map);
     }
+    if (_validLayout(prefs['metricLayout'], metrics: true)) {
+      metricLayout = Map<String, dynamic>.from(prefs['metricLayout'] as Map);
+    }
     final y = prefs['scroll'];
     if (y is int && y >= 0 && y <= 1000000) scroll = y;
     final stored = prefs['filters'];
@@ -254,6 +274,8 @@ class HomePresentation {
     switch (msg['action']) {
       case 'currency':
         filters[_key(msg['id'] as int)] = msg['currency'] as String;
+      case 'metricLayout':
+        metricLayout = msg['value'] as Map<String, dynamic>;
       case 'layout':
         layout = msg['value'] as Map<String, dynamic>;
       case 'scroll':
@@ -262,8 +284,12 @@ class HomePresentation {
       default:
         throw ArgumentError('Expected a validated UI preference');
     }
-    final payload =
-        jsonEncode({'filters': filters, 'scroll': scroll, 'layout': layout});
+    final payload = jsonEncode({
+      'filters': filters,
+      'scroll': scroll,
+      'layout': layout,
+      if (metricLayout != null) 'metricLayout': metricLayout
+    });
     final db = await controller.database.database;
     await db.insert(
         'erp_state',
@@ -373,6 +399,7 @@ class HomePresentation {
       'currencies': [for (final c in CurrencyCode.values) c.label],
       'rows': rows,
       'layout': layout,
+      if (metricLayout != null) 'metricLayout': metricLayout,
       'scroll': scroll
     };
   }

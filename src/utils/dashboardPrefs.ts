@@ -237,12 +237,14 @@ export const DEFAULT_HOME_TILE_ORDER: readonly HomeTileId[] = [
   "settings",
 ];
 
-export interface HomeTileLayout {
-  order: HomeTileId[];
-  pinned: HomeTileId[];
-  hidden: HomeTileId[];
-  toneOverrides: Partial<Record<HomeTileId, HomeTileTone>>;
+export interface CardLayout<Id extends string> {
+  order: Id[];
+  pinned: Id[];
+  hidden: Id[];
+  toneOverrides: Partial<Record<Id, HomeTileTone>>;
 }
+
+export type HomeTileLayout = CardLayout<HomeTileId>;
 
 export const DEFAULT_HOME_TILE_LAYOUT: HomeTileLayout = {
   order: [...DEFAULT_HOME_TILE_ORDER],
@@ -253,70 +255,28 @@ export const DEFAULT_HOME_TILE_LAYOUT: HomeTileLayout = {
 
 const HOME_TILE_LAYOUT_KEY = "nasqo-home-tile-layout-v1";
 
-function isValidHomeTileId(value: unknown): value is HomeTileId {
-  return (DEFAULT_HOME_TILE_ORDER as readonly string[]).includes(String(value));
+export function normalizeCardLayout<Id extends string>(
+  catalog: readonly Id[],
+  raw?: Partial<CardLayout<Id>> | null,
+): CardLayout<Id> {
+  const known = (id: unknown): id is Id => catalog.includes(id as Id);
+  const unique = (ids: unknown): Id[] => Array.isArray(ids) ? [...new Set(ids.filter(known))] : [];
+  const order = unique(raw?.order);
+  const hidden = unique(raw?.hidden).filter(id => id !== "settings");
+  const tones: Partial<Record<Id, HomeTileTone>> = {};
+  for (const [id, tone] of Object.entries(raw?.toneOverrides ?? {})) {
+    if (known(id) && (tone === "blue" || tone === "amber")) tones[id] = tone;
+  }
+  return {
+    order: [...order, ...catalog.filter(id => !order.includes(id))],
+    pinned: unique(raw?.pinned).filter(id => !hidden.includes(id)),
+    hidden,
+    toneOverrides: tones,
+  };
 }
 
 export function normalizeHomeTileLayout(raw?: Partial<HomeTileLayout> | null): HomeTileLayout {
-  const safe = raw && typeof raw === "object" ? raw : {};
-  const seenOrder = new Set<HomeTileId>();
-  const validOrder: HomeTileId[] = [];
-  if (Array.isArray(safe.order)) {
-    for (const id of safe.order) {
-      if (isValidHomeTileId(id) && !seenOrder.has(id)) {
-        seenOrder.add(id);
-        validOrder.push(id);
-      }
-    }
-  }
-  for (const id of DEFAULT_HOME_TILE_ORDER) {
-    if (!seenOrder.has(id)) {
-      seenOrder.add(id);
-      validOrder.push(id);
-    }
-  }
-
-  const seenPinned = new Set<HomeTileId>();
-  const validPinned: HomeTileId[] = [];
-  if (Array.isArray(safe.pinned)) {
-    for (const id of safe.pinned) {
-      if (isValidHomeTileId(id) && !seenPinned.has(id)) {
-        seenPinned.add(id);
-        validPinned.push(id);
-      }
-    }
-  }
-
-  const seenHidden = new Set<HomeTileId>();
-  const validHidden: HomeTileId[] = [];
-  if (Array.isArray(safe.hidden)) {
-    for (const id of safe.hidden) {
-      if (isValidHomeTileId(id) && id !== "settings" && !seenHidden.has(id)) {
-        seenHidden.add(id);
-        validHidden.push(id);
-      }
-    }
-  }
-
-  // Ensure hidden tiles are not simultaneously pinned
-  const hiddenSet = new Set(validHidden);
-  const filteredPinned = validPinned.filter((id) => !hiddenSet.has(id));
-
-  const toneOverrides: Partial<Record<HomeTileId, HomeTileTone>> = {};
-  if (safe.toneOverrides && typeof safe.toneOverrides === "object") {
-    for (const [k, v] of Object.entries(safe.toneOverrides)) {
-      if (isValidHomeTileId(k) && (v === "blue" || v === "amber")) {
-        toneOverrides[k] = v;
-      }
-    }
-  }
-
-  return {
-    order: validOrder,
-    pinned: filteredPinned,
-    hidden: validHidden,
-    toneOverrides,
-  };
+  return normalizeCardLayout(DEFAULT_HOME_TILE_ORDER, raw);
 }
 
 export function readHomeTileLayout(): HomeTileLayout {
@@ -350,15 +310,15 @@ export function isDefaultHomeTileLayout(layout: HomeTileLayout): boolean {
   return layout.order.every((id, idx) => id === DEFAULT_HOME_TILE_ORDER[idx]);
 }
 
-export function getVisibleOrderedHomeTiles(layout: HomeTileLayout): {
-  pinnedIds: HomeTileId[];
-  unpinnedIds: HomeTileId[];
-  allVisibleIds: HomeTileId[];
+export function getVisibleOrderedHomeTiles<Id extends string>(layout: CardLayout<Id>): {
+  pinnedIds: Id[];
+  unpinnedIds: Id[];
+  allVisibleIds: Id[];
 } {
   const hiddenSet = new Set(layout.hidden);
   const pinnedSet = new Set(layout.pinned);
-  const pinnedIds: HomeTileId[] = [];
-  const unpinnedIds: HomeTileId[] = [];
+  const pinnedIds: Id[] = [];
+  const unpinnedIds: Id[] = [];
   for (const id of layout.order) {
     if (hiddenSet.has(id)) continue;
     if (pinnedSet.has(id)) pinnedIds.push(id);
@@ -371,11 +331,11 @@ export function getVisibleOrderedHomeTiles(layout: HomeTileLayout): {
   };
 }
 
-export function moveHomeTile(
-  layout: HomeTileLayout,
-  sourceId: HomeTileId,
-  targetId: HomeTileId,
-): HomeTileLayout {
+export function moveHomeTile<Id extends string>(
+  layout: CardLayout<Id>,
+  sourceId: Id,
+  targetId: Id,
+): CardLayout<Id> {
   if (sourceId === targetId) return layout;
   const nextOrder = [...layout.order];
   const fromIdx = nextOrder.indexOf(sourceId);
@@ -395,18 +355,18 @@ export function moveHomeTile(
     nextPinned = layout.pinned.filter((id) => id !== sourceId);
   }
 
-  return normalizeHomeTileLayout({
+  return normalizeCardLayout(layout.order, {
     ...layout,
     order: nextOrder,
     pinned: nextPinned,
   });
 }
 
-export function stepHomeTile(
-  layout: HomeTileLayout,
-  tileId: HomeTileId,
+export function stepHomeTile<Id extends string>(
+  layout: CardLayout<Id>,
+  tileId: Id,
   delta: -1 | 1,
-): HomeTileLayout {
+): CardLayout<Id> {
   const { allVisibleIds } = getVisibleOrderedHomeTiles(layout);
   const idx = allVisibleIds.indexOf(tileId);
   if (idx < 0) return layout;
@@ -415,10 +375,11 @@ export function stepHomeTile(
   return moveHomeTile(layout, tileId, allVisibleIds[targetIdx]);
 }
 
-export function togglePinHomeTile(layout: HomeTileLayout, tileId: HomeTileId): HomeTileLayout {
+export function togglePinHomeTile<Id extends string>(layout: CardLayout<Id>, tileId: Id): CardLayout<Id> {
+  if (!layout.order.includes(tileId)) return layout;
   const isPinned = layout.pinned.includes(tileId);
   if (isPinned) {
-    return normalizeHomeTileLayout({
+    return normalizeCardLayout(layout.order, {
       ...layout,
       pinned: layout.pinned.filter((id) => id !== tileId),
     });
@@ -426,7 +387,7 @@ export function togglePinHomeTile(layout: HomeTileLayout, tileId: HomeTileId): H
   const nextOrder = layout.order.filter((id) => id !== tileId);
   const pinnedCount = layout.pinned.length;
   nextOrder.splice(pinnedCount, 0, tileId);
-  return normalizeHomeTileLayout({
+  return normalizeCardLayout(layout.order, {
     ...layout,
     order: nextOrder,
     pinned: [...layout.pinned, tileId],
@@ -434,29 +395,30 @@ export function togglePinHomeTile(layout: HomeTileLayout, tileId: HomeTileId): H
   });
 }
 
-export function toggleHideHomeTile(layout: HomeTileLayout, tileId: HomeTileId): HomeTileLayout {
+export function toggleHideHomeTile<Id extends string>(layout: CardLayout<Id>, tileId: Id): CardLayout<Id> {
+  if (!layout.order.includes(tileId)) return layout;
   if (tileId === "settings") return layout;
   const isHidden = layout.hidden.includes(tileId);
   if (isHidden) {
-    return normalizeHomeTileLayout({
+    return normalizeCardLayout(layout.order, {
       ...layout,
       hidden: layout.hidden.filter((id) => id !== tileId),
     });
   }
   const { allVisibleIds } = getVisibleOrderedHomeTiles(layout);
   if (allVisibleIds.length <= 2) return layout;
-  return normalizeHomeTileLayout({
+  return normalizeCardLayout(layout.order, {
     ...layout,
     hidden: [...layout.hidden, tileId],
     pinned: layout.pinned.filter((id) => id !== tileId),
   });
 }
 
-export function toggleToneHomeTile(
-  layout: HomeTileLayout,
-  tileId: HomeTileId,
+export function toggleToneHomeTile<Id extends string>(
+  layout: CardLayout<Id>,
+  tileId: Id,
   defaultTone: HomeTileTone,
-): HomeTileLayout {
+): CardLayout<Id> {
   const current = layout.toneOverrides[tileId] ?? defaultTone;
   const nextTone: HomeTileTone = current === "blue" ? "amber" : "blue";
   const nextOverrides = { ...layout.toneOverrides };
@@ -465,7 +427,7 @@ export function toggleToneHomeTile(
   } else {
     nextOverrides[tileId] = nextTone;
   }
-  return normalizeHomeTileLayout({
+  return normalizeCardLayout(layout.order, {
     ...layout,
     toneOverrides: nextOverrides,
   });

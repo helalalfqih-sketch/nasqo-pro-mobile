@@ -13241,3 +13241,30 @@ html, body { margin: 0; height: 100%; }
   .hybrid-directory .mobile-scroll-content { position: static; height:auto; overflow: visible; display:block; transform:none !important; }
   .vendor-card { break-inside: avoid; }
 }
+
+/* The eight-card reference uses full-width pairs with vertically centered icons. */
+.smart-center-stage .metrics-section { width: 100%; }
+.smart-center-stage .metrics-grid { gap: 8px; }
+.smart-center-stage .metrics-section .metric-card {
+  --metric-accent: var(--nasqo-blue, #0b5ca8);
+  flex-direction: column; justify-content: center; gap: 4px;
+  min-height: calc(100px * var(--nasqo-card-scale, 1)) !important;
+  border: 2px solid var(--metric-accent) !important; border-radius: 11px; box-shadow: none;
+}
+.smart-center-stage .metrics-section .metric-card::after { display: none; }
+.smart-center-stage .metrics-section .metric-icon {
+  width: 38px; height: 38px; border-radius: 50%; border: 2px solid currentColor;
+  background: transparent; color: var(--metric-accent);
+}
+.smart-center-stage .metrics-section .metric-icon svg { width: 24px; height: 24px; }
+.smart-center-stage .metrics-section .measurement .metric-icon { border: 0; }
+.smart-center-stage .metrics-section .measurement .metric-icon svg { width: 32px; height: 32px; }
+.smart-center-stage .metrics-section .metric-copy { flex: 0 1 auto; color: var(--metric-accent); }
+.smart-center-stage .metrics-section .metric-copy small { color: inherit; }
+:root.dark .smart-center-stage .metrics-section .metric-card { --metric-accent: #93c5fd; }
+.smart-center-stage .metrics-section .metric-card[data-accent="amber"] { --metric-accent: #b45309; }
+:root.dark .smart-center-stage .metrics-section .metric-card[data-accent="amber"] { --metric-accent: #fbbf24; }
+.smart-center-stage .metrics-section .metric-card[data-editing] { touch-action: none; }
+.smart-center-stage .metrics-section .metric-card[data-selected] { outline: 2px dashed var(--metric-accent); outline-offset: -6px; }
+.metrics-section .metric-pin { position:absolute; inset-inline-start:7px; top:7px; }
+.metrics-section .smart-edit-bar { margin-top:8px; }

@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {AppDrawer, DashboardAddMenu, DashboardBottomNav, DashboardHeader, DashboardPage} from 'dashboard:presentation';
+import {AppDrawer, DashboardAddMenu, DashboardBottomNav, DashboardHeader, DashboardPage, HeaderOptionsMenu} from 'dashboard:presentation';
 import {normalizeHomeTileLayout} from '../../src/utils/dashboardPrefs';
 import {applyCardAppearanceSettings, DEFAULT_EXTENDED_SETTINGS} from '../../src/utils/appSettings';
 import {applyBrandColor} from '../../src/utils/brandColor';
@@ -21,11 +21,6 @@ const drawerRoutes = {
   'erp-crm': ['navigate','crm'], 'erp-procurement': ['navigate','procurement'],
   'erp-manufacturing': ['navigate','manufacturing'],
 };
-const options = [
-  ['local-backups','نسخ احتياطي واستعادة'], ['theme','تبديل المظهر'],
-  ['app-update','التحقق من تحديثات التطبيق'], ['home-mode','الرئيسية الأصلية'],
-];
-
 const scroller = () => document.querySelector<HTMLElement>('.dashboard-scroll .mobile-scroll');
 window.nasqoTop = () => scroller()?.scrollTo({top: 0, behavior: 'smooth'});
 
@@ -34,6 +29,12 @@ function Shell({snapshot}) {
   const [quick, setQuick] = useState(false);
   const [toast, setToast] = useState('');
   const directoryBack = useRef(null);
+  const metricBack=useRef(null);
+  const editors=useRef({tiles:false,metrics:false});
+  const editing=(part:'tiles'|'metrics',active:boolean)=>{
+    editors.current[part]=active;
+    send('editing',{active:editors.current.tiles || editors.current.metrics});
+  };
   const directoryOpen = useRef(false);
   const openDirectory = (screen, action='browse', fields={screen}) => {
     directoryOpen.current = true;
@@ -104,6 +105,7 @@ function Shell({snapshot}) {
     window.nasqoBack = () => {
       if (directoryBack.current) {directoryBack.current(); return true;}
       if (overlay) {close(); return true;}
+      if (metricBack.current) return metricBack.current();
       if (quick) {document.querySelector<HTMLElement>('[data-testid="home-nav-center-fab"]')?.click(); return true;}
       if (!document.querySelector('[data-testid="home-tiles-edit-bar"]')) return false;
       window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
@@ -130,16 +132,20 @@ function Shell({snapshot}) {
     openVendorInvoice: (_,kind) => tile({return: 'new-return', quote: 'quote', order: 'new-order'}[kind]),
     openChartOfAccounts: () => navigate('chart-accounts'), openCurrenciesManager: () => tile('currencies'),
     triggerCsvImport: () => navigate('account-import'),
+    openLocalBackups: () => navigate('local-backups'), triggerJsonRestore: () => navigate('local-backups'),
+    openAndroidOption: navigate,
     handleSignOut: () => {close(); setToast('تعمل مساحة الجهاز محليًا دون تسجيل دخول');},
   };
   const balances = __REFERENCE__
     ? Object.fromEntries(Object.entries(computeCategoryTotals(context.accounts,context.ledger,snapshot.defaultCurrency)).map(([k,v])=>[k,v.netSigned]))
     : snapshot.metrics;
   const host = {context, rows: snapshot.rows, layout: normalizeHomeTileLayout(snapshot.layout),
-    metrics: <HomeMetrics balances={balances} count={snapshot.measurementCount} currency={snapshot.defaultCurrency} onOpen={navigate}/>,
+    metrics: tileEditing => <HomeMetrics balances={balances} count={snapshot.measurementCount}
+      currency={snapshot.defaultCurrency} onOpen={navigate} initialLayout={snapshot.metricLayout}
+      onEditing={active=>editing('metrics',active)} backRef={metricBack} tileEditing={tileEditing}/>,
     selectCurrency: update => {const [[id,currency]] = Object.entries(update({})); send('currency',{id:Number(id),currency});},
     openGroup: (id: number) => openDirectory('suppliers','group',{id}), openTile: tile,
-    editing: active => send('editing',{active}), saveLayout: value => send('layout',{value}), haptic: triggerHaptic,
+    editing: active => editing('tiles',active), saveLayout: value => send('layout',{value}), haptic: triggerHaptic,
   };
   return <Workspace.Provider value={context}>
     <div className="flow-stack hybrid-shell" inert={!!overlay}
@@ -160,13 +166,7 @@ function Shell({snapshot}) {
     {overlay === 'reports' && <ReportsPanel title="التقارير" footer="اختر تقريرًا" onClose={close}>
       <ReportsMenu onSelect={openReport}/>
     </ReportsPanel>}
-    {overlay === 'options' && <div className="options-menu-layer" data-testid="options-menu">
-      <button className="context-menu-backdrop" aria-label="إغلاق الخيارات" onClick={close}/>
-      <aside className="header-options-menu" role="menu" aria-label="خيارات التطبيق">
-        {options.map(([id,label]) => <button type="button" role="menuitem" className="opt-tile" key={id}
-          onClick={() => {close(); navigate(id);}}>{label}</button>)}
-      </aside>
-    </div>}
+    <HeaderOptionsMenu open={overlay==='options'} onClose={close}/>
     {toast && <div className="app-toast" role="status">{toast}</div>}
   </Workspace.Provider>;
 }

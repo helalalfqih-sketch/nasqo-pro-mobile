@@ -84,6 +84,7 @@ class HybridHomeState extends State<HybridHomeView> {
           }
         case 'currency':
         case 'scroll':
+        case 'metricLayout':
         case 'layout':
           _pending = _pending.then((_) async {
             await view.savePreference(msg);

@@ -10,12 +10,14 @@ const captureOnly=process.argv.includes('--capture-only');
 const width=Number(process.argv[3] ?? 427), height=Number(process.argv[4] ?? 710);
 const ref=path.resolve(process.env.NASQO_REFERENCE ?? '/tmp/nasqo-hybrid-ref');
 const directory=JSON.parse(fs.readFileSync(path.join(repo,'qa/hybrid_home/directory_fixture.json')));
-const fixture=JSON.parse(fs.readFileSync(path.join(repo,'qa/groups_lab/assets/fixture.json')));
+const deviceSample=process.env.NASQO_ANDROID_FIXTURE ? JSON.parse(fs.readFileSync(process.env.NASQO_ANDROID_FIXTURE)) : null;
+if(deviceSample && !captureOnly) throw Error('The emulator sample is for visual comparison only');
+const fixture=deviceSample?.fixture ?? JSON.parse(fs.readFileSync(path.join(repo,'qa/groups_lab/assets/fixture.json')));
 const dto=JSON.parse(fs.readFileSync(path.join(repo,'qa/hybrid_home/fixture_snapshot.json')));
 fs.mkdirSync(out,{recursive:true});
 const browser=await chromium.launch(process.env.CHROME_BIN?{executablePath:process.env.CHROME_BIN}:{});
 try{
- for(const variant of ['reference','embedded']){
+ for(const variant of (deviceSample ? ['reference'] : ['reference','embedded'])){
   const base=variant==='reference'?ref:path.join(repo,'flutter_app/android/app/src/main/assets/hybrid_home');
   for(const dark of [false,true]){
    const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1,isMobile:true,hasTouch:true,locale:'ar',offline:true});
@@ -33,15 +35,17 @@ try{
    });
    await page.addInitScript(()=>{window.events=[];window.NasqoHome={postMessage(raw){window.events.push(JSON.parse(raw));}};});
    await page.goto('https://appassets.androidplatform.net/home/index.html');
-   await page.evaluate(s=>window.nasqoPresent(s),{...dto,fixture,dark});
+   await page.evaluate(s=>window.nasqoPresent(s),{...dto,fixture,dark,unread:deviceSample?.unread ?? dto.unread});
    await page.waitForFunction(()=>window.events.some(e=>e.action==='paint'),null,{timeout:6000});
    await page.evaluate(()=>document.fonts.ready);
    const first=page.locator('.smart-col-bal strong').first();
    assert.equal(await first.innerText(),'1,250.5-');
    assert.equal(await page.locator('tbody tr').count(),2);
    assert.equal(await page.locator('[data-metric]').count(),8);
-   assert.equal(await page.locator('[data-metric="clients"] strong').innerText(),'1,250.5');
-   assert.equal(await page.locator('[data-metric="purchases"] strong').innerText(),'−80');
+   if (!deviceSample) {
+     assert.equal(await page.locator('[data-metric="clients"] strong').innerText(),'1,250.5');
+     assert.equal(await page.locator('[data-metric="purchases"] strong').innerText(),'−80');
+   }
    assert.equal(await page.getByTestId('home-bottom-nav').count(),1);
    assert.equal(await page.locator('.flow-fixed-header:visible').count(),1);
    assert.equal(await page.locator('.flow-fixed-footer:visible').count(),1);
@@ -52,7 +56,7 @@ try{
    const geometry=await page.evaluate(()=>{
     const rect=s=>{const r=document.querySelector(s).getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};};
     const scroll=document.querySelector('.mobile-scroll');
-    return {table:rect('table'),select:rect('select'),name:rect('.smart-col-name button'),row:rect('tbody tr'),tile:rect('[data-home-tile-id="new-voucher"]'),search:rect('[data-home-tile-id="quick-search"]'),scrollRange:scroll.scrollHeight-scroll.clientHeight,background:getComputedStyle(document.querySelector('.app-screen')).backgroundColor,fontLoaded:document.fonts.check('700 16px "IBM Plex Sans Arabic"','مجموعة')&&document.fonts.check('400 16px "IBM Plex Sans Arabic"','ريال'),balanceColor:getComputedStyle(document.querySelector('.smart-col-bal strong')).color};
+    return {metrics:Array.from(document.querySelectorAll('[data-metric]'),el=>el.getAttribute('aria-label')),table:rect('table'),select:rect('select'),name:rect('.smart-col-name button'),row:rect('tbody tr'),tile:rect('[data-home-tile-id="new-voucher"]'),search:rect('[data-home-tile-id="quick-search"]'),scrollRange:scroll.scrollHeight-scroll.clientHeight,background:getComputedStyle(document.querySelector('.app-screen')).backgroundColor,fontLoaded:document.fonts.check('700 16px "IBM Plex Sans Arabic"','مجموعة')&&document.fonts.check('400 16px "IBM Plex Sans Arabic"','ريال'),balanceColor:getComputedStyle(document.querySelector('.smart-col-bal strong')).color};
    });
    assert.equal(await page.evaluate(()=>document.documentElement.dataset.homeStyle),'pill');
    assert.ok(geometry.fontLoaded);assert.ok(geometry.scrollRange>0);
@@ -71,6 +75,12 @@ try{
    await page.getByRole('button',{name:'فتح القائمة',exact:true}).tap();
    await page.getByRole('complementary',{name:'قائمة نسقو'}).getByText('حركة المخزون').waitFor();
    assert.ok(await page.evaluate(()=>window.nasqoBack()));
+   await page.getByTestId('header-options-btn').tap();
+   const opts=page.getByTestId('options-menu');
+   await opts.getByRole('menuitem',{name:'نسخ إحتياطي'}).waitFor();
+   assert.equal(await opts.getByTestId('options-reset-db-btn').isDisabled(),true);
+   await opts.getByTestId('options-restore-backup-btn').tap();
+   await page.waitForFunction(()=>window.events.some(e=>e.action==='navigate'&&e.id==='local-backups'));
    await page.getByRole('button',{name:'إضافة',exact:true}).tap();
    await page.getByTestId('dashboard-add-menu').getByText('قيد بسيط').tap();
    await page.waitForFunction(()=>window.events.some(e=>e.action==='tile'&&e.id==='simple-entry'));
@@ -82,6 +92,32 @@ try{
    assert.ok(await page.evaluate(()=>window.nasqoBack()));
    await page.getByTestId('reports-hub-menu').waitFor({state:'detached'});
    if(variant==='embedded'&&!dark){
+    const metric=id=>page.locator('[data-metric="'+id+'"]');
+    const region=page.getByTestId('metric-editor');
+    const sales=metric('sales'), purchases=metric('purchases');
+    const hit=await sales.boundingBox(), otherMetric=await purchases.boundingBox();
+    const client=await context.newCDPSession(page);
+    const point=b=>({x:b.x+b.width/2,y:b.y+b.height/2});
+    await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point(hit)]});
+    await region.waitFor();
+    await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await page.mouse.move(point(hit).x,point(hit).y);await page.mouse.down();
+    await page.mouse.move(point(otherMetric).x,point(otherMetric).y,{steps:9});await page.mouse.up();
+    await page.waitForFunction(()=>window.events.some(e=>e.action==='metricLayout'&&e.value.order[0]==='purchases'));
+    await region.getByLabel('تثبيت المؤشر').click();
+    await region.getByText('تبديل اللون').click();
+    await metric('employees').click();await region.getByLabel('إخفاء المؤشر').click();
+    const metricsLayout=await page.evaluate(()=>window.events.filter(e=>e.action==='metricLayout').at(-1).value);
+    assert.deepEqual(metricsLayout.pinned,['sales']);assert.deepEqual(metricsLayout.hidden,['employees']);
+    assert.equal(metricsLayout.toneOverrides.sales,'amber');
+    await page.reload();await page.evaluate(s=>window.nasqoPresent(s),{...dto,metricLayout:metricsLayout});
+    await page.waitForFunction(()=>window.events.some(e=>e.action==='paint'));
+    assert.equal(await metric('employees').count(),0);assert.equal(await sales.getAttribute('data-accent'),'amber');
+    await sales.focus();await page.keyboard.press('F2');
+    await region.getByText('إظهار الموظفين').click();await region.getByText('افتراضي').click();
+    assert.equal(await page.locator('[data-metric]').count(),8);
+    assert.ok(await page.evaluate(()=>window.nasqoBack()));
+    await region.waitFor({state:'detached'});
     await page.getByLabel('عملة مجموعة الشمال').selectOption('دولار');
     assert.ok(await page.evaluate(()=>window.events.some(e=>e.action==='currency'&&e.id===41&&e.currency==='دولار')));
     await page.evaluate(s=>window.nasqoPresent(s),{...dto,rows:[{...dto.rows[0],currency:'دولار',netDebitMinusCredit:25},dto.rows[1]]});
@@ -128,6 +164,7 @@ try{
     await page.emulateMedia({reducedMotion:'reduce'});
     assert.equal(await other.evaluate(el=>el.getAnimations().filter(a=>a.animationName==='smart-tile-jiggle').length),0);
     await tile.scrollIntoViewIfNeeded();
+    await tile.evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
     const a=await tile.boundingBox(), b=await other.boundingBox();
     await page.mouse.move(a.x+a.width/2,a.y+a.height/2);await page.mouse.down();
     await page.mouse.move(b.x+b.width/2,b.y+b.height/2,{steps:8});await page.mouse.up();

@@ -70,12 +70,26 @@ function replaceOnce(text, from, to) {
   return text.replace(from, () => to);
 }
 body = replaceOnce(body, '{tileEditMode ? (\n              <div className="smart-edit-bar"',
-  '{host.metrics}\n            {tileEditMode ? (\n              <div className="smart-edit-bar"');
+  '{host.metrics(tileEditMode)}\n            {tileEditMode ? (\n              <div className="smart-edit-bar"');
 const extras=['PeopleIcon','QrScanIcon','GaugeIcon','TagPriceIcon','AppHeader'].map(n=>slice(decl(n))).join('\n');
 let navigation=slice(decl('DashboardBottomNav'));
 navigation=replaceOnce(navigation,'  const scrollHomeTop =', '  useEffect(() => ctx.quickState(quickOpen), [quickOpen]);\n  const scrollHomeTop =');
 navigation=replaceOnce(navigation,'.dashboard-scroll .mobile-scroll-content','.dashboard-scroll .mobile-scroll');
 
+let headerOptions=slice(decl('HeaderOptionsMenu'));
+const downloadStart=headerOptions.indexOf('            void downloadUnifiedSqliteFile(');
+const downloadEnd=headerOptions.indexOf('          }}',downloadStart);
+if (downloadStart<0 || downloadEnd<0) throw Error('Missing original backup action');
+headerOptions=headerOptions.slice(0,downloadStart)+'            ctx.openLocalBackups();\n'+headerOptions.slice(downloadEnd);
+for (const id of ['options-seed-demo-btn','options-reset-db-btn']) {
+  headerOptions=replaceOnce(headerOptions,'data-testid="'+id+'"','disabled aria-description="غير متاح في مساحة Android المحلية" data-testid="'+id+'"');
+}
+headerOptions=replaceOnce(headerOptions,'      </aside>',`        <div className="opt-menu-divider" role="separator"/>
+        {[[GearIcon,"تبديل المظهر","theme"],[ReloadIcon,"التحقق من تحديثات التطبيق","app-update"],[HomeIcon,"الرئيسية الأصلية","home-mode"]].map(([Icon,label,route])=>
+          <button key={route} type="button" role="menuitem" className="opt-tile" onClick={()=>{onClose();ctx.openAndroidOption(route);}}>
+            <Icon aria-hidden="true"/><span>{label}</span>
+          </button>)}
+      </aside>`);
 const virtual=[
   "import React,{useState,useEffect,useRef,useCallback,useMemo} from 'react';",
   "import {createPortal} from 'react-dom';",
@@ -87,7 +101,7 @@ const virtual=[
   "import {formatSignedSmartBalance"+(reference?",computeAccountGroupsSummary":"")+"} from './src/accounting';",
   'const APP_ICON_URL="logo.png";',extras,body,
   ...['DashboardHeader','AppDrawer','DashboardAddMenu'].map(n=>'export '+slice(decl(n))),
-  'export '+navigation,
+  'export '+navigation, 'export '+headerOptions,
   ...['CartIcon','ShopIcon'].map(n=>'export '+slice(decl(n))), 'export {PeopleIcon};',
   "import {rankAccountSearchMatches,normalizeArabicSearch,matchesArabicSearch,formatAmount} from './src/accounting';",
   "import {summaryOf,balanceLabel,currencyFooter} from './qa/hybrid_home/directory_amounts';",

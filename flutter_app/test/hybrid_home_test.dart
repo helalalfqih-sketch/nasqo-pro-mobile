@@ -156,7 +156,20 @@ void main() {
             'hidden': ['trash'],
             'toneOverrides': {'accounts': 'amber'}
           };
+          final metrics = {
+            'order': homeMetricIds.toList().reversed.toList(),
+            'pinned': ['clients'],
+            'hidden': ['employees'],
+            'toneOverrides': {'clients': 'amber'}
+          };
+          expect(
+              view.parse(
+                  jsonEncode({'action': 'metricLayout', 'value': layout})),
+              isNull);
+          expect(view.parse(jsonEncode({'action': 'layout', 'value': metrics})),
+              isNull);
           for (final m in [
+            {'action': 'metricLayout', 'value': metrics},
             {'action': 'layout', 'value': layout},
             {'action': 'scroll', 'y': 253},
             {'action': 'currency', 'id': 41, 'currency': 'الكل'}
@@ -166,6 +179,9 @@ void main() {
         } else {
           expect(before, baseline);
           expect(view.scroll, 253);
+          expect(view.metricLayout?['pinned'], ['clients']);
+          expect(view.metricLayout?['hidden'], ['employees']);
+          expect(view.metricLayout?['toneOverrides'], {'clients': 'amber'});
           expect(view.layout?['pinned'], ['new-voucher']);
           final rows = view.snapshot(true)['rows'] as List;
           expect(rows.first['netDebitMinusCredit'], isNull);

@@ -129,11 +129,37 @@ def viewport():
     # centers of the fixed 52dp React header and the 68dp navigation strip.
     bar = bounds(nav)
     return [0, round((top+bottom)/2-26), 427, bar[3]]
+def comparison_sample():
+    # Only called after the disposable-emulator guard. The React reference
+    # computes the metrics from the same synthetic accounts and entries as Dart.
+    def records(query):
+        return json.loads(sql(".mode json\n"+query) or "[]")
+    currencies={"sar":"ريال","usd":"دولار","eur":"يورو","currency2":"عملة 2"}
+    accounts=records("SELECT id,name,category,currency,isCashAccount,openingBalance,openingDirection,creditLimit FROM accounts;")
+    ledger=records("SELECT id,accountId,kind,direction,amount,currency,deleted,payment,entryDate FROM ledger_entries;")
+    groups={a["id"]:a["groupId"] for a in FIXTURE["accounts"]}
+    for a in accounts:
+        a.update(currency=currencies[a["currency"]],isCashAccount=bool(a["isCashAccount"]),groupId=groups.get(a["id"]))
+    for e in ledger:
+        e.update(currency=currencies[e["currency"]],deleted=bool(e["deleted"]),
+                 kind={"simpleEntry":"simple-entry","returnEntry":"return"}.get(e["kind"],e["kind"]))
+    # Initial QA workspace has no dismissed/read notifications or imported due dates.
+    low=int(sql("SELECT COUNT(*) FROM inventory_items WHERE minThreshold>0 AND quantity<minThreshold;"))
+    due=int(sql("SELECT COUNT(*) FROM ledger_entries WHERE deleted=0 AND kind='invoice' AND payment='credit' AND date(entryDate,'+30 days')<=date('now','+10 days');"))
+    limits=0
+    for a in accounts:
+        balance=a["openingBalance"]*(1 if a["openingDirection"]=="debit" else -1)
+        balance+=sum(e["amount"]*(1 if e["direction"]=="debit" else -1) for e in ledger
+            if e["accountId"]==a["id"] and e["currency"]==a["currency"] and not e["deleted"] and e["kind"] not in ("quote","order"))
+        limits+=a["creditLimit"]>0 and balance>a["creditLimit"]
+    save("comparison-input.json",{"unread":low+due+limits,"fixture":{"accountGroups":FIXTURE["accountGroups"],"accounts":accounts,"ledger":ledger}})
+
 def crop_compare(mode,box):
     full=shot("android-"+mode)
     actual=full.crop(box)
     w,h=actual.size
-    subprocess.run(["node","qa/hybrid_home/browser.mjs",str(OUT/"browser"),str(w),str(h),'--capture-only'],check=True)
+    subprocess.run(["node","qa/hybrid_home/browser.mjs",str(OUT/"browser"),str(w),str(h),'--capture-only'],
+                   env={**os.environ,"NASQO_ANDROID_FIXTURE":str((OUT/"comparison-input.json").resolve())},check=True)
     ref=Image.open(OUT/"browser"/("reference-"+mode+".png")).convert("RGB")
     diff=ImageChops.difference(actual,ref)
     rgb=diff.split()
@@ -148,6 +174,18 @@ def taprect(box,rect):
     tapxy(box[0]+rect["x"]+rect["w"]/2,box[1]+rect["y"]+rect["h"]/2)
 def swipe(x,y,x2,y2,ms=360):
     adb("shell","input","swipe",str(round(x)),str(round(y)),str(round(x2)),str(round(y2)),str(ms))
+def visible_button(text,box,direction="down"):
+    for _ in range(7):
+        for n in nodes():
+            if n.get("class")!="android.widget.Button" or text not in label(n):continue
+            l,t,r,b=bounds(n)
+            if r>l and b-t>=18 and box[1]+56<(t+b)/2<box[3]-80:return n
+        upper,lower=box[1]+170,box[1]+410
+        if direction=="up":swipe(160,upper,160,lower)
+        else:swipe(160,lower,160,upper)
+        time.sleep(.25)
+    raise AssertionError("No unobstructed button: "+text)
+
 def record_diag(name):
     logs=adb("logcat","-d","NasqoHybrid:I","chromium:I","AndroidRuntime:E","flutter:I","*:S").decode(errors="replace")
     (OUT/(name+"-log.txt")).write_text(logs[-20000:])
@@ -184,10 +222,27 @@ def run(baseline,candidate):
         y=center(bars[0])[1]
         require(box[1]<=y<=box[1]+62 if edge=="top" else box[3]-72<=y<=box[3],"Chrome outside the React viewport")
     passed("single_react_header_and_footer",{"webview":box,"options":1,"home":1})
+    comparison_sample()
     geometry=crop_compare("light",box)
+    expected=geometry["metrics"]
+    labels={label(n) for n in tree if n.get("class")=="android.widget.Button"}
+    require(len(expected)==8 and all(x in labels for x in expected),"Android metrics differ from independent React: "+repr([x for x in expected if x not in labels]))
+    passed("eight_metrics_same_sqlite_input",expected)
     stop();theme(True);launch();find("مجموعة الشمال")
     crop_compare("dark",viewport())
     stop();theme(False);launch();find("مجموعة الشمال")
+    sales=visible_button(expected[0],box)
+    x,y=center(sales);swipe(x,y,x,y,720)
+    tap(exact_button("تثبيت المؤشر"))
+    wait(lambda:"sales" in (prefs().get("metricLayout") or {}).get("pinned",[]),"pinned financial metric")
+    tap(exact_button("تبديل اللون"))
+    wait(lambda:(prefs().get("metricLayout") or {}).get("toneOverrides",{}).get("sales")=="amber","recolored financial metric")
+    back();stop();launch();find("مجموعة الشمال")
+    require(prefs()["metricLayout"]["toneOverrides"]=={"sales":"amber"},"lost metric color on cold start")
+    x,y=center(visible_button(expected[0],box));swipe(x,y,x,y,720)
+    tap(exact_button("افتراضي"))
+    wait(lambda:(prefs().get("metricLayout") or {}).get("pinned")==[],"restored metric order")
+    back();passed("metric_long_press_pin_color_cold_open_reset")
     tap(find("الإجراءات السريعة"));find("مسح باركود");shot("android-quick")
     back();find("مجموعة الشمال")
     tap(find("فتح القائمة"));find("الرسائل الفورية واتساب");back();find("مجموعة الشمال")
@@ -226,12 +281,12 @@ def run(baseline,candidate):
     passed("offline_restart_scroll_and_filter",{"css_px":y,"rgb_mean_absolute_difference":change})
     swipe(185,box[1]+150,185,box[1]+620,200)
     wait(lambda:prefs().get("scroll",0)==0,"top after swipe")
-    tile=geometry["tile"];x=box[0]+tile["x"]+tile["w"]/2;y=box[1]+tile["y"]+tile["h"]/2
+    x,y=center(visible_button("سند جديد",box))
     swipe(x,y,x,y,740);find("تحرير البطائق")
     # WebView exposes each tile as one accessibility node; its center selects
     # the tile. The edit toolbar exposes separate, labelled native touch targets.
-    voucher=center(find("تثبيت سند جديد بالأعلى"))
-    transfer=center(find("تثبيت حوالة جديدة بالأعلى"))
+    voucher=center(visible_button("تثبيت سند جديد بالأعلى",box))
+    transfer=center(visible_button("تثبيت حوالة جديدة بالأعلى",box))
     swipe(*voucher,*transfer,510)
     def moved_after_transfer():
         order=(prefs().get("layout") or {}).get("order",[])
@@ -239,11 +294,11 @@ def run(baseline,candidate):
     wait(moved_after_transfer, "persisted real Android drag reorder")
     dragged=prefs()["layout"]
     back();find("مجموعة الشمال");stop();launch()
-    fresh_tile=find("سند جديد")
+    fresh_tile=visible_button("سند جديد",box)
     require(prefs()["layout"]==dragged and moved_after_transfer(),"dragged order before pin on cold reopen")
     x,y=center(fresh_tile);swipe(x,y,x,y,740)
     find("تحرير البطائق");passed("android_drag_reorder_and_cold_open")
-    tap(exact_button("تثبيت بالأعلى"))
+    tap(visible_button("تثبيت بالأعلى",box,"up"))
     wait(lambda:"new-voucher" in (prefs().get("layout") or {}).get("pinned",[]),"pinned tile")
     # The original React pin operation promotes the selected tile to the start
     # of its pinned block while keeping every other tile in the same order.
