@@ -42,17 +42,7 @@ class PostingReceipt {
       final saved = entry.id.substring(split + marker.length);
       // Settlements and returns have a suffix or a parent ID in their path.
       if (entry.id.substring(0, split).contains('/') ||
-          !RegExp(r'^[a-f0-9]{32}
-      if (saved != fingerprint || entry.deleted) {
-        throw const SaleValidationException(
-            'محاولة الحفظ مرتبطة بمستند سابق. راجع المستند قبل إنشاء آخر.');
-      }
-      return entry;
-    }
-    return null;
-  }
-}
-).hasMatch(saved)) {
+          !RegExp(r'^[a-f0-9]{32}$').hasMatch(saved)) {
         continue;
       }
       if (saved != fingerprint || entry.deleted) {
