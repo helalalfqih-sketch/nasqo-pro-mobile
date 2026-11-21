@@ -9096,18 +9096,16 @@ function AppDrawer({
   open,
   onClose,
   onNavigate,
-  onDeviceAction,
+  actions,
 }: {
   open: boolean;
   onClose: () => void;
   onNavigate: (target: DrawerTarget) => void;
-  onDeviceAction?: (target: "local-backups" | "about-modal" | "activation-modal" | "app-update") => void;
+  actions?: Partial<Record<"backup" | "shareBackup" | "restore" | "activation" | "update" | "about", () => void>>;
 }) {
   const ctx = useWorkspace();
   const openPanel = (action: () => void) => () => { onClose(); action(); };
   const unavailable = (label: string) => openPanel(() => ctx.showToast(`${label} غير متاح في مساحة العمل الحالية.`));
-  const backup = openPanel(() => onDeviceAction ? onDeviceAction("local-backups") : ctx.openBackupModal());
-  const restore = openPanel(() => onDeviceAction ? onDeviceAction("local-backups") : ctx.openOptionsMenu());
   const sections: {
     title?: string;
     items: { label: string; ariaLabel?: string; icon: IconComponent; target?: DrawerTarget; action?: () => void }[];
@@ -9157,10 +9155,10 @@ function AppDrawer({
     {
       title: "النسخ الاحتياطي",
       items: [
-        { label: "حفظ نسخة احتياطية على الهاتف", icon: DownloadIcon, action: backup },
-        { label: "حفظ نسخة احتياطية على التلجرام", icon: PaperPlaneIcon, action: unavailable("النسخ إلى التلجرام") },
-        { label: "مشاركة نسخة احتياطية", icon: Share1Icon, action: backup },
-        { label: "استعادة نسخة احتياطية", icon: ReloadIcon, action: restore },
+        { label: "حفظ نسخة احتياطية على الهاتف", icon: DownloadIcon, action: openPanel(actions?.backup ?? ctx.openBackupModal) },
+        { label: "حفظ نسخة احتياطية على التليجرام", icon: PaperPlaneIcon, action: unavailable("النسخ إلى التلجرام") },
+        { label: "مشاركة نسخة احتياطية", icon: Share1Icon, action: openPanel(actions?.shareBackup ?? ctx.openBackupModal) },
+        { label: "استعادة نسخة احتياطية", icon: ReloadIcon, action: openPanel(actions?.restore ?? ctx.openOptionsMenu) },
       ],
     },
     {
@@ -9184,7 +9182,7 @@ function AppDrawer({
       title: "أخرى",
       items: [
         { label: "معالجة الأخطاء", icon: ExclamationTriangleIcon, action: unavailable("معالج الأخطاء") },
-        { label: "تفعيل التطبيق", icon: LockClosedIcon, action: onDeviceAction ? openPanel(() => onDeviceAction("activation-modal")) : unavailable("التفعيل") },
+        { label: "تفعيل التطبيق", icon: LockClosedIcon, action: actions?.activation ? openPanel(actions.activation) : unavailable("التفعيل") },
         { label: "مقترحات", icon: ChatBubbleIcon, action: unavailable("إرسال المقترحات") },
       ],
     },
@@ -9195,9 +9193,9 @@ function AppDrawer({
         { label: "شروط الخدمة", icon: LockClosedIcon, action: unavailable("رابط شروط الخدمة") },
         { label: "سياسة الخصوصية", icon: LockClosedIcon, action: unavailable("رابط سياسة الخصوصية") },
         { label: "تواصل معنا", icon: MobileIcon, action: unavailable("رابط التواصل") },
-        { label: "تحديث التطبيق", icon: DownloadIcon, action: onDeviceAction ? openPanel(() => onDeviceAction("app-update")) : unavailable("فحص تحديث Android") },
+        { label: "تحديث التطبيق", icon: DownloadIcon, action: actions?.update ? openPanel(actions.update) : unavailable("فحص التحديث") },
         { label: "مشاركة التطبيق", icon: Share1Icon, action: unavailable("رابط المشاركة") },
-        { label: "عن التطبيق", icon: InfoCircledIcon, action: openPanel(() => onDeviceAction ? onDeviceAction("about-modal") : ctx.showToast("نسقو برو لإدارة الحسابات والمبيعات")) },
+        { label: "عن التطبيق", icon: InfoCircledIcon, action: openPanel(actions?.about ?? (() => ctx.showToast("نسقو برو لإدارة الحسابات والمبيعات"))) },
         { label: "قيم التطبيق", icon: BookmarkIcon, action: unavailable("رابط التقييم") },
       ],
     },

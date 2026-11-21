@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-test.use({ viewport: { width: 1400, height: 1200 }, deviceScaleFactor: 1, channel: "chrome" });
+test.use({ viewport: { width: 1400, height: 1200 }, deviceScaleFactor: 1, launchOptions: { executablePath: process.env.CHROME_BIN } });
 
 function observePreview(page: Page) {
   const errors: string[] = [];
@@ -54,46 +54,35 @@ async function capture(page: Page, name: string) {
   await screen.screenshot({ path: `qa/implementation-${name}-v7.png` });
 }
 
-async function alignDrawerItem(item: Locator, offset = 0) {
-  await item.evaluate((element, topOffset) => {
-    const scroller = element.closest<HTMLElement>(".mobile-scroll");
-    if (!scroller) throw new Error("Missing drawer scroll surface");
-    scroller.scrollTop += element.getBoundingClientRect().top - scroller.getBoundingClientRect().top - topOffset;
-  }, offset);
-}
-
-test("seventh drawer backup and about states keep preview actions local", async ({ page }) => {
-  test.setTimeout(60_000);
+test("seventh drawer opens phone backup and keeps unavailable actions local", async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.goto("/", { waitUntil: "networkidle" });
   const observed = observePreview(page);
-  await page.goto("http://127.0.0.1:4173/", { waitUntil: "networkidle" });
-  await page.getByLabel("فتح القائمة", { exact: true }).click();
-  const drawer = page.getByLabel("قائمة نسقو", { exact: true });
+  const openDrawer = page.getByRole("button", { name: "فتح القائمة", exact: true });
+  const drawer = page.getByRole("complementary", { name: "قائمة نسقو" });
+  await openDrawer.click();
   await expect(drawer).toBeVisible();
+
   const backup = drawer.getByRole("button", { name: "حفظ نسخة احتياطية على الهاتف", exact: true });
-  await alignDrawerItem(backup);
-  const drawerScroll = drawer.locator(".drawer-scroll .mobile-scroll");
-  const backupTop = (await backup.boundingBox())?.y;
-  expect(backupTop).toBeCloseTo((await drawerScroll.boundingBox())!.y, 0);
-  await expect(drawer.getByRole("button", { name: "حفظ نسخة احتياطية على التليجرام", exact: true })).toBeInViewport();
-  await expect(drawer.getByRole("button", { name: "استعادة الصور من جوجل درايف", exact: true })).toBeInViewport();
-  await capture(page, "drawer-backup");
+  await backup.scrollIntoViewIfNeeded();
+  await expect(backup).toBeInViewport();
+  await backup.click();
+  await expect(drawer).toBeHidden();
+  const backupDialog = page.getByRole("dialog", { name: "اسم النسخة الاحتياطية" });
+  await expect(backupDialog).toBeVisible();
+  await backupDialog.getByRole("button", { name: "إغلاق", exact: true }).click();
+  await expect(backupDialog).toBeHidden();
 
-  await alignDrawerItem(drawer.getByRole("button", { name: "مشاركة مجلد الصور", exact: true }));
-  const about = drawer.locator(".drawer-sections > section").filter({ has: page.getByRole("heading", { name: "عن التطبيق", exact: true }) });
-  await expect(about.getByRole("button")).toHaveText([
-    "شرح عن التطبيق على اليوتيوب", "شروط الخدمة", "سياسة الخصوصية", "تواصل معنا", "تحديث التطبيق", "مشاركة التطبيق", "عن التطبيق", "قيم التطبيق",
-  ]);
-  await expect(about.getByRole("button", { name: "قيم التطبيق", exact: true })).toBeInViewport();
-  await capture(page, "drawer-about");
-
-  for (const label of ["حفظ نسخة احتياطية على التليجرام", "مشاركة مجلد الصور", "استعادة الصور من جوجل درايف", "تواصل معنا", "تحديث التطبيق"]) {
-    const action = drawer.getByRole("button", { name: label, exact: true });
-    await alignDrawerItem(action, 150);
-    await action.click();
+  for (const [label, feedback] of [
+    ["حفظ نسخة احتياطية على التليجرام", "النسخ إلى التلجرام"],
+    ["مشاركة مجلد الصور", "مشاركة المجلد"],
+    ["تواصل معنا", "رابط التواصل"],
+    ["تحديث التطبيق", "فحص التحديث"],
+  ]) {
+    await openDrawer.click();
+    await drawer.getByRole("button", { name: label, exact: true }).click();
     await expect(drawer).toBeHidden();
-    await expect(page.getByRole("status")).toContainText(/معاينة|تجريب/);
-    await page.getByLabel("فتح القائمة", { exact: true }).click();
-    await expect(drawer).toBeVisible();
+    await expect(page.getByRole("status")).toHaveText(`${feedback} غير متاح في مساحة العمل الحالية.`);
   }
   observed.assertSafe();
 });

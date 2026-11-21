@@ -202,6 +202,7 @@ jobs:
           npm run build
           npm run test:sites
           CHROME_BIN=/usr/bin/google-chrome npx --no-install playwright test --reporter=list --config=qa/hybrid_home/runtime.config.mjs
+          CHROME_BIN=/usr/bin/google-chrome npx --no-install playwright test tests/seventh-reference-qa.spec.ts -g "seventh drawer" --reporter=list
       - name: Exercise the APK in airplane mode
         uses: reactivecircus/android-emulator-runner@v2
         with:

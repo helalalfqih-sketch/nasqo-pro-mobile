@@ -1,331 +1,351 @@
 {
-  "batch": 1,
-  "branch": "audit/parity-account-groups-01",
-  "base_git_sha": "2e4396b347b21a1378e82e8124b2ef461b3ad02f",
-  "apk_source_git_sha": "9b8e78a47cfd2ab5caf9fb64ccf542ede82265d7",
-  "inventory": {
-    "occurrences": 28681,
-    "unique_static_entries": 22814,
-    "review_scenarios": 15
+  "branch": "integration/hybrid-seven-20261121",
+  "react_reference_sha": "2e4396b347b21a1378e82e8124b2ef461b3ad02f",
+  "integration_base_sha": "bebf6153246300999d10f93ad67be69586cebba9",
+  "matrix_scenario_prefix": "INT-",
+  "status": "awaiting_candidate_ci",
+  "reviewed_run": {
+    "id": 44947783678,
+    "sha": "78c00a833a7b2274e644ecfd542410534000a5ee",
+    "flutter_unit_passed": 282,
+    "flutter_targeted_passed": 6,
+    "apk": "failure",
+    "android_device": "skipped"
   },
-  "test_evidence": {
-    "complete_flutter_suite": {
-      "passed": 270,
-      "failed": 0,
-      "log": "test_logs/full-final.log"
-    },
-    "targeted_sqlite_and_update": {
-      "passed": 7,
-      "failed": 0,
-      "subset_of_complete_suite": true,
-      "log": "test_logs/ffi-recheck.log"
-    },
-    "lab": {
-      "passed": 5,
-      "failed": 0,
-      "log": "test_logs/lab-final.log"
-    },
-    "analyzer": {
-      "errors": 0,
-      "warnings": 0,
-      "info": 31,
-      "curly_braces_in_flow_control_structures": 27,
-      "prefer_const_constructors": 4
-    },
-    "lab_analyzer": {
-      "errors": 0,
-      "warnings": 0,
-      "info": 0
-    },
-    "sqlite": {
-      "dataset": "synthetic",
-      "integrity_check": "ok",
-      "cold_opens": 2,
-      "production_data_accessed": false
-    },
-    "browser": {
-      "rtl": true,
-      "page_errors": 0,
-      "http_requests": 0,
-      "log": "test_logs/browser-final.log"
-    },
-    "android_upgrade": {
-      "passed": true,
-      "api_level": 30,
-      "source_version_code": 10004,
-      "candidate_version_code": 10014,
-      "airplane_mode": true,
-      "stock_before_posting": 80,
-      "stock_after_reopen": 81,
-      "stock_after_upgrade": 81,
-      "direct_upgrade_from_10013": "passed",
-      "physical_phone": "awaiting_user",
-      "run_id": 44930114626,
-      "log": "test_logs/android-upgrade.log"
-    },
-    "direct_10013_10014": {
-      "snapshot_count": 4,
-      "all_snapshots_equal": true,
-      "tables": 18,
-      "rows": 25,
-      "run_id": 44931687850,
-      "artifact_id": 14718127297,
-      "log": "test_logs/direct-upgrade-10013-10014.json"
-    }
+  "candidate_evidence": {
+    "android_device": "pending",
+    "native_pdf_artifact": "pending",
+    "physical_phone": "pending"
   },
-  "visual": {
-    "component": "مجموعات الحسابات والأرصدة",
-    "viewport": [
-      427,
-      952
-    ],
-    "dpr": 1,
-    "react_table": [
-      427,
-      151
-    ],
-    "flutter_table": [
-      427,
-      144
-    ],
-    "channel_threshold": 16,
-    "light_different_pixels": 17135,
-    "dark_different_pixels": 16328,
-    "phone_review": "pending"
-  },
-  "arch": {
-    "production": "Flutter Native",
-    "hybrid": "Android review build: bundled original React home and groups, native Flutter shell and navigation, local SQLite via Dart."
-  },
-  "release": {
-    "status": "signed_artifact_ready_for_review",
-    "github_run_id": 44929394951,
-    "package": "com.indexesstore.nasqo_qa",
-    "publication_approved": false,
-    "user_acceptance": "pending",
-    "version_name": "1.0.18",
-    "version_code": 10014,
-    "compared_public_version": 10013,
-    "artifact_id": 14717226371,
-    "artifact_size_bytes": 81857767,
-    "sha256": "fed19174edd70fcfca0593376aefc811f5701721cb90a6a1234b1d4f2c2514c4",
-    "signer_certificate_sha256": "0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79",
-    "android_test_run": 44930114626,
-    "public_version_at_handoff": 10013,
-    "published_by_this_batch": false
-  },
-  "matrix_status": {
-    "VERIFIED": 6,
-    "IMPLEMENTED_UNVERIFIED": 4,
-    "UNREVIEWED": 2,
-    "MISSING": 2,
-    "BLOCKED": 1
-  },
-  "current_code_batch": {
-    "id": "02-account-groups",
-    "branch": "feat/native-account-table-review",
-    "base_sha": "a1246e4a07a8a9c59baf131f25fe7062aaa00716",
-    "source_sha": "5a60a04ca63a1b826c7ece2a6dc85ae1f77efd53",
-    "changed_source_and_visuals": [
-      "flutter_app/lib/screens/dashboard_screen.dart",
-      "flutter_app/test/home_balance_panel_test.dart",
-      "qa/groups_lab/test/lab_test.dart",
-      "qa/screenshots/compare-dark.png",
-      "qa/screenshots/compare-light.png",
-      "qa/screenshots/native-dark.png",
-      "qa/screenshots/native-light.png"
-    ],
-    "tests": {
-      "full_flutter": 273,
-      "focused_widgets": 5,
-      "sqlite_and_visual_lab": 5,
-      "analyzer_errors": 0,
-      "analyzer_warnings": 0,
-      "analyzer_infos": 31,
-      "protected_runtime_files": 28
+  "historical_audit": {
+    "batch": 1,
+    "branch": "audit/parity-account-groups-01",
+    "base_git_sha": "2e4396b347b21a1378e82e8124b2ef461b3ad02f",
+    "apk_source_git_sha": "9b8e78a47cfd2ab5caf9fb64ccf542ede82265d7",
+    "inventory": {
+      "occurrences": 28681,
+      "unique_static_entries": 22814,
+      "review_scenarios": 15
     },
-    "visual": [
-      {
-        "mode": "light",
-        "dimensions": [
-          [
-            427,
-            151
-          ],
-          [
-            427,
-            151
-          ]
-        ],
-        "canvas": [
-          427,
-          151
-        ],
-        "differing": 5849,
-        "tolerance": 16
+    "test_evidence": {
+      "complete_flutter_suite": {
+        "passed": 270,
+        "failed": 0,
+        "log": "test_logs/full-final.log"
       },
-      {
-        "mode": "dark",
-        "dimensions": [
-          [
-            427,
-            151
-          ],
-          [
-            427,
-            151
-          ]
-        ],
-        "canvas": [
-          427,
-          151
-        ],
-        "differing": 5452,
-        "tolerance": 16
-      }
-    ],
-    "verified_scenarios": [
-      "AB-01",
-      "AB-04"
-    ],
-    "remaining": [
-      "AB-02",
-      "AB-03",
-      "AB-05",
-      "HOME-01",
-      "HOME-02",
-      "HOME-03",
-      "AB-06",
-      "AB-07"
-    ],
-    "reference_tree": "7ff0b83b07f2925254311a8663900533f1eef936",
-    "application_data": "synthetic fixtures; SQLite integrity_check ok; all table rows matched across two cold opens",
-    "source_candidate": "1.0.18+10015 if the existing signing workflow next allocates run number 15; unreserved",
-    "previous_signed_baseline": 10014,
-    "release_owner": "separate release conversation",
-    "visual_review": "Flutter widget engine vs Chromium at 427×952 DPR1. Physical phone and TalkBack pending.",
-    "evidence": {
-      "pr": "https://github.com/helalalfqih-sketch/nasqo-pro-mobile/pull/20",
-      "screenshots": [
-        "screenshots/compare-light.png",
-        "screenshots/compare-dark.png"
-      ],
-      "logs": [
-        "test_logs/table-review-full.log",
-        "test_logs/table-review-lab.log",
-        "test_logs/table-review-targets.log",
-        "test_logs/table-review-drill-before.log",
-        "test_logs/table-review-visual.log",
-        "test_logs/table-review-browser.log",
-        "test_logs/table-review-runtime.log",
-        "test_logs/table-review-analyze.log",
-        "test_logs/table-review-dart-analyze.log"
-      ]
-    },
-    "source_control_note": "batch 1 test_evidence, visual and release sections above are the archived 10014 baseline. Current results are under current_code_batch."
-  },
-  "current_hybrid_batch": {
-    "id": "03-hybrid-home",
-    "branch": "poc/hybrid-home-android",
-    "pr": 21,
-    "base": "e24d50cbd5914c67750c4606948767c20df043cb",
-    "source": "848a55527221d8982f32522b3f434c4d1c931b00",
-    "android_test_revision": "39f623a11ee3fff8be3977c8dbb9ebb14a7dd986",
-    "version_code": 10016,
-    "version_name": "1.0.18",
-    "signed_run": 44937765317,
-    "signed_artifact_id": 14720338046,
-    "android_run": 44939902641,
-    "android_evidence_artifact": 14720583870,
-    "apk_bytes": 82539058,
-    "apk_sha256": "94f91b50838df82a4c3063ad2d2eb2b36f0be5c907ff1193b579fc413b9b8d97",
-    "signer_sha256": "0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79",
-    "release_actions_by_editor": [
-      "feature_branch_push",
-      "draft_pr",
-      "review_artifact_build"
-    ],
-    "public_file_verified_equal_to_signed_artifact": true,
-    "public_read_checked_utc": "2026-11-21T19:06:14Z",
-    "flutter": {
-      "passed": 276,
-      "failed": 0,
-      "analyzer_errors": 0,
-      "analyzer_warnings": 0,
-      "analyzer_infos": 31
-    },
-    "android_test": {
-      "api": 35,
-      "airplane": true,
-      "upgrade": [
-        10014,
-        10016
-      ],
+      "targeted_sqlite_and_update": {
+        "passed": 7,
+        "failed": 0,
+        "subset_of_complete_suite": true,
+        "log": "test_logs/ffi-recheck.log"
+      },
+      "lab": {
+        "passed": 5,
+        "failed": 0,
+        "log": "test_logs/lab-final.log"
+      },
+      "analyzer": {
+        "errors": 0,
+        "warnings": 0,
+        "info": 31,
+        "curly_braces_in_flow_control_structures": 27,
+        "prefer_const_constructors": 4
+      },
+      "lab_analyzer": {
+        "errors": 0,
+        "warnings": 0,
+        "info": 0
+      },
       "sqlite": {
-        "tables": 19,
-        "rows": 23,
-        "foreign_key_errors": 0
+        "dataset": "synthetic",
+        "integrity_check": "ok",
+        "cold_opens": 2,
+        "production_data_accessed": false
       },
-      "physical_device": "pending"
-    },
-    "android_visual": {
-      "light": {
-        "viewport": [
-          0,
-          76,
-          427,
-          860
-        ],
-        "pixels": 334768,
-        "pixels_over_16": 4961,
-        "share": 0.014819218085360608
+      "browser": {
+        "rtl": true,
+        "page_errors": 0,
+        "http_requests": 0,
+        "log": "test_logs/browser-final.log"
       },
-      "dark": {
-        "viewport": [
-          0,
-          76,
-          427,
-          860
-        ],
-        "pixels": 334768,
-        "pixels_over_16": 4563,
-        "share": 0.013630335037996464
+      "android_upgrade": {
+        "passed": true,
+        "api_level": 30,
+        "source_version_code": 10004,
+        "candidate_version_code": 10014,
+        "airplane_mode": true,
+        "stock_before_posting": 80,
+        "stock_after_reopen": 81,
+        "stock_after_upgrade": 81,
+        "direct_upgrade_from_10013": "passed",
+        "physical_phone": "awaiting_user",
+        "run_id": 44930114626,
+        "log": "test_logs/android-upgrade.log"
+      },
+      "direct_10013_10014": {
+        "snapshot_count": 4,
+        "all_snapshots_equal": true,
+        "tables": 18,
+        "rows": 25,
+        "run_id": 44931687850,
+        "artifact_id": 14718127297,
+        "log": "test_logs/direct-upgrade-10013-10014.json"
       }
     },
-    "physical_acceptance": "pending",
-    "review": "HYBRID_HOME_10016_AR.md"
-  },
-  "hybrid_work_20261121": {
-    "branch": "work/hybrid-android-parity-20261121",
-    "application_sha": "96d99ea0bbca4e585434c3e8aaba580423521171",
-    "reviewed_base": "625ef2d9d84226fde9dc8c1b95f2fa268cbaeece",
-    "flutter": {
-      "passed": 276,
-      "failed": 0,
-      "analyzer_infos": 31,
-      "analyzer_errors": 0,
-      "analyzer_warnings": 0
+    "visual": {
+      "component": "مجموعات الحسابات والأرصدة",
+      "viewport": [
+        427,
+        952
+      ],
+      "dpr": 1,
+      "react_table": [
+        427,
+        151
+      ],
+      "flutter_table": [
+        427,
+        144
+      ],
+      "channel_threshold": 16,
+      "light_different_pixels": 17135,
+      "dark_different_pixels": 16328,
+      "phone_review": "pending"
     },
-    "browser": {
-      "home_modes": 2,
-      "variants": 2,
-      "metrics": 8,
-      "quick_tiles": 24,
-      "network_requests_outside_local_assets": 0,
-      "reference_and_after_reports": {
-        "commit": "848a55527221d8982f32522b3f434c4d1c931b00",
-        "module_blob": "58de38bdfe7f6af5fb31386b6cad3f2dcc4f539b",
-        "routes": 10,
-        "menu_pixels_identical": true,
-        "runs": 2
-      }
+    "arch": {
+      "production": "Flutter Native",
+      "hybrid": "Android review build: bundled original React home and groups, native Flutter shell and navigation, local SQLite via Dart."
     },
-    "android": {
-      "run": 44940563567,
-      "api": 35,
-      "result": "pending"
+    "release": {
+      "status": "signed_artifact_ready_for_review",
+      "github_run_id": 44929394951,
+      "package": "com.indexesstore.nasqo_qa",
+      "publication_approved": false,
+      "user_acceptance": "pending",
+      "version_name": "1.0.18",
+      "version_code": 10014,
+      "compared_public_version": 10013,
+      "artifact_id": 14717226371,
+      "artifact_size_bytes": 81857767,
+      "sha256": "fed19174edd70fcfca0593376aefc811f5701721cb90a6a1234b1d4f2c2514c4",
+      "signer_certificate_sha256": "0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79",
+      "android_test_run": 44930114626,
+      "public_version_at_handoff": 10013,
+      "published_by_this_batch": false
     },
-    "signed_release": "owned_by_release_chat",
-    "phone_acceptance": "pending"
+    "matrix_status": {
+      "VERIFIED": 6,
+      "IMPLEMENTED_UNVERIFIED": 4,
+      "UNREVIEWED": 2,
+      "MISSING": 2,
+      "BLOCKED": 1
+    },
+    "current_code_batch": {
+      "id": "02-account-groups",
+      "branch": "feat/native-account-table-review",
+      "base_sha": "a1246e4a07a8a9c59baf131f25fe7062aaa00716",
+      "source_sha": "5a60a04ca63a1b826c7ece2a6dc85ae1f77efd53",
+      "changed_source_and_visuals": [
+        "flutter_app/lib/screens/dashboard_screen.dart",
+        "flutter_app/test/home_balance_panel_test.dart",
+        "qa/groups_lab/test/lab_test.dart",
+        "qa/screenshots/compare-dark.png",
+        "qa/screenshots/compare-light.png",
+        "qa/screenshots/native-dark.png",
+        "qa/screenshots/native-light.png"
+      ],
+      "tests": {
+        "full_flutter": 273,
+        "focused_widgets": 5,
+        "sqlite_and_visual_lab": 5,
+        "analyzer_errors": 0,
+        "analyzer_warnings": 0,
+        "analyzer_infos": 31,
+        "protected_runtime_files": 28
+      },
+      "visual": [
+        {
+          "mode": "light",
+          "dimensions": [
+            [
+              427,
+              151
+            ],
+            [
+              427,
+              151
+            ]
+          ],
+          "canvas": [
+            427,
+            151
+          ],
+          "differing": 5849,
+          "tolerance": 16
+        },
+        {
+          "mode": "dark",
+          "dimensions": [
+            [
+              427,
+              151
+            ],
+            [
+              427,
+              151
+            ]
+          ],
+          "canvas": [
+            427,
+            151
+          ],
+          "differing": 5452,
+          "tolerance": 16
+        }
+      ],
+      "verified_scenarios": [
+        "AB-01",
+        "AB-04"
+      ],
+      "remaining": [
+        "AB-02",
+        "AB-03",
+        "AB-05",
+        "HOME-01",
+        "HOME-02",
+        "HOME-03",
+        "AB-06",
+        "AB-07"
+      ],
+      "reference_tree": "7ff0b83b07f2925254311a8663900533f1eef936",
+      "application_data": "synthetic fixtures; SQLite integrity_check ok; all table rows matched across two cold opens",
+      "source_candidate": "1.0.18+10015 if the existing signing workflow next allocates run number 15; unreserved",
+      "previous_signed_baseline": 10014,
+      "release_owner": "separate release conversation",
+      "visual_review": "Flutter widget engine vs Chromium at 427×952 DPR1. Physical phone and TalkBack pending.",
+      "evidence": {
+        "pr": "https://github.com/helalalfqih-sketch/nasqo-pro-mobile/pull/20",
+        "screenshots": [
+          "screenshots/compare-light.png",
+          "screenshots/compare-dark.png"
+        ],
+        "logs": [
+          "test_logs/table-review-full.log",
+          "test_logs/table-review-lab.log",
+          "test_logs/table-review-targets.log",
+          "test_logs/table-review-drill-before.log",
+          "test_logs/table-review-visual.log",
+          "test_logs/table-review-browser.log",
+          "test_logs/table-review-runtime.log",
+          "test_logs/table-review-analyze.log",
+          "test_logs/table-review-dart-analyze.log"
+        ]
+      },
+      "source_control_note": "batch 1 test_evidence, visual and release sections above are the archived 10014 baseline. Current results are under current_code_batch."
+    },
+    "current_hybrid_batch": {
+      "id": "03-hybrid-home",
+      "branch": "poc/hybrid-home-android",
+      "pr": 21,
+      "base": "e24d50cbd5914c67750c4606948767c20df043cb",
+      "source": "848a55527221d8982f32522b3f434c4d1c931b00",
+      "android_test_revision": "39f623a11ee3fff8be3977c8dbb9ebb14a7dd986",
+      "version_code": 10016,
+      "version_name": "1.0.18",
+      "signed_run": 44937765317,
+      "signed_artifact_id": 14720338046,
+      "android_run": 44939902641,
+      "android_evidence_artifact": 14720583870,
+      "apk_bytes": 82539058,
+      "apk_sha256": "94f91b50838df82a4c3063ad2d2eb2b36f0be5c907ff1193b579fc413b9b8d97",
+      "signer_sha256": "0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79",
+      "release_actions_by_editor": [
+        "feature_branch_push",
+        "draft_pr",
+        "review_artifact_build"
+      ],
+      "public_file_verified_equal_to_signed_artifact": true,
+      "public_read_checked_utc": "2026-11-21T19:06:14Z",
+      "flutter": {
+        "passed": 276,
+        "failed": 0,
+        "analyzer_errors": 0,
+        "analyzer_warnings": 0,
+        "analyzer_infos": 31
+      },
+      "android_test": {
+        "api": 35,
+        "airplane": true,
+        "upgrade": [
+          10014,
+          10016
+        ],
+        "sqlite": {
+          "tables": 19,
+          "rows": 23,
+          "foreign_key_errors": 0
+        },
+        "physical_device": "pending"
+      },
+      "android_visual": {
+        "light": {
+          "viewport": [
+            0,
+            76,
+            427,
+            860
+          ],
+          "pixels": 334768,
+          "pixels_over_16": 4961,
+          "share": 0.014819218085360608
+        },
+        "dark": {
+          "viewport": [
+            0,
+            76,
+            427,
+            860
+          ],
+          "pixels": 334768,
+          "pixels_over_16": 4563,
+          "share": 0.013630335037996464
+        }
+      },
+      "physical_acceptance": "pending",
+      "review": "HYBRID_HOME_10016_AR.md"
+    },
+    "hybrid_work_20261121": {
+      "branch": "work/hybrid-android-parity-20261121",
+      "application_sha": "96d99ea0bbca4e585434c3e8aaba580423521171",
+      "reviewed_base": "625ef2d9d84226fde9dc8c1b95f2fa268cbaeece",
+      "flutter": {
+        "passed": 276,
+        "failed": 0,
+        "analyzer_infos": 31,
+        "analyzer_errors": 0,
+        "analyzer_warnings": 0
+      },
+      "browser": {
+        "home_modes": 2,
+        "variants": 2,
+        "metrics": 8,
+        "quick_tiles": 24,
+        "network_requests_outside_local_assets": 0,
+        "reference_and_after_reports": {
+          "commit": "848a55527221d8982f32522b3f434c4d1c931b00",
+          "module_blob": "58de38bdfe7f6af5fb31386b6cad3f2dcc4f539b",
+          "routes": 10,
+          "menu_pixels_identical": true,
+          "runs": 2
+        }
+      },
+      "android": {
+        "run": 44940563567,
+        "api": 35,
+        "result": "pending"
+      },
+      "signed_release": "owned_by_release_chat",
+      "phone_acceptance": "pending"
+    }
   }
 }

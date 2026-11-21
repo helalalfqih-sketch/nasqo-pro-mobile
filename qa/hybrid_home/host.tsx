@@ -160,7 +160,14 @@ function Shell({snapshot}) {
       <div className="flow-scenes"><div className="flow-screen"><DashboardPage host={host}/></div></div>
       <div className="flow-fixed-footer"><DashboardBottomNav flow={flow}/></div>
     </div>
-    <AppDrawer open={overlay === 'drawer'} onClose={close} onDeviceAction={navigate} onNavigate={target => {
+    <AppDrawer open={overlay === 'drawer'} onClose={close} actions={{
+      backup: context.openLocalBackups,
+      shareBackup: context.openLocalBackups,
+      restore: context.openLocalBackups,
+      activation: () => navigate('activation-modal'),
+      update: () => navigate('app-update'),
+      about: () => navigate('about-modal'),
+    }} onNavigate={target => {
       close();
       if (target === 'dashboard') {window.nasqoTop(); return;}
       const [action,id] = drawerRoutes[target]; (action==='tile'?tile:navigate)(id);
