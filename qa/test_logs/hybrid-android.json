@@ -1,0 +1,72 @@
+{
+  "source": "848a55527221d8982f32522b3f434c4d1c931b00",
+  "checks": {
+    "in_place_signed_upgrade": [
+      10014,
+      10016
+    ],
+    "offline_react_home": "مجموعة الشمال 2 حساب",
+    "currency_change": true,
+    "native_statement_back": true,
+    "native_keyboard_and_back": true,
+    "offline_restart_scroll_and_filter": {
+      "css_px": 256,
+      "rgb_mean_absolute_difference": [
+        0.1233627069072022,
+        0.09500397110548013,
+        0.3313666906193664
+      ]
+    },
+    "android_drag_reorder_and_cold_open": true,
+    "long_press_pin_and_hardware_back": true,
+    "frame_and_memory_samples": {
+      "process": "com.indexesstore.nasqo_qa"
+    },
+    "accounting_and_stock_integrity": {
+      "tables": 19,
+      "rows": 23,
+      "foreign_key_errors": 0
+    },
+    "preferences_after_cold_reopen": true
+  },
+  "paint_ms": [
+    6427,
+    3900,
+    3865,
+    4039,
+    3479,
+    4140
+  ],
+  "am_total_ms": [
+    2603,
+    1791,
+    1236,
+    1397,
+    1812,
+    1394
+  ],
+  "visual": {
+    "light": {
+      "viewport": [
+        0,
+        76,
+        427,
+        860
+      ],
+      "pixels": 334768,
+      "pixels_over_16": 4961,
+      "share": 0.014819218085360608
+    },
+    "dark": {
+      "viewport": [
+        0,
+        76,
+        427,
+        860
+      ],
+      "pixels": 334768,
+      "pixels_over_16": 4563,
+      "share": 0.013630335037996464
+    }
+  }
+}

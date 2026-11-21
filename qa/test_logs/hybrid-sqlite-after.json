@@ -1,0 +1,78 @@
+{
+  "accounts": [
+    10,
+    "79cc72ac2b0dd8eeefe47605e32a9870f07c16537943d5a9343413adde247626"
+  ],
+  "android_metadata": [
+    1,
+    "f08aa0f25d5ded571ac431eebaf44cdf44bb2b44ff4ff4a2b0d8ab138edc4312"
+  ],
+  "cash_transfer_drafts": [
+    0,
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  ],
+  "customer_measurements": [
+    0,
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  ],
+  "erp_state": [
+    3,
+    "ab9fb27bf440448ad84bda3e32806298bf6cc72d86989ac83fcacf0c89dd936a"
+  ],
+  "fx_drafts": [
+    0,
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  ],
+  "inventory_items": [
+    4,
+    "d437e1a3c80e567048c3b8e9644e2828f8360be8830770223ab2ce908d6587ec"
+  ],
+  "ledger_entries": [
+    3,
+    "28d65af8615d8a876fe7a6f8b54c29d23d8fd612708ff0f185a5aafd99421865"
+  ],
+  "nonposting_documents": [
+    0,
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  ],
+  "nonposting_lines": [
+    0,
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  ],
+  "sale_facts": [
+    0,
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  ],
+  "sale_line_cost_facts": [
+    0,
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  ],
+  "sale_lines": [
+    0,
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  ],
+  "sales_return_draft_lines": [
+    0,
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  ],
+  "sales_return_drafts": [
+    0,
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  ],
+  "simple_journal_drafts": [
+    0,
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  ],
+  "sqlite_sequence": [
+    0,
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  ],
+  "voucher_drafts": [
+    0,
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  ],
+  "warehouses": [
+    2,
+    "916302de7fd2aed86b02ed2d981f1ec789945f4a1392d0b2e795224c4a56eeac"
+  ]
+}

@@ -1,0 +1,7 @@
+94f91b50838df82a4c3063ad2d2eb2b36f0be5c907ff1193b579fc413b9b8d97  app-release.apk
+82539058
+{"package": "com.indexesstore.nasqo_qa", "versionCode": 10016, "versionName": "1.0.18"}
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Number of signers: 1
+Signer #1 certificate SHA-256 digest: 0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79

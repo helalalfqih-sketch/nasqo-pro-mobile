@@ -1,0 +1,4 @@
+00:00 +0: loading /home/chatgpt-admin/nasqo-parity-table-review/flutter_app/test/hybrid_home_test.dart
+00:00 +0: bridge accepts only local view events and existing destinations
+00:00 +1: restored balances and UI preferences survive cold SQLite reopen without business writes
+00:00 +2: All tests passed!
