@@ -42,6 +42,7 @@ import 'screens/sales_return_views.dart';
 import 'screens/customer_measurement_views.dart';
 import 'screens/cash_supplier_statement_view.dart';
 import 'screens/web_auxiliary_views.dart';
+import 'screens/roles_permissions_screen.dart';
 import 'services/customer_measurement_repository.dart';
 import 'state/erp_controller.dart';
 
@@ -447,6 +448,10 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       'manufacturing' => (
           'التصنيع ومراكز التكلفة',
           ManufacturingScreen(controller: widget.controller)
+        ),
+      'roles-permissions' => (
+          'الأدوار والصلاحيات',
+          RolesPermissionsScreen(controller: widget.controller)
         ),
       _ => (
           'مركز الـ ERP',

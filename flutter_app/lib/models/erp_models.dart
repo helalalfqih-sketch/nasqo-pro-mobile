@@ -828,3 +828,237 @@ class ErpCostCenter {
   final double extraPostedSpend;
   final List<String> linkedCategories;
 }
+
+enum ErpPermissionModule {
+  currencies('العملات'),
+  cashboxes('الصناديق'),
+  accounts('الحسابات'),
+  warehouses('المخازن'),
+  vouchers('السندات'),
+  users('المستخدمين'),
+  rolesAndPermissions('الصلاحيات والأدوار'),
+  items('الأصناف'),
+  quotesAndOrders('عروض الأسعار والطلبيات'),
+  cashFunds('صناديق النقدية'),
+  warehouseTransfers('التحويلات المخزنية');
+
+  const ErpPermissionModule(this.label);
+  final String label;
+}
+
+enum ErpCrudAction {
+  add('إضافة'),
+  edit('تعديل'),
+  delete('حذف'),
+  view('عرض');
+
+  const ErpCrudAction(this.label);
+  final String label;
+}
+
+class ErpModuleCrudFlags {
+  const ErpModuleCrudFlags({
+    this.add = false,
+    this.edit = false,
+    this.delete = false,
+    this.view = false,
+  });
+
+  const ErpModuleCrudFlags.all()
+      : add = true,
+        edit = true,
+        delete = true,
+        view = true;
+
+  const ErpModuleCrudFlags.none()
+      : add = false,
+        edit = false,
+        delete = false,
+        view = false;
+
+  factory ErpModuleCrudFlags.fromJson(Map<String, dynamic> data) =>
+      ErpModuleCrudFlags(
+        add: data['add'] == true,
+        edit: data['edit'] == true,
+        delete: data['delete'] == true,
+        view: data['view'] == true,
+      );
+
+  final bool add;
+  final bool edit;
+  final bool delete;
+  final bool view;
+
+  bool get allEnabled => add && edit && delete && view;
+  int get enabledCount =>
+      (add ? 1 : 0) + (edit ? 1 : 0) + (delete ? 1 : 0) + (view ? 1 : 0);
+
+  bool operator [](ErpCrudAction action) => switch (action) {
+        ErpCrudAction.add => add,
+        ErpCrudAction.edit => edit,
+        ErpCrudAction.delete => delete,
+        ErpCrudAction.view => view,
+      };
+
+  ErpModuleCrudFlags copyWith({
+    bool? add,
+    bool? edit,
+    bool? delete,
+    bool? view,
+  }) =>
+      ErpModuleCrudFlags(
+        add: add ?? this.add,
+        edit: edit ?? this.edit,
+        delete: delete ?? this.delete,
+        view: view ?? this.view,
+      );
+
+  ErpModuleCrudFlags withAction(ErpCrudAction action, bool enabled) =>
+      switch (action) {
+        ErpCrudAction.add => copyWith(add: enabled),
+        ErpCrudAction.edit => copyWith(edit: enabled),
+        ErpCrudAction.delete => copyWith(delete: enabled),
+        ErpCrudAction.view => copyWith(view: enabled),
+      };
+
+  Map<String, Object?> toJson() => {
+        'add': add,
+        'edit': edit,
+        'delete': delete,
+        'view': view,
+      };
+}
+
+enum ErpActionPermission {
+  newVoucher('سند جديد'),
+  newInvoice('فاتورة جديدة'),
+  dailyJournalEntry('قيد يومي'),
+  quickSearch('بحث سريع'),
+  accountStatement('كشف حساب'),
+  messages('الرسائل'),
+  currencyExchangeVoucher('سند صرف عملات'),
+  editInvoice('تعديل فاتورة'),
+  newTransfer('حوالة جديدة'),
+  backup('النسخ الإحتياطي'),
+  restoreBackup('إستعادة نسخة'),
+  exportToApp('تصدير الى التطبيق'),
+  importFromApp('إستيراد من التطبيق'),
+  dailyMovement('الحركة اليومية'),
+  activationOptions('خيارات التفعيل'),
+  settings('الاعدادات'),
+  newReturn('مردود جديد'),
+  editTransfer('تعديل حوالة');
+
+  const ErpActionPermission(this.label);
+  final String label;
+}
+
+class ErpRoleRecord {
+  const ErpRoleRecord({
+    required this.id,
+    required this.name,
+    required this.modulePermissions,
+    required this.actionPermissions,
+    this.isSystem = false,
+  });
+
+  factory ErpRoleRecord.fullAccess({
+    required String id,
+    required String name,
+    bool isSystem = true,
+  }) =>
+      ErpRoleRecord(
+        id: id,
+        name: name,
+        isSystem: isSystem,
+        modulePermissions: {
+          for (final m in ErpPermissionModule.values)
+            m: const ErpModuleCrudFlags.all(),
+        },
+        actionPermissions: Set<ErpActionPermission>.from(
+          ErpActionPermission.values,
+        ),
+      );
+
+  factory ErpRoleRecord.fromJson(Map<String, dynamic> data) {
+    final rawModules = data['modulePermissions'];
+    final moduleMap = <ErpPermissionModule, ErpModuleCrudFlags>{};
+    for (final m in ErpPermissionModule.values) {
+      final entry = rawModules is Map ? rawModules[m.name] : null;
+      moduleMap[m] = entry is Map
+          ? ErpModuleCrudFlags.fromJson(Map<String, dynamic>.from(entry))
+          : const ErpModuleCrudFlags.none();
+    }
+    final rawActions = data['actionPermissions'];
+    final actionSet = <ErpActionPermission>{};
+    if (rawActions is List) {
+      for (final item in rawActions) {
+        final match = ErpActionPermission.values
+            .where((a) => a.name == item)
+            .firstOrNull;
+        if (match != null) actionSet.add(match);
+      }
+    }
+    return ErpRoleRecord(
+      id: (data['id'] as String?) ?? 'role_custom',
+      name: (data['name'] as String?) ?? 'دور مخصص',
+      isSystem: data['isSystem'] == true,
+      modulePermissions: moduleMap,
+      actionPermissions: actionSet,
+    );
+  }
+
+  final String id;
+  final String name;
+  final Map<ErpPermissionModule, ErpModuleCrudFlags> modulePermissions;
+  final Set<ErpActionPermission> actionPermissions;
+  final bool isSystem;
+
+  static int get maxTotalPermissions =>
+      (ErpPermissionModule.values.length * ErpCrudAction.values.length) +
+      ErpActionPermission.values.length;
+
+  int get totalGrantedPermissions {
+    var count = actionPermissions.length;
+    for (final m in ErpPermissionModule.values) {
+      count += (modulePermissions[m] ?? const ErpModuleCrudFlags.none())
+          .enabledCount;
+    }
+    return count;
+  }
+
+  ErpModuleCrudFlags flagsFor(ErpPermissionModule module) =>
+      modulePermissions[module] ?? const ErpModuleCrudFlags.none();
+
+  bool hasModule(ErpPermissionModule module, ErpCrudAction action) =>
+      flagsFor(module)[action];
+
+  bool hasAction(ErpActionPermission action) =>
+      actionPermissions.contains(action);
+
+  ErpRoleRecord copyWith({
+    String? id,
+    String? name,
+    Map<ErpPermissionModule, ErpModuleCrudFlags>? modulePermissions,
+    Set<ErpActionPermission>? actionPermissions,
+    bool? isSystem,
+  }) =>
+      ErpRoleRecord(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        modulePermissions: modulePermissions ?? this.modulePermissions,
+        actionPermissions: actionPermissions ?? this.actionPermissions,
+        isSystem: isSystem ?? this.isSystem,
+      );
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'name': name,
+        'isSystem': isSystem,
+        'modulePermissions': {
+          for (final m in ErpPermissionModule.values)
+            m.name: flagsFor(m).toJson(),
+        },
+        'actionPermissions': actionPermissions.map((a) => a.name).toList(),
+      };
+}

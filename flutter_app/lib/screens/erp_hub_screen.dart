@@ -64,6 +64,13 @@ class ErpHubScreen extends StatelessWidget {
         Icons.precision_manufacturing_outlined,
         Colors.teal
       ),
+      (
+        'roles-permissions',
+        'الأدوار والصلاحيات',
+        'صلاحيات الأقسام (11) · العمليات (18)',
+        Icons.admin_panel_settings_outlined,
+        const Color(0xFF3F51B5)
+      ),
     ];
 
     final colorScheme = Theme.of(context).colorScheme;

@@ -220,13 +220,286 @@ class ErpController extends ChangeNotifier {
   String messagePhone = '';
   bool instantMessages = false;
 
+  final List<ErpRoleRecord> roles = [];
+  String activeRoleId = 'role_admin';
+
+  ErpRoleRecord get activeRole => roles.firstWhere(
+        (r) => r.id == activeRoleId,
+        orElse: () => roles.isNotEmpty
+            ? roles.first
+            : ErpRoleRecord.fullAccess(id: 'role_admin', name: 'مدير النظام'),
+      );
+
+  bool hasModulePermission(ErpPermissionModule module, ErpCrudAction action) =>
+      activeRole.hasModule(module, action);
+
+  bool hasActionPermission(ErpActionPermission action) =>
+      activeRole.hasAction(action);
+
+  static List<ErpRoleRecord> _defaultRoles() => [
+        ErpRoleRecord.fullAccess(
+          id: 'role_admin',
+          name: 'مدير النظام',
+          isSystem: true,
+        ),
+        ErpRoleRecord(
+          id: 'role_accountant',
+          name: 'محاسب',
+          modulePermissions: {
+            for (final m in ErpPermissionModule.values)
+              m: switch (m) {
+                ErpPermissionModule.currencies ||
+                ErpPermissionModule.cashboxes ||
+                ErpPermissionModule.accounts ||
+                ErpPermissionModule.vouchers ||
+                ErpPermissionModule.cashFunds =>
+                  const ErpModuleCrudFlags(
+                    add: true,
+                    edit: true,
+                    delete: false,
+                    view: true,
+                  ),
+                ErpPermissionModule.warehouses ||
+                ErpPermissionModule.items ||
+                ErpPermissionModule.quotesAndOrders ||
+                ErpPermissionModule.warehouseTransfers =>
+                  const ErpModuleCrudFlags(view: true),
+                ErpPermissionModule.users ||
+                ErpPermissionModule.rolesAndPermissions =>
+                  const ErpModuleCrudFlags.none(),
+              },
+          },
+          actionPermissions: const {
+            ErpActionPermission.newVoucher,
+            ErpActionPermission.newInvoice,
+            ErpActionPermission.dailyJournalEntry,
+            ErpActionPermission.quickSearch,
+            ErpActionPermission.accountStatement,
+            ErpActionPermission.currencyExchangeVoucher,
+            ErpActionPermission.editInvoice,
+            ErpActionPermission.newTransfer,
+            ErpActionPermission.dailyMovement,
+            ErpActionPermission.newReturn,
+            ErpActionPermission.editTransfer,
+          },
+        ),
+        ErpRoleRecord(
+          id: 'role_warehouse_sales',
+          name: 'أمين مخزن ومبيعات',
+          modulePermissions: {
+            for (final m in ErpPermissionModule.values)
+              m: switch (m) {
+                ErpPermissionModule.warehouses ||
+                ErpPermissionModule.items ||
+                ErpPermissionModule.quotesAndOrders ||
+                ErpPermissionModule.warehouseTransfers =>
+                  const ErpModuleCrudFlags(
+                    add: true,
+                    edit: true,
+                    delete: false,
+                    view: true,
+                  ),
+                ErpPermissionModule.accounts ||
+                ErpPermissionModule.currencies =>
+                  const ErpModuleCrudFlags(view: true),
+                _ => const ErpModuleCrudFlags.none(),
+              },
+          },
+          actionPermissions: const {
+            ErpActionPermission.newInvoice,
+            ErpActionPermission.quickSearch,
+            ErpActionPermission.dailyMovement,
+            ErpActionPermission.newReturn,
+          },
+        ),
+      ];
+
+  void _loadRolesPermissions(dynamic data) {
+    if (data is Map && data['roles'] is List) {
+      final loaded = (data['roles'] as List)
+          .whereType<Map>()
+          .map((r) => ErpRoleRecord.fromJson(Map<String, dynamic>.from(r)))
+          .toList();
+      if (loaded.isNotEmpty) {
+        roles
+          ..clear()
+          ..addAll(loaded);
+        final savedActive = data['activeRoleId'];
+        if (savedActive is String &&
+            roles.any((r) => r.id == savedActive)) {
+          activeRoleId = savedActive;
+        } else {
+          activeRoleId = roles.first.id;
+        }
+        return;
+      }
+    }
+    if (roles.isEmpty) {
+      roles.addAll(_defaultRoles());
+      activeRoleId = roles.first.id;
+    }
+  }
+
+  Future<ErpRoleRecord> saveRole({
+    String? id,
+    required String name,
+    required Map<ErpPermissionModule, ErpModuleCrudFlags> modulePermissions,
+    required Set<ErpActionPermission> actionPermissions,
+  }) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      final cleanName = name.trim();
+      if (cleanName.isEmpty) {
+        throw const FormatException('أدخل اسم الدور قبل الحفظ.');
+      }
+      final duplicate = roles.any(
+        (r) => r.id != id && r.name.trim() == cleanName,
+      );
+      if (duplicate) {
+        throw const FormatException('يوجد دور آخر بنفس الاسم.');
+      }
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final normalizedModules = <ErpPermissionModule, ErpModuleCrudFlags>{
+        for (final m in ErpPermissionModule.values)
+          m: modulePermissions[m] ?? const ErpModuleCrudFlags.none(),
+      };
+      final normalizedActions = Set<ErpActionPermission>.from(actionPermissions);
+
+      final existingIdx = id == null ? -1 : roles.indexWhere((r) => r.id == id);
+      late final ErpRoleRecord savedRecord;
+      final nextRoles = List<ErpRoleRecord>.of(roles);
+      if (existingIdx >= 0) {
+        savedRecord = nextRoles[existingIdx].copyWith(
+          name: cleanName,
+          modulePermissions: normalizedModules,
+          actionPermissions: normalizedActions,
+        );
+        nextRoles[existingIdx] = savedRecord;
+      } else {
+        final newId =
+            id ?? 'role_${DateTime.now().microsecondsSinceEpoch}';
+        savedRecord = ErpRoleRecord(
+          id: newId,
+          name: cleanName,
+          modulePermissions: normalizedModules,
+          actionPermissions: normalizedActions,
+        );
+        nextRoles.add(savedRecord);
+      }
+      final nextActiveId = savedRecord.id;
+      final rolesPayload = {
+        'activeRoleId': nextActiveId,
+        'roles': nextRoles.map((r) => r.toJson()).toList(),
+      };
+      if (_usesPersistentStore) {
+        await _saveCurrentSnapshot(
+          nextModuleData: {
+            ..._workspaceModuleData,
+            'rolesPermissions': rolesPayload,
+          },
+        );
+      }
+      roles
+        ..clear()
+        ..addAll(nextRoles);
+      activeRoleId = nextActiveId;
+      if (!_disposed) notifyListeners();
+      return savedRecord;
+    } finally {
+      _editingWorkspace = false;
+    }
+  }
+
+  Future<void> deleteRole(String id) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      final idx = roles.indexWhere((r) => r.id == id);
+      if (idx < 0) {
+        throw const FormatException('الدور المطلوب حذفه غير موجود.');
+      }
+      if (roles[idx].isSystem) {
+        throw const FormatException('لا يمكن حذف دور مدير النظام الأساسي.');
+      }
+      if (roles.length <= 1) {
+        throw const FormatException('يجب الإبقاء على دور واحد على الأقل.');
+      }
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final nextRoles = List<ErpRoleRecord>.of(roles)..removeAt(idx);
+      final nextActiveId = activeRoleId == id
+          ? nextRoles.first.id
+          : activeRoleId;
+      final rolesPayload = {
+        'activeRoleId': nextActiveId,
+        'roles': nextRoles.map((r) => r.toJson()).toList(),
+      };
+      if (_usesPersistentStore) {
+        await _saveCurrentSnapshot(
+          nextModuleData: {
+            ..._workspaceModuleData,
+            'rolesPermissions': rolesPayload,
+          },
+        );
+      }
+      roles
+        ..clear()
+        ..addAll(nextRoles);
+      activeRoleId = nextActiveId;
+      if (!_disposed) notifyListeners();
+    } finally {
+      _editingWorkspace = false;
+    }
+  }
+
+  Future<void> setActiveRole(String id) async {
+    if (!roles.any((r) => r.id == id)) return;
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final rolesPayload = {
+        'activeRoleId': id,
+        'roles': roles.map((r) => r.toJson()).toList(),
+      };
+      if (_usesPersistentStore) {
+        await _saveCurrentSnapshot(
+          nextModuleData: {
+            ..._workspaceModuleData,
+            'rolesPermissions': rolesPayload,
+          },
+        );
+      }
+      activeRoleId = id;
+      if (!_disposed) notifyListeners();
+    } finally {
+      _editingWorkspace = false;
+    }
+  }
+
   Map<String,dynamic> get _workspaceModuleData => {
     ..._modules.toJson(),
     'currencyDetails': _currencyDetails,
     'appearance':{'primary':primaryTint,'secondary':secondaryTint,'radius':homeRadius},
     if(groupDirectory!=null) 'groupDirectory':groupDirectory,
     'alertState':{'read':readAlerts.toList(),'dismissed':dismissedAlerts.toList()},
-    'messagePreferences':{'provider':messageProvider,'phone':messagePhone,'instant':instantMessages}
+    'messagePreferences':{'provider':messageProvider,'phone':messagePhone,'instant':instantMessages},
+    'rolesPermissions': {
+      'activeRoleId': activeRoleId,
+      'roles': roles.map((r) => r.toJson()).toList(),
+    },
   };
   void _loadMessagePreferences(dynamic prefs) {
     messageProvider = prefs is Map && prefs['provider']=='external' ? 'external' : 'nasqo';
@@ -610,6 +883,10 @@ class ErpController extends ChangeNotifier {
         linkedCategories: ['مصروفات تشغيلية'],
       ),
     ]);
+    roles
+      ..clear()
+      ..addAll(_defaultRoles());
+    activeRoleId = roles.first.id;
   }
 
   Future<List<NonpostingDocument>> loadNonpostingDocuments(
@@ -803,6 +1080,7 @@ class ErpController extends ChangeNotifier {
         _loadAppearance(snap.erpData?['appearance']);
         _loadAlertState(snap.erpData?['alertState']);
         _loadMessagePreferences(snap.erpData?['messagePreferences']);
+        _loadRolesPermissions(snap.erpData?['rolesPermissions']);
         if (snap.erpData != null) _loadModules(ErpWorkspaceSnapshot.fromJson(snap.erpData!));
         accounts
           ..clear()

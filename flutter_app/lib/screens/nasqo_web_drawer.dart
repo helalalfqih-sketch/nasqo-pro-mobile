@@ -130,6 +130,11 @@ class NasqoWebDrawer extends StatelessWidget {
                       Icons.precision_manufacturing_outlined,
                       route: 'manufacturing',
                     ),
+                    _item(
+                      'الأدوار والصلاحيات',
+                      Icons.admin_panel_settings_outlined,
+                      route: 'roles-permissions',
+                    ),
                     _section(context, 'النظام والدعم'),
                     _item('إعدادات رسائل SMS', Icons.sms_outlined,
                         route: 'sms-settings'),

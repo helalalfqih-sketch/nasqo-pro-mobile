@@ -7,6 +7,7 @@ import 'package:sqlite3/open.dart';
 import 'package:nasqo_pro_erp/models/erp_models.dart';
 import 'package:nasqo_pro_erp/screens/cash_supplier_statement_view.dart';
 import 'package:nasqo_pro_erp/screens/local_entry_view.dart';
+import 'package:nasqo_pro_erp/screens/roles_permissions_screen.dart';
 import 'package:nasqo_pro_erp/screens/web_auxiliary_views.dart';
 import 'package:nasqo_pro_erp/screens/workspace_views.dart';
 import 'package:nasqo_pro_erp/services/local_database.dart';
@@ -711,5 +712,141 @@ void main() {
     await tester.tap(find.text('تحقق وتفعيل'));
     await tester.pumpAndSettle();
     expect(find.textContaining('النسخة المحلية مفعلة'), findsOneWidget);
+  });
+
+  test('roles and permissions persist across SQLite close and reopen', () async {
+    _ffi();
+    final dir = await Directory.systemTemp.createTemp('nasqo_roles_perm_');
+    final dbPath = '${dir.path}/roles.db';
+    final db1 = LocalDatabase.withFactory(databaseFactoryFfi, dbPath);
+    final c1 = ErpController(autoInitDb: false, localDatabase: db1);
+    addTearDown(() async {
+      c1.dispose();
+      await db1.close();
+      if (await dir.exists()) {
+        await dir.delete(recursive: true);
+      }
+    });
+    await c1.initDatabase();
+
+    expect(ErpPermissionModule.values.length, 11);
+    expect(ErpActionPermission.values.length, 18);
+
+    final saved = await c1.saveRole(
+      name: 'مشرف مبيعات ومخازن',
+      modulePermissions: {
+        ErpPermissionModule.currencies: const ErpModuleCrudFlags(
+          add: true,
+          view: true,
+        ),
+        ErpPermissionModule.items: const ErpModuleCrudFlags.all(),
+      },
+      actionPermissions: const {
+        ErpActionPermission.newInvoice,
+        ErpActionPermission.backup,
+      },
+    );
+
+    expect(c1.activeRole.id, saved.id);
+    expect(c1.activeRole.name, 'مشرف مبيعات ومخازن');
+    expect(
+      c1.hasModulePermission(ErpPermissionModule.currencies, ErpCrudAction.add),
+      isTrue,
+    );
+    expect(
+      c1.hasModulePermission(
+        ErpPermissionModule.currencies,
+        ErpCrudAction.delete,
+      ),
+      isFalse,
+    );
+    expect(c1.hasActionPermission(ErpActionPermission.newInvoice), isTrue);
+    expect(c1.hasActionPermission(ErpActionPermission.backup), isTrue);
+    expect(c1.hasActionPermission(ErpActionPermission.restoreBackup), isFalse);
+
+    await db1.close();
+    final db2 = LocalDatabase.withFactory(databaseFactoryFfi, dbPath);
+    final c2 = ErpController(autoInitDb: false, localDatabase: db2);
+    addTearDown(() async {
+      c2.dispose();
+      await db2.close();
+    });
+    await c2.initDatabase();
+
+    expect(c2.activeRole.name, 'مشرف مبيعات ومخازن');
+    expect(
+      c2.hasModulePermission(ErpPermissionModule.currencies, ErpCrudAction.add),
+      isTrue,
+    );
+    expect(
+      c2.hasModulePermission(ErpPermissionModule.items, ErpCrudAction.delete),
+      isTrue,
+    );
+    expect(c2.hasActionPermission(ErpActionPermission.newInvoice), isTrue);
+    expect(c2.hasActionPermission(ErpActionPermission.backup), isTrue);
+    expect(c2.activeRole.totalGrantedPermissions, 8);
+  });
+
+  testWidgets(
+      'mobile roles and permissions screen supports 11 CRUD modules and 18 actions',
+      (tester) async {
+    final c = ErpController(autoInitDb: false);
+    addTearDown(c.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            body: RolesPermissionsScreen(controller: c),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('role-action-new')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('role-name-input')),
+      'محاسب مبيعات',
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('perm-currencies-add')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('perm-currencies-add')));
+    await tester.tap(find.byKey(const ValueKey('perm-currencies-view')));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('role-filter-actions')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('role-filter-actions')));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('action-perm-newInvoice')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('action-perm-newInvoice')));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('role-action-save')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('role-action-save')));
+    await tester.pumpAndSettle();
+
+    expect(c.activeRole.name, 'محاسب مبيعات');
+    expect(
+      c.hasModulePermission(ErpPermissionModule.currencies, ErpCrudAction.add),
+      isTrue,
+    );
+    expect(c.hasActionPermission(ErpActionPermission.newInvoice), isTrue);
+    expect(c.activeRole.totalGrantedPermissions, 3);
   });
 }
