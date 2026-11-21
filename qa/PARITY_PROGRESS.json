@@ -1,19 +1,19 @@
 {
   "branch": "integration/hybrid-seven-20261121",
   "react_reference_sha": "2e4396b347b21a1378e82e8124b2ef461b3ad02f",
-  "integration_base_sha": "4d645d02f7f15975822fab752dcfb81b03612fd4",
+  "integration_base_sha": "62a689471e27867cc34fe51ac64a983285f167ed",
   "matrix_scenario_prefix": "INT-",
-  "status": "awaiting_candidate_ci",
+  "status": "integration_emulator_passed",
   "reviewed_run": {
-    "id": 44950801587,
-    "sha": "4d645d02f7f15975822fab752dcfb81b03612fd4",
-    "attempt": 1,
-    "flutter_unit_passed": 282,
+    "id": 44956477986,
+    "url": "https://github.com/helalalfqih-sketch/nasqo-pro-mobile/actions/runs/44956477986",
+    "sha": "4d18fee4165a088c42b2a58f739901f36061397c",
+    "flutter_unit_passed": 283,
     "flutter_targeted_passed": 6,
     "apk": "success",
-    "android_device": "failure",
-    "failure": "No unobstructed sales metric after cold reopen",
-    "browser_rtl_document_cases_passed": 6
+    "android_device": "success",
+    "browser_rtl_document_cases_passed": 6,
+    "attempt": 2
   },
   "document_touch_layout": {
     "widths_px": [
@@ -28,11 +28,41 @@
     "android_font_scale": 1.3,
     "minimum_action_size_css_px": 48,
     "browser_cases_passed": 6,
-    "android": "pending_device_evidence"
+    "android": "passed",
+    "android_density_dpi": 160,
+    "web_print_formats": [
+      "A4",
+      "Letter"
+    ],
+    "android_minimum_width_height_px": {
+      "320": [
+        49,
+        48
+      ],
+      "393": [
+        48.0,
+        48
+      ],
+      "427": [
+        48.0,
+        48
+      ]
+    },
+    "android_evidence_artifact": 14728930686
   },
   "candidate_evidence": {
-    "android_device": "pending",
-    "native_pdf_artifact": "pending",
+    "android_device": "passed",
+    "native_pdf_artifact": {
+      "path": "hybrid-evidence/sqlite-invoice-9041.pdf",
+      "entryNumber": 9041,
+      "documentNumber": "QA-41",
+      "amount": 25.5,
+      "item": "خيط تجريبي",
+      "quantity": 3.0,
+      "unitPrice": 8.5,
+      "bytes": 46413,
+      "sha256": "eefeab6b8d7a27cfb6c919d50f9a2995e3aa71a01966193f973e854f293bcec2"
+    },
     "physical_phone": "pending",
     "adb_before_install_run": 44943597143,
     "android_native_print_preview_and_cancel_run": 44950622876,
@@ -42,7 +72,40 @@
       "voucher_cash": 3.25,
       "combined_cash": 11.25,
       "test": "flutter_app/test/financial_form_receipt_test.dart"
-    }
+    },
+    "android_table_integrity": {
+      "tables": 19,
+      "rows": 26,
+      "foreign_key_errors": 0
+    },
+    "before_toolbar_artifact": 14725086457,
+    "before_clipped_price_artifact": 14726008322,
+    "device_checks": [
+      "installed_debug_apk",
+      "offline_react_home",
+      "single_react_header_and_footer",
+      "eight_metrics_same_sqlite_input",
+      "metric_long_press_pin_color_cold_open_reset",
+      "quick_actions_drawer_back",
+      "trial_balance_separate_currencies_and_nested_back",
+      "currency_change",
+      "native_document_print_preview_and_cancel",
+      "react_document_saved_lines_zoom_and_back",
+      "rtl_document_touch_320",
+      "rtl_document_touch_393",
+      "rtl_document_touch_427",
+      "rtl_document_touch_layouts",
+      "native_saved_pdf_matches_sqlite_invoice",
+      "native_statement_back",
+      "native_keyboard_and_back",
+      "offline_restart_scroll_and_filter",
+      "android_drag_reorder_and_cold_open",
+      "long_press_pin_and_hardware_back",
+      "frame_and_memory_samples",
+      "accounting_and_stock_integrity",
+      "preferences_after_cold_reopen"
+    ],
+    "talkback": "pending"
   },
   "historical_audit": {
     "batch": 1,
@@ -374,5 +437,17 @@
       "signed_release": "owned_by_release_chat",
       "phone_acceptance": "pending"
     }
+  },
+  "integration_diff": "https://github.com/helalalfqih-sketch/nasqo-pro-mobile/compare/4ce31ce7f149078ba3fbb4f36a89eb677e1328cd...4d18fee4165a088c42b2a58f739901f36061397c",
+  "release_handoff": {
+    "source_sha": "4d18fee4165a088c42b2a58f739901f36061397c",
+    "action": "prepare APK only",
+    "previous_published_version_code": 10019,
+    "production_publication": false,
+    "delivery": "recorded in REVIEW_HANDOFF; posted chat message requires confirmation from the original release conversation"
+  },
+  "qa_followup": {
+    "run": 44957847336,
+    "scope": "Test-only adjustment to scroll back to the dashboard top using the saved offset. Application files match the release source."
   }
 }
