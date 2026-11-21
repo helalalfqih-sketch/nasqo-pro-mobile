@@ -3,9 +3,11 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:sqflite/sqflite.dart';
+import 'legacy_website_converter.dart';
 
 /// Decode supported website file contents without opening the live database.
-Future<String> readWebsiteBackup(Uint8List input, int limit) async {
+Future<Uint8List> unpackWebsiteBackup(Uint8List input, int limit) async {
+  if(input.length>limit) throw const FormatException("الملف أكبر من الحد المدعوم.");
   var bytes = input;
   if (bytes.length >= 2 && bytes[0] == 31 && bytes[1] == 139) {
     final output = BytesBuilder(copy: false);
@@ -17,6 +19,11 @@ Future<String> readWebsiteBackup(Uint8List input, int limit) async {
     }
     bytes = output.takeBytes();
   }
+  return bytes;
+}
+
+Future<String> readWebsiteBackup(Uint8List input, int limit) async {
+  final bytes=await unpackWebsiteBackup(input,limit);
   if (!ascii.decode(bytes.take(16).toList(),allowInvalid:true).startsWith('SQLite format 3\x00')) {
     return utf8.decode(bytes);
   }
@@ -25,9 +32,17 @@ Future<String> readWebsiteBackup(Uint8List input, int limit) async {
     final file = await File('${directory.path}/source.db').writeAsBytes(bytes);
     final db = await openDatabase(file.path,readOnly:true,singleInstance:false);
     try {
-      final integrity = await db.rawQuery('PRAGMA quick_check(1)');
+      await db.execute('PRAGMA trusted_schema=OFF');
+      final integrity = await db.rawQuery('PRAGMA integrity_check');
       if (integrity.length != 1 || integrity.single.values.single != 'ok') {
         throw const FormatException('لم يجتز ملف SQLite فحص السلامة.');
+      }
+      final virtualTables = await db.rawQuery("SELECT sql FROM sqlite_master WHERE type='table'");
+      if (virtualTables.any((r)=>RegExp(r'^CREATE\s+VIRTUAL',caseSensitive:false).hasMatch(r['sql'].toString()))) {
+        throw const FormatException('تتضمن النسخة جداول افتراضية غير مدعومة.');
+      }
+      if ((await db.rawQuery('PRAGMA foreign_key_check')).isNotEmpty) {
+        throw const FormatException('علاقات مرجعية مفقودة في نسخة SQLite.');
       }
       final tables = (await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'"))
           .map((r) => r['name']).toSet();
@@ -38,11 +53,7 @@ Future<String> readWebsiteBackup(Uint8List input, int limit) async {
             (tables.containsAll({'cboxes', 'trans_details'}) ||
              tables.containsAll({'boxes', 'input_move'}));
         if (legacyTables) {
-          throw const FormatException(
-            'هذه نسخة SQLite قديمة من الموقع. لم تُستبدل بيانات الهاتف. '
-            'احتفظ بالأصل وافتح نسخة منه في مساحة اختبار منفصلة على الموقع. '
-            'راجع الأرصدة وكميات الأصناف ثم اختر «إدارة السجلات والنسخ» ← '
-            '«تصدير نسخة شاملة» واستورد ملف JSON الناتج هنا.');
+          return await convertLegacyWebsite(db, tables);
         }
         throw const FormatException(
           'بنية SQLite غير مدعومة في هذا الإصدار. لم تُستبدل '
@@ -91,6 +102,7 @@ Future<String> readWebsiteBackup(Uint8List input, int limit) async {
         'erpData':modules,'workspace':{'companyName':ws['company_name']},'accountGroups':await rows('account_groups'),
         'accounts':await rows('accounts'),'warehouses':await rows('warehouses'),
         'ledger':ledger,'inventory':await rows('inventory_items'),
+        if(tables.contains('currencies')) 'currencies':await rows('currencies'),
         if(tables.contains('stock_transfers')) 'stockTransfers':await rows('stock_transfers'),
         if(tables.contains('stock_transfer_lines')) 'stockTransferLines':await rows('stock_transfer_lines')
       });

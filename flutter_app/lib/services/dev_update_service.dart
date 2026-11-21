@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -31,8 +30,8 @@ class DevUpdateService {
 
   Future<DevRelease?> check() async {
     if (!supported) return null;
-    final client =
-        HttpClient()..connectionTimeout = const Duration(seconds: 10);
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 10);
     try {
       final response = await _get(client, Uri.parse(manifestUrl));
       final bytes = <int>[];
@@ -56,33 +55,25 @@ class DevUpdateService {
   Future<void> downloadAndInstall(DevRelease release) async {
     if (!supported) throw UnsupportedError('Android only');
     final cache = await getTemporaryDirectory();
-    // Retry interrupted mobile-network transfers from the beginning. Each
-    // attempt writes to a disposable file and verifies the full SHA-256 before
-    // the Android installer is invoked. Never retry an integrity failure.
-    for (var attempt = 1; attempt <= 3; attempt++) {
-      final client =
-          HttpClient()..connectionTimeout = const Duration(seconds: 20);
-      try {
-        final response = await _get(client, release.apkUrl);
-        final apk = await release.saveVerified(
-          response.timeout(const Duration(seconds: 60)),
-          cache,
-        );
-        await _installer.invokeMethod<void>('install', {
-          'path': apk.path,
-          'versionCode': release.versionCode,
-        });
-        return;
-      } on SocketException {
-        if (attempt == 3) rethrow;
-      } on HttpException {
-        if (attempt == 3) rethrow;
-      } on TimeoutException {
-        if (attempt == 3) rethrow;
-      } finally {
-        client.close(force: true);
-      }
-      await Future<void>.delayed(Duration(seconds: attempt * 2));
+    final client = HttpClient()
+      ..autoUncompress = false
+      ..connectionTimeout = const Duration(seconds: 20);
+    try {
+      final file = await release.downloadVerified(cache, (offset) async {
+        final request = await client.getUrl(release.apkUrl);
+        request.followRedirects = false;
+        request.headers.set(HttpHeaders.acceptEncodingHeader, 'identity');
+        if (offset > 0) {
+          request.headers.set(HttpHeaders.rangeHeader, 'bytes=$offset-');
+        }
+        return request.close().timeout(const Duration(seconds: 20));
+      });
+      await _installer.invokeMethod<void>('install', {
+        'path': file.path,
+        'versionCode': release.versionCode,
+      });
+    } finally {
+      client.close(force: true);
     }
   }
 }
@@ -139,33 +130,90 @@ class DevRelease {
     );
   }
 
+  Future<File> _finish(File partial, Directory updates) async {
+    if (await partial.length() != sizeBytes ||
+        (await crypto.sha256.bind(partial.openRead()).first).toString() !=
+            sha256) {
+      throw const FormatException('فشل التحقق من بصمة التحديث أو حجمه.');
+    }
+    return partial.rename('${updates.path}/nasqo-$versionCode-$sha256.apk');
+  }
+
+  Future<void> _write(File file, Stream<List<int>> stream, int offset) async {
+    final out =
+        await file.open(mode: offset == 0 ? FileMode.write : FileMode.append);
+    var count = offset;
+    try {
+      await for (final chunk in stream) {
+        count += chunk.length;
+        if (count > sizeBytes) {
+          throw const FormatException('حجم ملف التحديث غير مطابق.');
+        }
+        await out.writeFrom(chunk);
+      }
+    } finally {
+      await out.close();
+    }
+  }
+
   Future<File> saveVerified(Stream<List<int>> bytes, Directory cache) async {
     final updates = await Directory('${cache.path}/dev-updates').create();
     final transfer = await updates.createTemp('download-');
     try {
       final partial = File('${transfer.path}/download.part');
-      final output = await partial.open(mode: FileMode.write);
-      final digest = AccumulatorSink<crypto.Digest>();
-      final hashInput = crypto.sha256.startChunkedConversion(digest);
-      var count = 0;
-      try {
-        await for (final chunk in bytes) {
-          count += chunk.length;
-          if (count > sizeBytes)
-            throw const FormatException('حجم ملف التحديث غير مطابق.');
-          hashInput.add(chunk);
-          await output.writeFrom(chunk);
+      await _write(partial, bytes, 0);
+      return await _finish(partial, updates);
+    } finally {
+      await transfer.delete(recursive: true);
+    }
+  }
+
+  Future<File> downloadVerified(
+      Directory cache, Future<HttpClientResponse> Function(int offset) fetch,
+      {Duration backoff = const Duration(seconds: 1)}) async {
+    final updates = await Directory('${cache.path}/dev-updates').create();
+    final transfer = await updates.createTemp('download-');
+    try {
+      final partial = await File('${transfer.path}/download.part').create();
+      for (var attempt = 0; attempt < 3; attempt++) {
+        try {
+          var offset = await partial.length();
+          if (offset == sizeBytes) return await _finish(partial, updates);
+          final response = await fetch(offset);
+          if (response.statusCode == HttpStatus.ok) {
+            // A server that ignores Range sent an entire new representation.
+            offset = 0;
+          } else if (offset > 0 &&
+              response.statusCode == HttpStatus.partialContent) {
+            final expected = 'bytes $offset-${sizeBytes - 1}/$sizeBytes';
+            if (response.headers.value(HttpHeaders.contentRangeHeader) !=
+                expected) {
+              throw const FormatException('موضع استكمال التحديث غير مطابق.');
+            }
+          } else {
+            throw const HttpException('تعذر جلب التحديث.');
+          }
+          final encoding =
+              response.headers.value(HttpHeaders.contentEncodingHeader);
+          if ((encoding != null && encoding != 'identity') ||
+              (response.contentLength >= 0 &&
+                  response.contentLength != sizeBytes - offset)) {
+            throw const FormatException('بيانات حجم التحديث غير مطابقة.');
+          }
+          await _write(
+              partial, response.timeout(const Duration(seconds: 60)), offset);
+          if (await partial.length() < sizeBytes) {
+            throw const HttpException('انقطع تنزيل التحديث.');
+          }
+          return await _finish(partial, updates);
+        } on IOException catch (e) {
+          if (e is! HttpException && e is! SocketException) rethrow;
+        } on TimeoutException {
+          // Resume from exactly the bytes successfully written.
         }
-      } finally {
-        hashInput.close();
-        await output.close();
+        if (attempt < 2) await Future<void>.delayed(backoff * (attempt + 1));
       }
-      if (count != sizeBytes || digest.events.single.toString() != sha256) {
-        throw const FormatException('فشل التحقق من بصمة التحديث أو حجمه.');
-      }
-      return await partial.rename(
-        '${updates.path}/nasqo-$versionCode-$sha256.apk',
-      );
+      throw const HttpException('لم يكتمل التنزيل بعد ثلاث محاولات.');
     } finally {
       await transfer.delete(recursive: true);
     }

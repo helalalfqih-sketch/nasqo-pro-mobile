@@ -18,11 +18,11 @@ void main() {
     await db.execute('CREATE TABLE products(id INTEGER PRIMARY KEY, cur INTEGER)');
     await db.execute('CREATE TABLE stores(id INTEGER PRIMARY KEY)');
     await db.execute('CREATE TABLE cboxes(id INTEGER PRIMARY KEY)');
-    await db.execute('CREATE TABLE input_move(id INTEGER PRIMARY KEY, cur INTEGER)');
+    await db.execute('CREATE TABLE input_move(id INTEGER PRIMARY KEY, cur INTEGER, per_id INTEGER)');
     await db.execute('CREATE TABLE bill_details(id INTEGER PRIMARY KEY, bill_id INTEGER, prod_id INTEGER, store_id INTEGER)');
     await db.execute('CREATE TABLE trans_details(id INTEGER PRIMARY KEY)');
     await db.execute('INSERT INTO currencies VALUES(1)');
-    await db.execute('INSERT INTO input_move VALUES(4,3)');
+    await db.execute('INSERT INTO input_move VALUES(4,3,9)');
     await db.execute('INSERT INTO products VALUES(2,1)');
     await db.execute('INSERT INTO stores VALUES(1)');
     await db.execute('INSERT INTO bill_details VALUES(8,4,2,1)');

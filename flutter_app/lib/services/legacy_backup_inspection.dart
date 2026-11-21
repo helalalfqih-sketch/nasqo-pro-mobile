@@ -1,116 +1,183 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:sqflite/sqflite.dart';
 
-/// Read-only inspection of the older NASQO website SQLite backup schema.
-/// Never maps unknown currencies to defaults or writes to the live phone DB.
+import 'package:crypto/crypto.dart';
+import 'package:sqflite/sqflite.dart';
+import 'legacy_website_converter.dart';
+
+/// Evidence gathered on a private, read-only copy. No live database handle.
 class LegacyBackupInspection {
-  const LegacyBackupInspection({
-    required this.counts,
-    required this.integrityOk,
-    required this.missingCurrencies,
-    required this.orphanInvoiceLines,
-    required this.orphanProducts,
-    required this.orphanAccounts,
-    required this.orphanAccountGroups,
-    required this.orphanWarehouses,
-    required this.missingProductCurrencies,
-  });
-  final Map<String, int> counts;
+  const LegacyBackupInspection(
+      this.counts,
+      this.columns,
+      this.issues,
+      this.currencyReferences,
+      this.checksum,
+      this.size,
+      this.version,
+      this.integrityOk);
+  final Map<String, int> counts, issues;
+  final Map<String, Map<String, String>> columns;
+  final List<Map<String, Object?>> currencyReferences;
+  final String checksum;
+  final int size, version;
   final bool integrityOk;
-  final int missingCurrencies;
-  final int orphanInvoiceLines;
-  final int orphanProducts;
-  final int orphanAccounts;
-  final int orphanAccountGroups;
-  final int orphanWarehouses;
-  final int missingProductCurrencies;
 
   bool get safeForAutomaticRestore => false;
+  int get missingCurrencies => issues['حركات بعملة غير معرفة'] ?? 0;
+  int get orphanInvoiceLines => issues['بنود بفاتورة مفقودة'] ?? 0;
+  int get orphanProducts => issues['بنود بصنف مفقود'] ?? 0;
+  int get orphanAccounts => issues['حركات بحساب مفقود'] ?? 0;
+  int get orphanAccountGroups => issues['حسابات بمجموعة مفقودة'] ?? 0;
+  int get orphanWarehouses => issues['بنود بمخزن مفقود'] ?? 0;
+  int get missingProductCurrencies => issues['أصناف بعملة غير معرفة'] ?? 0;
 
-  String get arabicSummary =>
-      'تم التعرف على نسخة موقع قديمة دون تغيير بيانات الهاتف. '
-      'العملاء: ${counts['customers'] ?? 0}، الأصناف: ${counts['products'] ?? 0}، '
-      'الحركات: ${counts['input_move'] ?? 0}، بنود الفواتير: ${counts['bill_details'] ?? 0}. '
-      'فحص SQLite: ${integrityOk ? 'سليم' : 'فشل'}. '
-      'حركات بعملة غير معرفة: $missingCurrencies، '
-      'بنود بفاتورة مفقودة: $orphanInvoiceLines، '
-      'بنود بصنف مفقود: $orphanProducts، '
-      'حركات بحساب مفقود: $orphanAccounts، '
-      'حسابات بمجموعة مفقودة: $orphanAccountGroups، '
-      'بنود بمخزن مفقود: $orphanWarehouses، '
-      'أصناف بعملة غير معرفة: $missingProductCurrencies. '
-      'الاستعادة المباشرة موقوفة حتى اكتمال مطابقة الحسابات والعملات والمخزون. '
-      'احتفظ بالملف الأصلي.';
+  String get arabicSummary => [
+        'نسخة SQLite قديمة من الموقع • إصدار المخطط $version',
+        'فحص SQLite: ${integrityOk ? "سليم" : "فشل"}',
+        'الحسابات: ${counts["customers"]} • الأصناف: ${counts["products"]} • المخازن: ${counts["stores"]}',
+        'الحركات: ${counts["input_move"]} • بنود الفواتير: ${counts["bill_details"]}',
+        for (final e in issues.entries)
+          if (e.value > 0) '${e.key}: ${e.value}',
+        'الاستعادة المباشرة موقوفة حتى مطابقة القيم والمراجع.',
+      ].join('\n');
+
+  Map<String, Object?> toJson() => {
+        'format': 'nasqo-legacy-inspection-v1',
+        'sourceSha256': checksum,
+        'bytes': size,
+        'userVersion': version,
+        'integrityOk': integrityOk,
+        'rowCounts': counts,
+        'sourceColumns': columns,
+        'recognizedFields': {
+          for (final e in columns.entries)
+            e.key: e.value.keys
+                .where((c) => legacyMappedColumns[e.key]?.contains(c) == true)
+                .toList()
+        },
+        'unmappedFields': {
+          for (final e in columns.entries)
+            e.key: e.value.keys
+                .where((c) => legacyMappedColumns[e.key]?.contains(c) != true)
+                .toList()
+        },
+        'unmappedPopulatedTables': {
+          for (final e in counts.entries)
+            if (e.value > 0 &&
+                e.key != 'android_metadata' &&
+                !legacyMappedColumns.containsKey(e.key))
+              e.key: e.value
+        },
+        'issues': issues,
+        'unresolvedMovementCurrencies': currencyReferences,
+        'restored': false,
+      };
 }
+
+String _ident(String name) => '"${name.replaceAll('"', '""')}"';
 
 Future<LegacyBackupInspection?> inspectLegacyBackup(Uint8List bytes) async {
   if (bytes.length < 16 ||
-      !String.fromCharCodes(bytes.take(16)).startsWith('SQLite format 3\x00')) {
+      String.fromCharCodes(bytes.take(16)) != 'SQLite format 3\x00') {
     return null;
   }
-  final directory = await Directory.systemTemp.createTemp('nasqo-legacy-inspect-');
+  final dir = await Directory.systemTemp.createTemp('nasqo-legacy-');
   try {
-    final file = File('${directory.path}/source.sqlite');
-    await file.writeAsBytes(bytes, flush: true);
-    final db = await openDatabase(file.path, readOnly: true, singleInstance: false);
+    final path = (await File('${dir.path}/source.db').writeAsBytes(bytes)).path;
+    final db = await openDatabase(path, readOnly: true, singleInstance: false);
     try {
+      await db.execute('PRAGMA trusted_schema=OFF');
       final tables = (await db.rawQuery(
-        "SELECT name FROM sqlite_master WHERE type='table'"))
-          .map((row) => row['name']).toSet();
-      const required = {
-        'currencies', 'customers', 'products', 'stores',
-        'cboxes', 'boxes', 'input_move', 'bill_details', 'trans_details'
-      };
-      if (!tables.containsAll(required)) return null;
-      final check = await db.rawQuery('PRAGMA quick_check(1)');
-      final integrityOk = check.length == 1 &&
-          check.single.values.single == 'ok';
-      final counts = <String, int>{};
-      for (final table in required) {
-        final result = await db.rawQuery('SELECT COUNT(*) AS total FROM "$table"');
-        counts[table] = (result.single['total'] as num).toInt();
-      }
+              "SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*' ORDER BY name"))
+          .map((r) => r['name'] as String)
+          .toSet();
+      if (!tables.containsAll({'customers', 'products', 'stores'})) return null;
+      final integrity = await db.rawQuery('PRAGMA integrity_check');
+      final ok =
+          integrity.length == 1 && integrity.single.values.single == 'ok';
+      final version = (await db.rawQuery('PRAGMA user_version'))
+          .single
+          .values
+          .single as int;
+      final counts = <String, int>{}, issues = <String, int>{};
+      final columns = <String, Map<String, String>>{};
+      final missing = <Map<String, Object?>>[];
       Future<int> count(String sql) async =>
-          ((await db.rawQuery(sql)).single.values.single as num).toInt();
-      final missingCurrencies = await count(
-        'SELECT COUNT(*) FROM input_move m WHERE m.cur IS NOT NULL '
-        'AND m.cur != 0 AND NOT EXISTS '
-        '(SELECT 1 FROM currencies c WHERE c.id = m.cur)');
-      final orphanInvoices = await count(
-        'SELECT COUNT(*) FROM bill_details d WHERE NOT EXISTS '
-        '(SELECT 1 FROM input_move m WHERE m.id = d.bill_id)');
-      final orphanProducts = await count(
-        'SELECT COUNT(*) FROM bill_details d WHERE NOT EXISTS '
-        '(SELECT 1 FROM products p WHERE p.id = d.prod_id)');
-      final orphanAccounts = await count(
-        'SELECT COUNT(*) FROM input_move m WHERE NOT EXISTS '
-        '(SELECT 1 FROM customers c WHERE c.id = m.per_id)');
-      final orphanAccountGroups = await count(
-        'SELECT COUNT(*) FROM customers c WHERE NOT EXISTS '
-        '(SELECT 1 FROM boxes b WHERE b.id = c.type)');
-      final orphanWarehouses = await count(
-        'SELECT COUNT(*) FROM bill_details d WHERE NOT EXISTS '
-        '(SELECT 1 FROM stores s WHERE s.id = d.store_id)');
-      final missingProductCurrencies = await count(
-        'SELECT COUNT(*) FROM products p WHERE p.cur IS NOT NULL '
-        'AND p.cur != 0 AND NOT EXISTS '
-        '(SELECT 1 FROM currencies c WHERE c.id = p.cur)');
-      return LegacyBackupInspection(
-        counts: counts,
-        integrityOk: integrityOk,
-        missingCurrencies: missingCurrencies,
-        orphanInvoiceLines: orphanInvoices,
-        orphanProducts: orphanProducts,
-        orphanAccounts: orphanAccounts,
-        orphanAccountGroups: orphanAccountGroups,
-        orphanWarehouses: orphanWarehouses,
-        missingProductCurrencies: missingProductCurrencies,
-      );
+          (await db.rawQuery(sql)).single.values.single as int;
+      if (ok) {
+        final schema = await db
+            .rawQuery("SELECT name,sql FROM sqlite_master WHERE type='table'");
+        if (schema.any((r) => RegExp(r'^CREATE\s+VIRTUAL', caseSensitive: false)
+            .hasMatch(r['sql'].toString()))) {
+          throw const FormatException(
+              'تتضمن النسخة جداول افتراضية غير مدعومة.');
+        }
+        for (final t in tables) {
+          final name = _ident(t);
+          counts[t] = await count('SELECT count(*) FROM $name');
+          columns[t] = {
+            for (final r in await db.rawQuery('PRAGMA table_info($name)'))
+              r['name'] as String: r['type'].toString()
+          };
+          if (columns[t]!.containsKey('id')) {
+            issues['معرف مكرر أو مفقود في $t'] =
+                await count('SELECT count(*) - count(DISTINCT id) FROM $name');
+          }
+        }
+        const required = {
+          'customers': ['id', 'type'],
+          'products': ['id'],
+          'stores': ['id'],
+          'currencies': ['id', 'name'],
+          'boxes': ['id'],
+          'input_move': ['id', 'cur', 'per_id'],
+          'bill_details': ['id', 'bill_id', 'prod_id', 'store_id']
+        };
+        for (final e in required.entries) {
+          for (final c in e.value) {
+            if (columns[e.key]?.containsKey(c) != true)
+              issues['عمود مطلوب مفقود ${e.key}.$c'] = 1;
+          }
+        }
+        Future<void> reference(
+            String t, String c, String target, String label) async {
+          if (columns[t]?.containsKey(c) != true ||
+              columns[target]?.containsKey('id') != true) return;
+          final predicate =
+              'NOT EXISTS (SELECT 1 FROM $target p WHERE p.id = s.$c)';
+          issues[label] =
+              await count('SELECT count(*) FROM $t s WHERE $predicate');
+          if (t == 'input_move' &&
+              c == 'cur' &&
+              columns[t]!.containsKey('id')) {
+            missing.addAll(await db.rawQuery(
+                'SELECT id AS movementId,cur AS currencyId FROM input_move s WHERE $predicate ORDER BY cur,id'));
+          }
+        }
+
+        await reference(
+            'input_move', 'cur', 'currencies', 'حركات بعملة غير معرفة');
+        await reference(
+            'products', 'cur', 'currencies', 'أصناف بعملة غير معرفة');
+        await reference('customers', 'type', 'boxes', 'حسابات بمجموعة مفقودة');
+        await reference(
+            'input_move', 'per_id', 'customers', 'حركات بحساب مفقود');
+        await reference(
+            'bill_details', 'prod_id', 'products', 'بنود بصنف مفقود');
+        await reference(
+            'bill_details', 'bill_id', 'input_move', 'بنود بفاتورة مفقودة');
+        await reference(
+            'bill_details', 'store_id', 'stores', 'بنود بمخزن مفقود');
+        issues['مخالفات المفاتيح الخارجية المعلنة'] =
+            (await db.rawQuery('PRAGMA foreign_key_check')).length;
+      }
+      return LegacyBackupInspection(counts, columns, issues, missing,
+          sha256.convert(bytes).toString(), bytes.length, version, ok);
     } finally {
       await db.close();
     }
   } finally {
-    await directory.delete(recursive: true);
+    await dir.delete(recursive: true);
   }
 }

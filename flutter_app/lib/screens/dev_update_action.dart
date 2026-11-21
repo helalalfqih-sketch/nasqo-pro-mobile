@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import '../services/dev_update_service.dart';
 
@@ -62,7 +64,7 @@ class _DevUpdateActionState extends State<DevUpdateAction> {
       if (mounted && reportError)
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('تعذر التحديث: $error')));
+        ).showSnackBar(SnackBar(content: Text(error is FormatException ? 'تعذر التحديث: ${error.message}' : error is PlatformException ? 'تعذّر فتح مثبّت أندرويد. تحقق من إذن تثبيت التحديث.' : error is IOException ? 'تعذّر إكمال التنزيل. تحقق من الاتصال ثم أعد المحاولة.' : 'تعذّر التحديث. أعد المحاولة لاحقًا.')));
     } finally {
       if (mounted) setState(() => busy = false);
     }
