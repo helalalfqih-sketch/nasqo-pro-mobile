@@ -58,10 +58,19 @@
       "stock_before_posting": 80,
       "stock_after_reopen": 81,
       "stock_after_upgrade": 81,
-      "direct_upgrade_from_10013": "not_tested",
+      "direct_upgrade_from_10013": "passed",
       "physical_phone": "awaiting_user",
       "run_id": 44930114626,
       "log": "test_logs/android-upgrade.log"
+    },
+    "direct_10013_10014": {
+      "snapshot_count": 4,
+      "all_snapshots_equal": true,
+      "tables": 18,
+      "rows": 25,
+      "run_id": 44931687850,
+      "artifact_id": 14718127297,
+      "log": "test_logs/direct-upgrade-10013-10014.json"
     }
   },
   "visual": {

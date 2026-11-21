@@ -1,0 +1,169 @@
+{
+  "baseline": 10013,
+  "candidate": 10014,
+  "source_run": 44929394951,
+  "emulator": "API 30 x86_64",
+  "stages": [
+    "baseline-10013",
+    "first-10014",
+    "reopened-10014",
+    "offline-10014"
+  ],
+  "schema_version": 9,
+  "tables": 18,
+  "total_rows": 25,
+  "per_table": {
+    "accounts": {
+      "rows": 8,
+      "sha256": "1632470ef31d407d377699de56abd8d8edfd33fe64a5f968e3d28446d129c434"
+    },
+    "android_metadata": {
+      "rows": 1,
+      "sha256": "b42ec32087569d330a7443bb95f564d4b2adf6006d21fbd1699d679bd66e7dc3"
+    },
+    "cash_transfer_drafts": {
+      "rows": 0,
+      "sha256": "2e34ea60100700470de4d5efd32ddb9516919c7f19f946856b772a9c0c736df8"
+    },
+    "erp_state": {
+      "rows": 2,
+      "sha256": "bfa3d613b72d605dcba648ccca247175122c0f38ab4d74489483c390f61177f0"
+    },
+    "fx_drafts": {
+      "rows": 0,
+      "sha256": "2ae2e535f71e2cf731d56fce51277d9b7b69364842929a618b0d60cff1297e1b"
+    },
+    "inventory_items": {
+      "rows": 4,
+      "sha256": "88536b1ac33b219fc0fcafc738568541c3dcda9e1ceafede06ba2ee561a4216e"
+    },
+    "ledger_entries": {
+      "rows": 4,
+      "sha256": "a0228091012145c668f2aa5d042e72ffcc47a4d4b718419221137f68af5dfc69"
+    },
+    "nonposting_documents": {
+      "rows": 1,
+      "sha256": "faf9f56fef2097a47013c81848880742b9e6aa9543b65868180efe54cc07fb75"
+    },
+    "nonposting_lines": {
+      "rows": 1,
+      "sha256": "2e123983a46e508e6b80730ffd23a31eddbbd343dd2dda30fb6953e260e5f47e"
+    },
+    "sale_facts": {
+      "rows": 0,
+      "sha256": "2ca9b104454359682826cf2486747dff6fa13e58bcaea35db3d71d4260395f61"
+    },
+    "sale_line_cost_facts": {
+      "rows": 0,
+      "sha256": "867ce568c65d617617e94ce583ae9712832872846b18571ef302e04eb6dc02a3"
+    },
+    "sale_lines": {
+      "rows": 1,
+      "sha256": "2ff26444cac6f95efb8486aa306db21669be2485cbcdea2e4eacf5119b60b2ef"
+    },
+    "sales_return_draft_lines": {
+      "rows": 0,
+      "sha256": "e2593800e73771539b8d0a00061300e57a33749c5e4c4cdbf39da00e29c00e8b"
+    },
+    "sales_return_drafts": {
+      "rows": 0,
+      "sha256": "0d501942e412452c213d16e72dcf6754d84c942392965a944c714532496107e3"
+    },
+    "simple_journal_drafts": {
+      "rows": 0,
+      "sha256": "4b014f876d18dd10ef3e99380587531536fdc7b7b6cd8f1c68f0ec1a768bf045"
+    },
+    "sqlite_sequence": {
+      "rows": 1,
+      "sha256": "0704a34fb29fcab2fbd6033d05922a9a4d89316469b76d67ee851985763fc343"
+    },
+    "voucher_drafts": {
+      "rows": 0,
+      "sha256": "326c320cbac152dfefad0744654ad5ce241d5c9ba88277c0a17e20218b339803"
+    },
+    "warehouses": {
+      "rows": 2,
+      "sha256": "3076efcb41fb1ac930aabb9b0bfda4dd330473396b5aeb65beb1e7c4d47ee2f2"
+    }
+  },
+  "currency_balances": {
+    "acc_cash_1/sar": "45000.0",
+    "acc_client_1/sar": "6400.0",
+    "acc_client_2/sar": "0.0",
+    "acc_emp_pool/sar": "0.0",
+    "acc_sales_1/sar": "-18500.0",
+    "acc_shop_1/sar": "1800.0",
+    "acc_sup_1/sar": "-4200.0",
+    "qa-review-usd/usd": "102.75"
+  },
+  "inventory": [
+    [
+      "inv_1",
+      "SKU-101",
+      "wh_1",
+      81.0,
+      62.0
+    ],
+    [
+      "inv_2",
+      "SKU-102",
+      "wh_1",
+      65.0,
+      34.0
+    ],
+    [
+      "inv_3",
+      "SKU-103",
+      "wh_1",
+      40.0,
+      48.0
+    ],
+    [
+      "inv_4",
+      "FG-201",
+      "wh_1",
+      18.0,
+      145.0
+    ]
+  ],
+  "documents": [
+    [
+      "led_1",
+      "INV-1001",
+      "acc_client_1",
+      "invoice",
+      "sar",
+      6400.0
+    ],
+    [
+      "led_2",
+      "PUR-1002",
+      "acc_sup_1",
+      "invoice",
+      "sar",
+      4200.0
+    ],
+    [
+      "led_3",
+      "",
+      "acc_shop_1",
+      "voucher",
+      "sar",
+      1800.0
+    ],
+    [
+      "qa-review-invoice",
+      "QA-INV-14",
+      "qa-review-usd",
+      "invoice",
+      "usd",
+      12.5
+    ]
+  ],
+  "all_snapshots_equal": true,
+  "sha256_of_canonical_snapshot": "030f80a7e22ef0024f05d56312c0459b83d74a4bf9f408c9a4bff3559e2e6f96",
+  "integrity_check": "ok",
+  "foreign_key_violations": 0,
+  "run_id": 44931687850,
+  "artifact_id": 14718127297
+}
