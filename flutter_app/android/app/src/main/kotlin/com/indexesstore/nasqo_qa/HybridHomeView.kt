@@ -103,9 +103,9 @@ private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: I
                         result.success(null)
                     }
                 }
-                "printDirectory" -> {
+                "printDirectory", "printDocument" -> {
                     try {
-                        val job = "NASQO - كشف الحسابات"
+                        val job = if (call.method == "printDocument") "NASQO - مستند" else "NASQO - كشف الحسابات"
                         val printer = activity.getSystemService(Context.PRINT_SERVICE) as android.print.PrintManager
                         printer.print(job, web.createPrintDocumentAdapter(job), null)
                         result.success(null)

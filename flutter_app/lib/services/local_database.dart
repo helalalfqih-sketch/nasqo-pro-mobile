@@ -447,6 +447,23 @@ class LocalDatabase {
     return db.transaction((txn) => _readSaleFacts(txn, entryId));
   }
 
+  /// Read only the selected account's committed document and ordered lines in
+  /// the same snapshot. Vouchers and older records may have no invoice lines.
+  Future<({LedgerEntryRecord entry, List<SavedSaleLine> lines})> readStatementDocument(
+      String accountId, String entryId) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final rows = await txn.query('ledger_entries',
+          where: 'id = ? AND accountId = ? AND deleted = 0',
+          whereArgs: [entryId, accountId], limit: 1);
+      if (rows.isEmpty) throw StateError('Saved document unavailable.');
+      final lines = await txn.query('sale_lines',
+          where: 'entryId = ?', whereArgs: [entryId], orderBy: 'position');
+      return (entry: _ledgerFromMap(rows.single),
+          lines: List<SavedSaleLine>.unmodifiable(lines.map(_savedSaleLineFromMap)));
+    }, exclusive: false);
+  }
+
   Future<InvoicePrintSnapshot> loadInvoiceForPrint(String entryId) async {
     final db = await database;
     return db.transaction((txn) async {

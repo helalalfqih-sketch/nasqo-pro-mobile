@@ -255,7 +255,7 @@ class HybridHomeState extends State<HybridHomeView> {
               : HomeAccountStatementView(
                   controller: widget.controller,
                   accountId: a.id,
-                  initialCurrency: cur)));
+                  initialCurrency: cur, hybridDocuments: true)));
     } else if (op == 'contact' || op == 'whatsapp' || op == 'message') {
       final amount = accountAmountsByCurrency(widget.controller, [a],
           period: view.directory.period)[(a.id, cur)];

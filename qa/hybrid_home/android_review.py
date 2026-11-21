@@ -107,6 +107,16 @@ def seed():
     for i,a in enumerate(FIXTURE["accounts"]):
         values=[a["id"],a["name"],a["category"],"",0,{"ريال":"sar","دولار":"usd"}[a["currency"]],0,"synthetic",a["openingBalance"],a["openingDirection"],91040+i]
         cmds.append("INSERT INTO accounts(id,name,category,phone,creditLimit,currency,isCashAccount,note,openingBalance,openingDirection,codeNumber) VALUES("+",".join(quote(v) for v in values)+");")
+    # The two USD entries cancel in the group balance. Use one committed invoice
+    # with an actual item row for the statement -> document -> Back scenario.
+    cols="id,accountId,accountName,kind,typeLabel,payment,direction,amount,currency,exchangeRate,details,documentNumber,warehouseId,warehouseName,expenseCategory,entryNumber,deleted,entryDate"
+    for name,kind,title,side,num in [
+        ("qa-document","invoice","فاتورة عرض تجريبية","debit",9041),
+        ("qa-offset","voucher","تسوية عرض تجريبية","credit",9042)]:
+        values=[name,"qa-u","عميل دولار تجريبي",kind,title,"credit",side,25.5,"usd",1,
+                "مستند فحص محلي","QA-41","","","",num,0,"2026-11-21"]
+        cmds.append("INSERT INTO ledger_entries("+cols+") VALUES("+",".join(quote(v) for v in values)+");")
+    cmds.append("INSERT INTO sale_lines(entryId,position,itemId,itemName,unit,quantity,unitPrice) VALUES('qa-document',0,'qa-item','خيط تجريبي','حبة',3,8.5);")
     cmds.append("INSERT INTO erp_state(stateKey,payloadJson,updatedAt) VALUES('original_web_export',"+quote(json.dumps(FIXTURE,ensure_ascii=False))+",'2026-11-21T00:00:00Z');")
     sql("\n".join(cmds+["COMMIT;"]));theme(False)
 def books():
@@ -290,6 +300,17 @@ def run(baseline,candidate):
     find("25");passed("currency_change")
     taprect(box,geometry["name"]);tap(find("فتح كشف عميل دولار تجريبي"))
     find("الرصيد الختامي: 25.00 دولار");shot("native-statement")
+    def statement_entry():
+        for _ in range(6):
+            match=next((n for n in nodes() if "9041" in label(n) and bounds(n)[3]>bounds(n)[1]),None)
+            if match is not None: return match
+            swipe(190,box[3]-160,190,box[1]+210,420)
+        raise AssertionError("Committed statement invoice not reachable")
+    tap(statement_entry());find("معاينة المستند");find("خيط تجريبي")
+    shot("android-statement-document")
+    tap(find("تكبير الفاتورة"));find("ملاءمة العرض");back()
+    statement_entry()
+    passed("react_document_saved_lines_zoom_and_back")
     back();find("عميل دولار تجريبي");back();find("مجموعة الشمال")
     require(prefs()["filters"]["group-41"]=="دولار","lost filter on return");passed("native_statement_back")
     tap(exact_button("بحث"));find("البحث السريع المحلي")

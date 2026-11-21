@@ -44,3 +44,22 @@ html, body { margin: 0; height: 100%; }
 .smart-center-stage .metrics-section .metric-card[data-selected] { outline: 2px dashed var(--metric-accent); outline-offset: -6px; }
 .metrics-section .metric-pin { position:absolute; inset-inline-start:7px; top:7px; }
 .metrics-section .smart-edit-bar { margin-top:8px; }
+
+.hybrid-document {height: 100%; display: flex; flex-direction: column;}
+.hybrid-document > .flow-fixed-header {position: relative; flex: 0 0 auto;}
+.hybrid-document > .flow-scenes {position: relative; flex: 1; min-height: 0;}
+.hybrid-document .cash-invoice-preview {height: 100%;}
+
+@media print {
+  .hybrid-document .flow-fixed-header, .hybrid-document .cash-invoice-controls,
+  .hybrid-document .cash-invoice-reader-hint {display: none;}
+  html, body, #home, .hybrid-document, .hybrid-document .flow-scenes,
+  .hybrid-document .flow-screen, .hybrid-document .cash-invoice-preview,
+  .hybrid-document .cash-invoice-scroll, .hybrid-document .mobile-scroll,
+  .hybrid-document .mobile-scroll-content, .hybrid-document .cash-invoice-horizontal,
+  .hybrid-document .cash-invoice-sheet-space {
+    position: static; display: block; overflow: visible; width: 100% !important; height: auto !important;
+  }
+  .hybrid-document .cash-invoice-document {width: 100%; min-height: 0 !important; transform: none !important;}
+  .hybrid-document tr {break-inside: avoid;}
+}

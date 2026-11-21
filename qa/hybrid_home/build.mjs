@@ -2,6 +2,7 @@
 // cannot silently switch the Android pilot to a stale handwritten dashboard.
 import fs from 'node:fs';
 import {directoryComponents} from './directories.mjs';
+import {documentComponents} from './document.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
@@ -103,9 +104,10 @@ const virtual=[
   ...['DashboardHeader','AppDrawer','DashboardAddMenu'].map(n=>'export '+slice(decl(n))),
   'export '+navigation, 'export '+headerOptions,
   ...['CartIcon','ShopIcon'].map(n=>'export '+slice(decl(n))), 'export {PeopleIcon};',
-  "import {rankAccountSearchMatches,normalizeArabicSearch,matchesArabicSearch,formatAmount} from './src/accounting';",
+  "import {rankAccountSearchMatches,normalizeArabicSearch,matchesArabicSearch,formatAmount,amountToArabicWords} from './src/accounting';",
   "import {summaryOf,balanceLabel,currencyFooter} from './qa/hybrid_home/directory_amounts';",
-  directoryComponents(n=>slice(decl(n)),replaceOnce)
+  directoryComponents(n=>slice(decl(n)),replaceOnce),
+  documentComponents(n=>slice(decl(n)),replaceOnce)
 ].join('\n');
 const bundled=await build({entryPoints:[path.join(root,'qa/hybrid_home/host.tsx')],bundle:true,write:false,
   target:'chrome83',jsx:'automatic',minify:true,legalComments:'eof',metafile:true,

@@ -8,6 +8,7 @@ import 'package:nasqo_pro_erp/models/erp_models.dart';
 import 'package:nasqo_pro_erp/screens/invoice_actions.dart';
 import 'package:nasqo_pro_erp/services/local_database.dart';
 import 'package:nasqo_pro_erp/services/posting_receipt.dart';
+import 'package:nasqo_pro_erp/services/trial_balance_summary.dart';
 import 'package:nasqo_pro_erp/state/erp_controller.dart';
 
 void main() {
@@ -118,7 +119,11 @@ void main() {
             amount: amount);
     await sale();
     final original = saleId;
-    final purchaseNumber = await purchase(), voucherNumber = await voucher();
+    final purchaseNumber = await purchase();
+    final cashBefore = trialBalanceSummary(c, CurrencyCode.sar).cash;
+    final voucherNumber = await voucher();
+    expect(trialBalanceSummary(c, CurrencyCode.sar).cash, cashBefore + 3.25);
+    expect(trialBalanceSummary(c, CurrencyCode.usd).cash, 0);
     expect(c.inventory.single.quantity, 10);
     expect(c.saleLines.length, 2);
     final postings =
@@ -141,6 +146,7 @@ void main() {
     expect(saleId, original);
     expect(await purchase(), purchaseNumber);
     expect(await voucher(), voucherNumber);
+    expect(trialBalanceSummary(c, CurrencyCode.sar).cash, cashBefore + 3.25);
     await expectLater(sale(tax: true), throwsA(isA<SaleValidationException>()));
     await expectLater(
         voucher(amount: 4), throwsA(isA<SaleValidationException>()));
@@ -153,6 +159,14 @@ void main() {
     expect(c.inventory.single.quantity, 10);
     expect(c.inventory.single.avgCost, cost);
     expect(c.saleLines.length, 2);
+    final savedDoc = await store.readStatementDocument('a', original!);
+    expect(savedDoc.entry.amount, 8);
+    expect(savedDoc.lines.single.quantity, 2);
+    expect(savedDoc.lines.single.unitPrice, 4);
+    await expectLater(store.readStatementDocument('s', original!), throwsStateError);
+    final voucherDoc = await store.readStatementDocument('a',
+        c.ledger.singleWhere((e) => e.entryNumber == voucherNumber && e.accountId == 'a').id);
+    expect(voucherDoc.lines, isEmpty);
     final db = await store.database;
     expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
     expect((await db.rawQuery('PRAGMA integrity_check')).single.values.single,

@@ -6,6 +6,7 @@ import {applyCardAppearanceSettings, DEFAULT_EXTENDED_SETTINGS} from '../../src/
 import {applyBrandColor} from '../../src/utils/brandColor';
 import {computeCategoryTotals} from '../../src/accounting';
 import {HomeMetrics} from './metrics';
+import {DocumentScreen} from './DocumentScreen';
 import {DirectoryScreen} from './DirectoryScreen';
 import {ReportsMenu, ReportsPanel, type ReportDestination} from '../../src/components/ReportsMenu';
 import {Workspace, send, triggerHaptic} from './workspace';
@@ -175,7 +176,8 @@ function Shell({snapshot}) {
   </Workspace.Provider>;
 }
 
-window.nasqoPresent = snapshot => root.render(<Shell snapshot={snapshot}/>);
+window.nasqoPresent = snapshot => root.render(snapshot.screen === 'document'
+  ? <DocumentScreen data={snapshot}/> : <Shell snapshot={snapshot}/>);
 window.addEventListener('message', event => {
   if (typeof event.data === 'string') window.nasqoPresent(JSON.parse(event.data));
 });

@@ -250,6 +250,31 @@ try{
     await page.locator('.mobile-scroll').evaluate(el=>el.scrollTop=220);
     await page.waitForFunction(()=>window.events.some(e=>e.action==='scroll'&&e.y>0));
    }
+   if (variant === 'embedded') {
+     const entry = {id:'doc-41',entryNumber:9041,documentNumber:'QA-41',entryDate:'2026-11-21',
+       accountName:'مورد الاختبار',warehouseName:'مخزن الاختبار',typeLabel:'فاتورة اختبار',details:'كشف محفوظ',
+       amount:25.5,currency:'دولار',lineCount:1};
+     const doc = {screen:'document',company:'مختبر المطابقة',generatedAt:'2026-11-21T09:30:00',
+       dark,entry,lines:[{id:0,itemName:'خيط تجريبي',unit:'حبة',price:8.5,quantity:3,total:25.5}]};
+     await page.evaluate(data=>window.nasqoPresent(data),doc);
+     await page.getByRole('table',{name:'بنود المستند'}).getByText('خيط تجريبي').waitFor();
+     assert.equal(await page.getByTestId('cash-invoice-quantity-total').innerText(),'3');
+     assert.equal(await page.getByTestId('cash-invoice-grand-total').innerText(),'25.5');
+     assert.equal(await page.getByTestId('home-bottom-nav').count(),0);
+     await page.getByTestId('cash-invoice-actual-size').click();
+     assert.equal(await page.getByTestId('cash-invoice-zoom-value').innerText(),'100%');
+     await page.getByTestId('cash-invoice-reset').click();
+     assert.notEqual(await page.getByTestId('cash-invoice-zoom-value').innerText(),'100%');
+     assert.equal(await page.getByTestId('cash-invoice-upload-drive').isDisabled(),true);
+     await page.getByRole('button',{name:'طباعة الفاتورة'}).click();
+     await page.waitForFunction(()=>window.events.some(e=>e.action==='documentOutput'&&e.op==='print'));
+     await page.screenshot({path:path.join(out,name+'-document.png')});
+     await page.evaluate(data=>window.nasqoPresent(data),{...doc,lines:[],entry:{...entry,lineCount:0}});
+     await page.getByText('تفاصيل البنود غير متاحة').waitFor();
+     assert.equal(await page.getByTestId('cash-invoice-quantity-total').innerText(),'—');
+     await page.getByRole('button',{name:'رجوع',exact:true}).click();
+     await page.waitForFunction(()=>window.events.some(e=>e.action==='documentClose'));
+   }
    assert.deepEqual(errors,[]);assert.deepEqual(forbidden,[]);
    console.log('PASS',name,JSON.stringify(geometry));
    await context.close();

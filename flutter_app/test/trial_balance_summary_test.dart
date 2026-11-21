@@ -50,4 +50,21 @@ void main() {
     expect(
         trialBalanceSummary(c, CurrencyCode.sar, from: '2026-11-21').sales, 0);
   });
+  test('a transfer between two linked cash accounts does not create cash', () async {
+    final c = ErpController(autoInitDb: false);
+    addTearDown(c.dispose);
+    c.accounts
+      ..clear()
+      ..addAll(const [
+        AccountRecord(id: 'from', name: 'صندوق أ', category: AccountCategory.transfers, isCashAccount: true),
+        AccountRecord(id: 'to', name: 'صندوق ب', category: AccountCategory.transfers, isCashAccount: true),
+      ]);
+    c.ledger.clear();
+    await c.postLocalEntry(accountId: 'from', cashboxAccountId: 'to',
+        requestId: 'cash-to-cash', kind: LedgerKind.voucher,
+        direction: EntryDirection.credit, payment: PaymentMethod.cash,
+        amount: 17, currency: CurrencyCode.sar);
+    final report = trialBalanceSummary(c, CurrencyCode.sar);
+    expect([report.debit, report.credit, report.cash], [17, 17, 0]);
+  });
 }

@@ -42,6 +42,24 @@ TrialBalanceSummary trialBalanceSummary(ErpController c, CurrencyCode currency,
               (a.openingDirection == EntryDirection.debit ? 1 : -1)
           : 0
   };
+  // A native cash voucher records both the counterparty and the cashbox.
+  // For a linked pair only actual cash accounts contribute to the cash total.
+  final cashAccounts = {for (final a in c.accounts) if (a.isCashAccount) a.id};
+  final vouchers = {
+    for (final e in c.ledger)
+      if (!e.deleted && e.kind == LedgerKind.voucher &&
+          e.payment == PaymentMethod.cash && e.id.startsWith('local_')) e.id: e
+  };
+  final linked = <String>{};
+  for (final primary in vouchers.values) {
+    final other = vouchers['${primary.id}_counter'];
+    if (other != null && other.entryNumber == primary.entryNumber &&
+        other.currency == primary.currency && other.direction != primary.direction &&
+        other.amount == primary.amount && other.accountId != primary.accountId) {
+      linked.add(primary.id);
+      linked.add(other.id);
+    }
+  }
   var cash = 0.0, sales = 0.0, purchases = 0.0;
   for (final e in c.ledger) {
     if (e.deleted ||
@@ -62,7 +80,9 @@ TrialBalanceSummary trialBalanceSummary(ErpController c, CurrencyCode currency,
           (side?.credit ?? (debit ? 0.0 : e.amount));
       balances[e.accountId] = (balances[e.accountId] ?? 0) + change;
     }
-    if (e.payment == PaymentMethod.cash || settled) {
+    if (linked.contains(e.id)) {
+      if (cashAccounts.contains(e.accountId)) cash += debit ? e.amount : -e.amount;
+    } else if (e.payment == PaymentMethod.cash || settled) {
       final type = c.restoredGroups?.documentTypes[e.id];
       final cashDocument = [
         LedgerKind.voucher,

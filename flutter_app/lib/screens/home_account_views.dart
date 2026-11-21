@@ -1,3 +1,4 @@
+import '../hybrid/hybrid_document_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -316,10 +317,11 @@ class HomeAccountStatementView extends StatefulWidget {
       {super.key,
       required this.controller,
       required this.accountId,
-      this.initialCurrency});
+      this.initialCurrency, this.hybridDocuments = false});
   final ErpController controller;
   final String accountId;
   final CurrencyCode? initialCurrency;
+  final bool hybridDocuments;
   @override
   State<HomeAccountStatementView> createState() =>
       _HomeAccountStatementViewState();
@@ -495,11 +497,16 @@ class _HomeAccountStatementViewState extends State<HomeAccountStatementView> {
                         subtitle: Text(
                             '${entry.details}\n${entry.direction == EntryDirection.debit ? "مدين" : "دائن"}: ${_money(entry.amount, currency)}\nالرصيد: ${_money(running += entry.direction == EntryDirection.debit ? entry.amount : -entry.amount, currency)}'),
                         isThreeLine: true,
-                        onTap: () => showLandscapeInvoicePreview(
-                          context,
-                          controller: widget.controller,
-                          entry: entry,
-                        ),
+                        onTap: () {
+                          if (widget.hybridDocuments) {
+                            Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) =>
+                              HybridDocumentView(controller: widget.controller, accountId: widget.accountId,
+                                entryId: entry.id, nativePreview: (saved) =>
+                                  LandscapeInvoicePreviewDialog(controller: widget.controller, entry: saved))));
+                          } else {
+                            showLandscapeInvoicePreview(context, controller: widget.controller, entry: entry);
+                          }
+                        },
                       ),
                     const Text(
                         'للقراءة فقط. الموجب مدين والسالب دائن. لا تحويل للعملات ولا معالجة افتراضية للحسابات المقابلة.'),
