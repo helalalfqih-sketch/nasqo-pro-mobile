@@ -737,295 +737,493 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
     if (restored != null && restored.groups.isNotEmpty) {
       final fallback = widget.controller.defaultCurrency;
       final totals = restored.balancesByCurrency(accounts, ledger);
-      CurrencyCode currencyFor(int id) => CurrencyCode.values
-          .where((c) => c.name == _groupCurrencies[id]).firstOrNull ?? fallback;
-      final counts = <int,int>{};
+      CurrencyCode currencyFor(int id) =>
+          CurrencyCode.values
+              .where((c) => c.name == _groupCurrencies[id])
+              .firstOrNull ??
+          fallback;
+      final counts = <int, int>{};
       for (final a in accounts) {
         final id = restored.membership[a.id];
         if (id != null) counts[id] = (counts[id] ?? 0) + 1;
       }
       final dark = Theme.of(context).brightness == Brightness.dark;
-      final separator = Color(dark ? 0xff294162 : 0xffcbd5e1);
       void openGroup(int groupId) {
-        Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => HomeAccountsView.restoredGroup(
-            controller: widget.controller,
-            groupId: groupId,
-            initialCurrency: currencyFor(groupId),
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder:
+                (_) => HomeAccountsView.restoredGroup(
+                  controller: widget.controller,
+                  groupId: groupId,
+                  initialCurrency: currencyFor(groupId),
+                ),
           ),
-        ));
+        );
       }
 
-      return Table(
-        columnWidths: const {0:FlexColumnWidth(0.6),1:FlexColumnWidth(2.25),
-          2:FlexColumnWidth(1.5),3:FlexColumnWidth(1.05)},
-        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-        border:TableBorder.all(color:separator),
-        children:[
-          TableRow(decoration:BoxDecoration(color:Color(dark ? 0xff1a2944 : 0xfff8fafc)),children:[
-            for (final title in ['الرقم','الاسم','الرصيد','العملة'])
-              Padding(padding:const EdgeInsets.symmetric(vertical:10),child:Text(title,textAlign:TextAlign.center,
-                  style:const TextStyle(fontWeight:FontWeight.bold)))
-          ]),
-          for (final (index,g) in restored.groups.indexed)
-            TableRow(decoration:BoxDecoration(color:index.isEven
-                ? Color(dark ? 0xff111c30 : 0xffffffff)
-                : Color(dark ? 0xff17263f : 0xffdce6f2)),
-              children:[
-                Center(child:Text('${g.number}')),
-                TextButton(
-                  onPressed: () => openGroup(g.id),
-                  style: TextButton.styleFrom(alignment: AlignmentDirectional.centerStart),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(g.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text('${counts[g.id] ?? 0} حساب', style: Theme.of(context).textTheme.labelSmall),
-                    ],
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => openGroup(g.id),
-                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 2)),
-                  child: _groupCurrencies[g.id] == _all
-                      ? Column(children: [
-                          for (final c in CurrencyCode.values)
-                            _GroupNetAmount(value: totals[c]![g.id] ?? 0, dark: dark, currency: c),
-                        ])
-                      : _GroupNetAmount(value: totals[currencyFor(g.id)]![g.id] ?? 0, dark: dark),
-                ),
-                DropdownButton<String>(key: ValueKey('balance-restored-${g.id}'),
-                  isExpanded:true,value:_groupCurrencies[g.id] ?? fallback.name,
-                  items:[for(final c in CurrencyCode.values) DropdownMenuItem(value:c.name,child:Text(c.label)),
-                    const DropdownMenuItem(value:_all,child:Text('الكل'))],
-                  onChanged:(c){if(c!=null) setState(()=>_groupCurrencies[g.id]=c);})
-              ])
-        ]);
+      return _BalancesTable([
+        for (final group in restored.groups)
+          [
+            _number(context, group.number),
+            _GroupName(
+              group.name,
+              counts[group.id] ?? 0,
+              () => openGroup(group.id),
+            ),
+            InkWell(
+              onTap: () => openGroup(group.id),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                child:
+                    _groupCurrencies[group.id] == _all
+                        ? Column(
+                          children: [
+                            for (final c in CurrencyCode.values)
+                              _GroupNetAmount(
+                                value: totals[c]![group.id] ?? 0,
+                                dark: dark,
+                                currency: c,
+                              ),
+                          ],
+                        )
+                        : _GroupNetAmount(
+                          value: totals[currencyFor(group.id)]![group.id] ?? 0,
+                          dark: dark,
+                        ),
+              ),
+            ),
+            _GroupCurrency(
+              fieldKey: ValueKey('balance-restored-${group.id}'),
+              name: group.name,
+              currencies: CurrencyCode.values,
+              value: _groupCurrencies[group.id] ?? fallback.name,
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _groupCurrencies[group.id] = value);
+                }
+              },
+            ),
+          ],
+      ]);
     }
-    final cats = _orderedCategories
-        .where((c) => accounts.any((a) => a.category == c))
-        .toList();
+    final cats =
+        _orderedCategories
+            .where((c) => accounts.any((a) => a.category == c))
+            .toList();
     final byCurrency = {
       for (final currency in CurrencyCode.values)
         currency: {
-          for (final group
-              in computeHomeBalanceGroups(accounts, ledger, currency: currency))
-            group.category: group
+          for (final group in computeHomeBalanceGroups(
+            accounts,
+            ledger,
+            currency: currency,
+          ))
+            group.category: group,
         },
     };
-    final colors = Theme.of(context).colorScheme;
-    return Card(
-      color: colors.surface,
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('مجموعات الحسابات والأرصدة',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF312E81),
-                  )),
-          const SizedBox(height: 3),
-          const Text(
-            'الأرصدة حسب فئات الحسابات المحلية، من دون تحويل العملات.',
-            style: TextStyle(fontSize: 11, color: Colors.grey),
-          ),
-          const SizedBox(height: 7),
-          if (cats.isEmpty)
-            const Padding(
-                padding: EdgeInsets.all(12),
-                child: Text('لا توجد حسابات محلية لعرض أرصدتها.'))
-          else ...[
-            _line(
-              context,
-              const [
-                Text('الرقم', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text('الاسم', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text('الرصيد', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text('العملة', style: TextStyle(fontWeight: FontWeight.bold))
-              ],
-              header: true,
-            ),
-            for (var index = 0; index < cats.length; index++)
-              _groupRow(
-                  context,
-                  cats[index],
-                  _orderedCategories.indexOf(cats[index]) + 1,
-                  byCurrency,
-                  accounts,
-                  ledger),
-          ],
-        ]),
-      ),
-    );
+    if (cats.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: Text('لا توجد حسابات محلية لعرض أرصدتها.'),
+      );
+    }
+    return _BalancesTable([
+      for (final category in cats)
+        _groupRow(
+          context,
+          category,
+          _orderedCategories.indexOf(category) + 1,
+          byCurrency,
+          accounts,
+          ledger,
+        ),
+    ]);
   }
 
-  Widget _line(BuildContext context, List<Widget> fields,
-      {bool header = false}) {
-    final scheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: header ? scheme.surfaceContainerHighest : null,
-        border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
+  Widget _number(BuildContext context, int number) => Center(
+    child: Text(
+      '$number',
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: Color(
+          Theme.of(context).brightness == Brightness.dark
+              ? 0xffe2e8f0
+              : 0xff0f172a,
+        ),
       ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        SizedBox(width: 40, child: Center(child: fields[0])),
-        Expanded(flex: 3, child: fields[1]),
-        Expanded(
-            flex: 3,
-            child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: fields[2])),
-        SizedBox(width: 76, child: fields[3]),
-      ]),
-    );
-  }
+    ),
+  );
 
-  Widget _groupRow(
-      BuildContext context,
-      AccountCategory category,
-      int number,
-      Map<CurrencyCode, Map<AccountCategory, HomeBalanceGroup>> byCurrency,
-      List<AccountRecord> accounts,
-      List<LedgerEntryRecord> ledger) {
+  List<Widget> _groupRow(
+    BuildContext context,
+    AccountCategory category,
+    int number,
+    Map<CurrencyCode, Map<AccountCategory, HomeBalanceGroup>> byCurrency,
+    List<AccountRecord> accounts,
+    List<LedgerEntryRecord> ledger,
+  ) {
     final members = accounts.where((a) => a.category == category).toList();
-    final currencies = CurrencyCode.values.where((c) {
-      final result = byCurrency[c]![category]!;
-      return members.any((a) => a.currency == c) ||
-          result.debitTotal != 0 ||
-          result.creditTotal != 0;
-    }).toList();
-    final current = _filters[category] ??
+    final currencies =
+        CurrencyCode.values.where((c) {
+          final result = byCurrency[c]![category]!;
+          return members.any((a) => a.currency == c) ||
+              result.debitTotal != 0 ||
+              result.creditTotal != 0;
+        }).toList();
+    final current =
+        _filters[category] ??
         (currencies.contains(widget.controller.defaultCurrency)
             ? widget.controller.defaultCurrency.name
             : currencies.first.name);
-    final selected = current == _all
-        ? currencies
-        : [
-            currencies.firstWhere((c) => c.name == current,
-                orElse: () => currencies.first)
-          ];
+    final selected =
+        current == _all
+            ? currencies
+            : [
+              currencies.firstWhere(
+                (c) => c.name == current,
+                orElse: () => currencies.first,
+              ),
+            ];
     final resolvedValue = current == _all ? _all : selected.single.name;
 
     void showMembers() => showModalBottomSheet<void>(
-          context: context,
-          isScrollControlled: true,
-          builder: (context) => SafeArea(
-              child: SizedBox(
-            height: MediaQuery.sizeOf(context).height * .62,
-            child: Column(children: [
-              ListTile(
-                title: Text('حسابات ${_title(category)}'),
-                trailing: IconButton(
-                  tooltip: 'إغلاق حسابات المجموعة',
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                ),
-              ),
-              Expanded(
-                  child: ListView(children: [
-                for (final account in members)
+      context: context,
+      isScrollControlled: true,
+      builder:
+          (context) => SafeArea(
+            child: SizedBox(
+              height: MediaQuery.sizeOf(context).height * .62,
+              child: Column(
+                children: [
                   ListTile(
-                    leading: Text('${account.codeNumber}'),
-                    title: Text(account.name),
-                    subtitle: Wrap(spacing: 12, children: [
-                      for (final c in selected)
-                        _amount(
-                            context,
-                            computeHomeBalanceGroups([account], ledger,
-                                    currency: c)
-                                .firstWhere((g) => g.category == category),
-                            withCurrency: current == _all),
-                    ]),
+                    title: Text('حسابات ${_title(category)}'),
+                    trailing: IconButton(
+                      tooltip: 'إغلاق حسابات المجموعة',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
                   ),
-              ])),
-            ]),
-          )),
-        );
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        for (final account in members)
+                          ListTile(
+                            leading: Text('${account.codeNumber}'),
+                            title: Text(account.name),
+                            onTap:
+                                () => Navigator.of(context).push<void>(
+                                  MaterialPageRoute(
+                                    builder:
+                                        (_) => HomeAccountStatementView(
+                                          controller: widget.controller,
+                                          accountId: account.id,
+                                          initialCurrency:
+                                              current == _all
+                                                  ? account.currency
+                                                  : selected.single,
+                                        ),
+                                  ),
+                                ),
+                            subtitle: Wrap(
+                              spacing: 12,
+                              children: [
+                                for (final c in selected)
+                                  _amount(
+                                    context,
+                                    computeHomeBalanceGroups(
+                                      [account],
+                                      ledger,
+                                      currency: c,
+                                    ).firstWhere((g) => g.category == category),
+                                    withCurrency: current == _all,
+                                  ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
 
-    return _line(context, [
-      Text('$number'),
-      TextButton(
+    return [
+      _number(context, number),
+      _GroupName(
+        _title(category),
+        members.length,
+        showMembers,
         key: ValueKey('balance-group-${category.name}'),
-        style: TextButton.styleFrom(
-            alignment: AlignmentDirectional.centerStart,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8)),
-        onPressed: showMembers,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_title(category)),
-          Text('${members.length} حساب',
-              style: Theme.of(context).textTheme.labelSmall),
-        ]),
       ),
       InkWell(
         onTap: showMembers,
         child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final c in selected)
-                  _amount(context, byCurrency[c]![category]!,
-                      withCurrency: current == _all),
-              ],
-            )),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              for (final c in selected)
+                _amount(
+                  context,
+                  byCurrency[c]![category]!,
+                  withCurrency: current == _all,
+                ),
+            ],
+          ),
+        ),
       ),
-      DropdownButton<String>(
-        key: ValueKey('balance-currency-${category.name}'),
-        isExpanded: true,
+      _GroupCurrency(
+        fieldKey: ValueKey('balance-currency-${category.name}'),
+        name: _title(category),
         value: resolvedValue,
-        onChanged: (s) {
-          if (s != null) setState(() => _filters[category] = s);
+        currencies: currencies,
+        onChanged: (value) {
+          if (value != null) setState(() => _filters[category] = value);
         },
-        items: [
-          for (final c in currencies)
-            DropdownMenuItem(
-                value: c.name,
-                child: Text(c.label, overflow: TextOverflow.ellipsis)),
-          const DropdownMenuItem(value: _all, child: Text('الكل')),
-        ],
       ),
-    ]);
+    ];
   }
 
-  Widget _amount(BuildContext context, HomeBalanceGroup g,
-      {required bool withCurrency}) {
+  Widget _amount(
+    BuildContext context,
+    HomeBalanceGroup g, {
+    required bool withCurrency,
+  }) {
     final value = AccountingEngine.formatAmount(g.magnitude);
     return Semantics(
       label: '$value ${g.currency.label} ${g.balanceLabel}',
       excludeSemantics: true,
-      child: _GroupNetAmount(value: g.netDebitMinusCredit,
-          dark: Theme.of(context).brightness == Brightness.dark,
-          currency: withCurrency ? g.currency : null),
+      child: _GroupNetAmount(
+        value: g.netDebitMinusCredit,
+        dark: Theme.of(context).brightness == Brightness.dark,
+        currency: withCurrency ? g.currency : null,
+      ),
     );
   }
 }
 
-
 class _GroupNetAmount extends StatelessWidget {
-  const _GroupNetAmount({required this.value, required this.dark, this.currency});
+  const _GroupNetAmount({
+    required this.value,
+    required this.dark,
+    this.currency,
+  });
   final double value;
   final bool dark;
   final CurrencyCode? currency;
 
   @override
   Widget build(BuildContext context) {
-    final amount = value.abs() < 0.005 ? '0' : AccountingEngine.formatAmount(value.abs());
+    final amount =
+        value.abs() < 0.005 ? '0' : AccountingEngine.formatAmount(value.abs());
     final negative = value <= -0.005;
-    final color = value < -0.005
-        ? Color(dark ? 0xfffb7185 : 0xff9f1239)
-        : value > 0.005
+    final color =
+        value < -0.005
+            ? Color(dark ? 0xfffb7185 : 0xff9f1239)
+            : value > 0.005
             ? Color(dark ? 0xff60a5fa : 0xff0b5ca8)
-            : Theme.of(context).colorScheme.onSurface;
+            : const Color(0xff334155);
     final signed = negative ? '$amount-' : amount;
-    return Text(currency == null ? signed : '$signed · ${currency!.label}',
-        textAlign: TextAlign.center, textDirection: TextDirection.ltr,
-        style: TextStyle(fontWeight: FontWeight.w800, color: color));
+    return Text(
+      currency == null ? signed : '$signed · ${currency!.label}',
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+      style: TextStyle(
+        fontSize: 13.5,
+        fontWeight: FontWeight.w800,
+        color: color,
+      ),
+    );
+  }
+}
+
+class _BalancesTable extends StatelessWidget {
+  const _BalancesTable(this.rows);
+  final List<List<Widget>> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final ink = Color(dark ? 0xffe2e8f0 : 0xff0f172a);
+    final grid = Color(dark ? 0xff294162 : 0xffcbd5e1);
+    final outline = Color(dark ? 0xff294162 : 0xff94a3b8);
+    return Align(
+      alignment: Alignment.topCenter,
+      heightFactor: 1,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 720),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          border: Border.all(color: outline),
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x140f172a),
+              blurRadius: 18,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Table(
+          columnWidths: const {
+            0: FixedColumnWidth(44.5),
+            1: FlexColumnWidth(1.69),
+            2: FlexColumnWidth(),
+            3: FixedColumnWidth(74),
+          },
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+          border: TableBorder.symmetric(inside: BorderSide(color: grid)),
+          children: [
+            TableRow(
+              decoration: BoxDecoration(
+                color: Color(dark ? 0xff1a2944 : 0xfff8fafc),
+              ),
+              children: [
+                for (final label in ['الرقم', 'الاسم', 'الرصيد', 'العملة'])
+                  Container(
+                    constraints: const BoxConstraints(minHeight: 46.5),
+                    alignment: Alignment.center,
+                    child: Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: ink,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            for (final (index, cells) in rows.indexed)
+              TableRow(
+                decoration: BoxDecoration(
+                  color:
+                      index.isEven
+                          ? Color(dark ? 0xff111c30 : 0xffffffff)
+                          : Color(dark ? 0xff17263f : 0xffdce6f2),
+                ),
+                children: cells,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupName extends StatelessWidget {
+  const _GroupName(this.name, this.count, this.open, {super.key});
+  final String name;
+  final int count;
+  final VoidCallback open;
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: open,
+      child: Container(
+        alignment: AlignmentDirectional.centerStart,
+        constraints: const BoxConstraints(minHeight: 51),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              name,
+              style: TextStyle(
+                color: Color(dark ? 0xffe2e8f0 : 0xff0f172a),
+                fontSize: 14,
+                height: 1.3,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '$count حساب',
+              style: const TextStyle(
+                color: Color(0xc7475569),
+                fontSize: 10.5,
+                height: 1.3,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupCurrency extends StatelessWidget {
+  const _GroupCurrency({
+    required this.fieldKey,
+    required this.name,
+    required this.value,
+    required this.currencies,
+    required this.onChanged,
+  });
+  final Key fieldKey;
+  final String name;
+  final String value;
+  final Iterable<CurrencyCode> currencies;
+  final ValueChanged<String?> onChanged;
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final ink = Color(dark ? 0xffe2e8f0 : 0xff0f172a);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 5.5),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            child: Center(
+              child: Container(
+                height: MediaQuery.textScalerOf(context).scale(30),
+                decoration: BoxDecoration(
+                  color: Color(dark ? 0xff1a2944 : 0xffffffff),
+                  border: Border.all(
+                    color: Color(dark ? 0xff34527d : 0xff94a3b8),
+                  ),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          ),
+          Semantics(
+            label: 'عملة $name',
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                key: fieldKey,
+                isExpanded: true,
+                menuWidth: MediaQuery.textScalerOf(context).scale(100),
+                value: value,
+                onChanged: onChanged,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                icon: Icon(Icons.keyboard_arrow_down, size: 18, color: ink),
+                style: DefaultTextStyle.of(context).style.copyWith(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: ink,
+                ),
+                items: [
+                  for (final c in currencies)
+                    DropdownMenuItem(
+                      value: c.name,
+                      child: Text(c.label, overflow: TextOverflow.ellipsis),
+                    ),
+                  const DropdownMenuItem(value: 'all', child: Text('الكل')),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

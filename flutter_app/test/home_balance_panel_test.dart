@@ -66,9 +66,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('حسابات المشتريات'), findsOneWidget);
     expect(find.text('مورد اصطناعي'), findsOneWidget);
+    await tester.tap(find.text('مورد اصطناعي'));
+    await tester.pumpAndSettle();
+    expect(find.text('كشف حساب مورد اصطناعي'), findsOneWidget);
+    expect(find.text('الرصيد الختامي: -60.00 ريال'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('حسابات المشتريات'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('حسابات المشتريات'), findsNothing);
+    expect(find.text('25 · دولار'), findsOneWidget);
+    await tester.tap(filter);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('دولار').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('25'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('مورد اصطناعي'));
+    await tester.pumpAndSettle();
+    expect(find.text('الرصيد الختامي: 25.00 دولار'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('25'), findsOneWidget);
     expect(controller.ledger, hasLength(2));
     expect(controller.accounts.single.openingBalance, 100);
     expect(tester.takeException(), isNull);
@@ -135,4 +157,54 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final width in [320.0, 900.0]) {
+    testWidgets('RTL balances fit width $width at 130% text', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = Size(width, 800);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final controller = ErpController(autoInitDb: false);
+      addTearDown(controller.dispose);
+      controller.ledger.clear();
+      controller.accounts
+        ..clear()
+        ..add(const AccountRecord(
+          id: 'qa-long-name',
+          name: 'مورد اختبار',
+          category: AccountCategory.purchases,
+          openingBalance: 99999.25,
+        ));
+      controller.restoredGroups = RestoredGroups.fromJson({
+        'accountGroups': [
+          {'id': 53, 'name': 'مشتريات المستودع الرئيسي والفرع الشمالي'},
+        ],
+        'accounts': [
+          {'id': 'qa-long-name','groupId': 53},
+        ],
+      });
+      await tester.pumpWidget(MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.3)),
+          child: child!,
+        ),
+        home: Directionality(textDirection: TextDirection.rtl, child: Scaffold(
+          body: GroupBalancesPanel(controller: controller),
+        )),
+      ));
+      await tester.pumpAndSettle();
+      final table = tester.getRect(find.byType(Table));
+      expect(table.width, lessThanOrEqualTo(720));
+      expect(table.left, greaterThanOrEqualTo(0));
+      expect(table.right, lessThanOrEqualTo(width));
+      expect(tester.getCenter(find.text('الرقم')).dx,
+        greaterThan(tester.getCenter(find.text('العملة')).dx));
+      await tester.tap(find.byKey(const ValueKey('balance-restored-53')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('الكل').last);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('99,999.25'), findsOneWidget);
+      expect(find.text('0 · دولار'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
