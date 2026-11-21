@@ -262,10 +262,26 @@ def run(baseline,candidate):
     report_tab=wait(lambda:next((n for n in nodes() if label(n)=="التقارير" and
         n.get("class")=="android.widget.Button" and bounds(n)[1]>box[3]-75),None),"React reports tab")
     tap(report_tab);tap(exact_button("ميزان المراجعة"));find("اجمالي المدين")
-    currency=wait(lambda:next((n for n in nodes() if n.get("class")=="android.widget.Spinner" and
-        bounds(n)[2]>bounds(n)[0]),None),"trial currency selector")
-    tap(currency);tap(find("الكل"));find("الحسابات — دولار");find("الحسابات — يورو")
-    shot("android-trial-all")
+    # WebView exposes the date pickers as spinners too. Use the select's
+    # accessible name or selected option to distinguish it from those controls.
+    tree = nodes()
+    (OUT/"trial-controls.xml").write_bytes(adb("exec-out","cat","/sdcard/window.xml"))
+    currency = next((n for n in tree if "عملة ميزان المراجعة" in label(n)), None)
+    if currency is None:
+        currency = next((n for n in tree if label(n) == "ريال (العملة الأساسية)"), None)
+    require(currency is not None, "Trial balance currency control missing")
+    tap(currency)
+    tap(wait(lambda: next((n for n in nodes() if label(n)=="الكل"), None), "all currencies option"))
+    for unit in ("دولار", "يورو"):
+        heading = "الحسابات — " + unit
+        for _ in range(10):
+            visible = any(heading in label(n) and bounds(n)[3]>bounds(n)[1] and
+                          box[1]+60 < center(n)[1] < box[3]-60 for n in nodes())
+            if visible:
+                break
+            swipe(205, box[3]-170, 205, box[1]+210, 430)
+        require(visible, "Missing section in the trial balance: "+unit)
+        shot("android-trial-all" if unit=="دولار" else "android-trial-eur")
     back();find("اختر تقريرًا");back();find("مجموعة الشمال")
     passed("trial_balance_separate_currencies_and_nested_back")
     # Test the real Android select popup; it returns the selection to Dart.
