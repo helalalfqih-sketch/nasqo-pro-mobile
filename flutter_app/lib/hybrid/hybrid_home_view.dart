@@ -128,6 +128,11 @@ class HybridHomeState extends State<HybridHomeView> {
               accountCategory: category,
               initialCurrency: id == null ? null : view.selection(id));
           _refresh();
+        case 'trialFilter':
+          view.directory.currency = msg['currency'] as String;
+          view.directory.from = msg['from'] as String;
+          view.directory.through = msg['through'] as String;
+          _refresh();
         case 'filter':
           view.directory.period = msg['period'] as String;
           view.directory.currency = msg['currency'] as String;

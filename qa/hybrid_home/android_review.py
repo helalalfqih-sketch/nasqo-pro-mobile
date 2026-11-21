@@ -259,6 +259,15 @@ def run(baseline,candidate):
     back();find("مجموعة الشمال")
     tap(find("فتح القائمة"));find("الرسائل الفورية واتساب");back();find("مجموعة الشمال")
     passed("quick_actions_drawer_back")
+    report_tab=wait(lambda:next((n for n in nodes() if label(n)=="التقارير" and
+        n.get("class")=="android.widget.Button" and bounds(n)[1]>box[3]-75),None),"React reports tab")
+    tap(report_tab);tap(exact_button("ميزان المراجعة"));find("اجمالي المدين")
+    currency=wait(lambda:next((n for n in nodes() if n.get("class")=="android.widget.Spinner" and
+        bounds(n)[2]>bounds(n)[0]),None),"trial currency selector")
+    tap(currency);tap(find("الكل"));find("الحسابات — دولار");find("الحسابات — يورو")
+    shot("android-trial-all")
+    back();find("اختر تقريرًا");back();find("مجموعة الشمال")
+    passed("trial_balance_separate_currencies_and_nested_back")
     # Test the real Android select popup; it returns the selection to Dart.
     taprect(box,geometry["select"]);tap(find("دولار"))
     wait(lambda:prefs().get("filters",{}).get("group-41")=="دولار","currency in SQLite")

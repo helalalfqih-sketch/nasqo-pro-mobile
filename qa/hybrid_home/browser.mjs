@@ -92,6 +92,25 @@ try{
    assert.ok(await page.evaluate(()=>window.nasqoBack()));
    await page.getByTestId('reports-hub-menu').waitFor({state:'detached'});
    if(variant==='embedded'&&!dark){
+    await page.getByTestId('home-nav-reports').tap();
+    await page.getByTestId('reports-hub-menu').getByText('ميزان المراجعة',{exact:true}).tap();
+    await page.evaluate(s=>window.nasqoPresent(s),{...dto,directory:directory.trial});
+    const trial=page.getByTestId('trial-balance-modal');
+    assert.equal(await trial.getByTestId('trial-total-debit').innerText(),'80');
+    assert.equal(await trial.getByTestId('trial-total-credit').innerText(),'1,250.50');
+    await trial.getByLabel('عملة ميزان المراجعة').selectOption('الكل');
+    await page.waitForFunction(()=>window.events.some(e=>e.action==='trialFilter'&&e.currency==='الكل'));
+    await page.evaluate(s=>window.nasqoPresent(s),{...dto,directory:directory.trialAll});
+    const dollars=trial.locator('[data-currency="دولار"]');
+    assert.equal(await dollars.getByTestId('trial-total-debit').innerText(),'25');
+    assert.equal(await trial.locator('[data-currency]').count(),4);
+    await page.screenshot({path:path.join(out,'embedded-trial-all.png')});
+    await trial.getByRole('radio',{name:'شهري'}).check();
+    await page.waitForFunction(()=>window.events.some(e=>e.action==='trialFilter'&&/^\d{4}-\d{2}-01$/.test(e.from)));
+    assert.ok(await page.evaluate(()=>window.nasqoBack()));
+    await page.getByTestId('reports-hub-menu').waitFor();
+    assert.ok(await page.evaluate(()=>window.nasqoBack()));
+    await page.evaluate(s=>window.nasqoPresent(s),dto);
     const metric=id=>page.locator('[data-metric="'+id+'"]');
     const region=page.getByTestId('metric-editor');
     const sales=metric('sales'), purchases=metric('purchases');

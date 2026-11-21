@@ -120,6 +120,31 @@ void main() {
           expect(snapshot['metrics'], containsPair('purchases', -80.0));
           expect(snapshot, isNot(contains('directory')));
           final fixtures = <String, Object?>{};
+          view.directory.open('trial');
+          fixtures['trial'] = view.directory.snapshot();
+          final trialBase =
+              (view.directory.snapshot()['reports'] as List).single;
+          expect(trialBase['totalCreditAccounts'], 1250.5);
+          expect(trialBase['totalDebitAccounts'], 80.0);
+          view.directory.currency = 'الكل';
+          fixtures['trialAll'] = view.directory.snapshot();
+          final byCurrency = view.directory.snapshot()['reports'] as List;
+          expect(
+              byCurrency.singleWhere(
+                  (r) => r['currency'] == 'دولار')['totalDebitAccounts'],
+              25.0);
+          expect(
+              view.parse(
+                  '{"action":"trialFilter","currency":"ريال","from":"2026-02-31","through":""}'),
+              isNull);
+          expect(
+              view.parse(
+                  '{"action":"trialFilter","currency":"دولار","from":"2026-03-04","through":"2026-03-03"}'),
+              isNull);
+          expect(
+              view.parse(
+                  '{"action":"trialFilter","currency":"الكل","from":"","through":""}'),
+              isNotNull);
           for (final screen in ['picker', 'chart', 'warehouses']) {
             view.directory.open(screen);
             fixtures[screen] = view.directory.snapshot();

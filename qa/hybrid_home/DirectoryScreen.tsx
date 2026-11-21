@@ -1,7 +1,7 @@
 import React, {useLayoutEffect, useMemo, useState} from 'react';
 import {
   AccountPickerModal, ChartOfAccountsModal, ExportSideMenu, FinancialFooter,
-  PurchasesHeader, PurchasesPage, warehousesScreen,
+  PurchasesHeader, PurchasesPage, TrialBalanceModal, warehousesScreen,
 } from 'dashboard:presentation';
 import {formatAmount} from '../../src/accounting';
 import {Workspace, send} from './workspace';
@@ -24,6 +24,7 @@ export function DirectoryScreen({data, base, rows, close, backRef, tile, navigat
   const flow = {push:route,pop:close};
   const ctx = {...base, accounts, accountGroups:rows, warehouses:data.warehouses ?? [],
     ledger:[], dir:data, accountAction, warehouse, onlyCurrency, setOnlyCurrency,
+    requestTrial:(currency,from,through)=>send('trialFilter',{currency,from,through}),
     filter, flowRef:{current:flow}, categoryCurrencies:{[category]:data.currency},
     setCategoryCurrency:(_,c)=>filter(data.period,c), openSheet:()=>document.querySelector('select[aria-label="ترتيب المشتريات"]')?.focus(),
     openExportMenu:()=>setLayer('export'), openPrintOptions:()=>setLayer('export'),
@@ -59,6 +60,7 @@ export function DirectoryScreen({data, base, rows, close, backRef, tile, navigat
         <FinancialFooter debit={amount(t=>t.debit)} credit={amount(t=>t.credit)} balance={amount(t=>Math.abs(t.credit-t.debit))}
           hidePrimaryAction onMenu={()=>setLayer('export')}/>}</div>
     </div> : null}
+    {data.screen==='trial' && <TrialBalanceModal open onClose={close}/>}
     {data.screen==='chart' && <ChartOfAccountsModal open onClose={close}/>}
     {(data.screen==='picker' || layer==='picker') && picker}
     {layer==='export' && <ExportSideMenu open kind="purchases" onClose={()=>setLayer('')} onSelectAction={format=>{
