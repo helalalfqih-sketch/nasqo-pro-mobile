@@ -42,6 +42,56 @@ void main() {
     expect(await source.readAsBytes(), original);
   });
 
+  test('v28 reports missing currency IDs and preserves source rate evidence', () async {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+    final dir = await Directory.systemTemp.createTemp('legacy-v28-test-');
+    addTearDown(() => dir.delete(recursive: true));
+    final path = '${dir.path}/fixture.back';
+    final db = await databaseFactoryFfi.openDatabase(path);
+    try {
+      for (final sql in [
+        'PRAGMA user_version = 28',
+        'CREATE TABLE currencies(id INTEGER, name TEXT)',
+        'CREATE TABLE boxes(id INTEGER, cur INTEGER)',
+        'CREATE TABLE customers(id INTEGER, type INTEGER)',
+        'CREATE TABLE products(id INTEGER, cur INTEGER)',
+        'CREATE TABLE stores(id INTEGER)',
+        'CREATE TABLE cboxes(id INTEGER, cur INTEGER)',
+        'CREATE TABLE input_move(id INTEGER, per_id INTEGER, cur INTEGER, bill_type INTEGER, curprice TEXT)',
+        'CREATE TABLE bill_details(id INTEGER, bill_id INTEGER, prod_id INTEGER, store_id INTEGER)',
+        'CREATE TABLE store_trans(id INTEGER, store_id1 INTEGER, store_id2 INTEGER)',
+        'CREATE TABLE trans_details(id INTEGER, bill_id INTEGER, prod_id INTEGER)',
+        "INSERT INTO currencies VALUES(1, 'ريال')",
+        'INSERT INTO boxes VALUES(1,1)',
+        'INSERT INTO customers VALUES(1,1)',
+        'INSERT INTO products VALUES(1,1)',
+        'INSERT INTO cboxes VALUES(1,1)',
+        'INSERT INTO trans_details VALUES(1,99,98)',
+      ]) {
+        await db.execute(sql);
+      }
+      for (var i = 0; i < 7; i++) {
+        await db.insert('input_move', {'id': i+1, 'per_id': 1,
+          'cur': i<2 ? 2 : 3, 'bill_type': i==0 ? 1 : 2,
+          'curprice': i==0 ? '0' : '1'});
+      }
+    } finally { await db.close(); }
+    final source = await File(path).readAsBytes();
+    final report = (await inspectLegacyBackup(source))!;
+    expect(report.integrityOk, isTrue);
+    expect(report.missingCurrencyCounts, {'2':2,'3':5});
+    expect(report.currencyReferences.first['sourceExchangeRate'], '0');
+    expect(report.currencyReferences.first['documentType'], 1);
+    expect(report.issues['بنود تحويل مخزني بمستند مفقود'], 1);
+    expect(report.issues['بنود تحويل مخزني بصنف مفقود'], 1);
+    expect(report.issues['أصناف تحتاج إلى كشف كميات حسب المستودع'], 1);
+    expect(report.issues['حسابات تحتاج إلى إثبات الرصيد الافتتاحي واتجاهه'], 1);
+    expect(report.issues['صناديق تحتاج إلى ربط صريح بالحساب'], 1);
+    expect(report.toJson()['restored'], false);
+    expect(await File(path).readAsBytes(), source);
+  });
+
   test('non-SQLite input does not trigger legacy conversion', () async {
     expect(await inspectLegacyBackup(Uint8List.fromList([123, 125])), isNull);
   });

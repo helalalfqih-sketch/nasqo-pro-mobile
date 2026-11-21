@@ -32,11 +32,22 @@ class LegacyBackupInspection {
   int get orphanWarehouses => issues['بنود بمخزن مفقود'] ?? 0;
   int get missingProductCurrencies => issues['أصناف بعملة غير معرفة'] ?? 0;
 
+  Map<String, int> get missingCurrencyCounts {
+    final counts = <String, int>{};
+    for (final row in currencyReferences) {
+      final id = row['currencyId']?.toString() ?? 'NULL';
+      counts.update(id, (n) => n + 1, ifAbsent: () => 1);
+    }
+    return counts;
+  }
+
   String get arabicSummary => [
         'نسخة SQLite قديمة من الموقع • إصدار المخطط $version',
         'فحص SQLite: ${integrityOk ? "سليم" : "فشل"}',
         'الحسابات: ${counts["customers"]} • الأصناف: ${counts["products"]} • المخازن: ${counts["stores"]}',
         'الحركات: ${counts["input_move"]} • بنود الفواتير: ${counts["bill_details"]}',
+        for (final e in missingCurrencyCounts.entries)
+          'معرّف العملة ${e.key}: ${e.value} حركة بلا تعريف في دليل العملات.',
         for (final e in issues.entries)
           if (e.value > 0) '${e.key}: ${e.value}',
         'الاستعادة المباشرة موقوفة حتى مطابقة القيم والمراجع.',
@@ -70,6 +81,7 @@ class LegacyBackupInspection {
               e.key: e.value
         },
         'issues': issues,
+        'missingMovementCurrencyCounts': missingCurrencyCounts,
         'unresolvedMovementCurrencies': currencyReferences,
         'restored': false,
       };
@@ -151,8 +163,13 @@ Future<LegacyBackupInspection?> inspectLegacyBackup(Uint8List bytes) async {
           if (t == 'input_move' &&
               c == 'cur' &&
               columns[t]!.containsKey('id')) {
+            final fields = [
+              'id AS movementId', 'cur AS currencyId',
+              if (columns[t]!.containsKey('bill_type')) 'bill_type AS documentType',
+              if (columns[t]!.containsKey('curprice')) 'curprice AS sourceExchangeRate',
+            ];
             missing.addAll(await db.rawQuery(
-                'SELECT id AS movementId,cur AS currencyId FROM input_move s WHERE $predicate ORDER BY cur,id'));
+                'SELECT ${fields.join(", ")} FROM input_move s WHERE $predicate ORDER BY cur,id'));
           }
         }
 
@@ -169,6 +186,28 @@ Future<LegacyBackupInspection?> inspectLegacyBackup(Uint8List bytes) async {
             'bill_details', 'bill_id', 'input_move', 'بنود بفاتورة مفقودة');
         await reference(
             'bill_details', 'store_id', 'stores', 'بنود بمخزن مفقود');
+        await reference('bill_details2', 'bill_id', 'input_move', 'بنود حرة بمستند مفقود');
+        await reference('trans_details', 'bill_id', 'store_trans', 'بنود تحويل مخزني بمستند مفقود');
+        await reference('trans_details', 'prod_id', 'products', 'بنود تحويل مخزني بصنف مفقود');
+        await reference('store_trans', 'store_id1', 'stores', 'تحويلات بمخزن مصدر مفقود');
+        await reference('store_trans', 'store_id2', 'stores', 'تحويلات بمخزن وجهة مفقود');
+        await reference('boxes', 'cur', 'currencies', 'مجموعات بعملة غير معرفة');
+        await reference('cboxes', 'cur', 'currencies', 'صناديق بعملة غير معرفة');
+        await reference('offers', 'cur', 'currencies', 'عروض بعملة غير معرفة');
+        if (version == 28) {
+          void requireEvidence(String table, List<String> fields, String reason) {
+            final n = counts[table] ?? 0;
+            if (n > 0 && !fields.every((key) => columns[table]!.containsKey(key))) {
+              issues[reason] = n;
+            }
+          }
+          requireEvidence('products', ['store_id', 'quantity'],
+              'أصناف تحتاج إلى كشف كميات حسب المستودع');
+          requireEvidence('customers', ['opening_balance', 'opening_direction'],
+              'حسابات تحتاج إلى إثبات الرصيد الافتتاحي واتجاهه');
+          requireEvidence('cboxes', ['account_id'],
+              'صناديق تحتاج إلى ربط صريح بالحساب');
+        }
         issues['مخالفات المفاتيح الخارجية المعلنة'] =
             (await db.rawQuery('PRAGMA foreign_key_check')).length;
       }
