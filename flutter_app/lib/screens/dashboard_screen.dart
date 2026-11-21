@@ -225,7 +225,7 @@ class DashboardScreen extends StatelessWidget {
       return ListView(
         controller: scrollController,
         key: const PageStorageKey('nasqo-home-scroll'),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: large ? 10 : 14, vertical: 14),
         children: [
           if (large)
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -264,7 +264,7 @@ class DashboardScreen extends StatelessWidget {
           else ...[
             Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 320),
+                constraints: const BoxConstraints(maxWidth: 300),
                 child: brandPlaque,
               ),
             ),
@@ -772,9 +772,9 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
                   ),
                   child: _signedBalance(context, totals[g.id] ?? 0),
                 ),
-                DropdownButton<CurrencyCode>(isExpanded:true,value:_groupCurrencies[g.id] ?? fallback,
-                  items:[for(final c in CurrencyCode.values) DropdownMenuItem(value:c,child:Text(c.label))],
-                  onChanged:(c){if(c!=null) setState(()=>_groupCurrencies[g.id]=c);})
+                _currencyBox(context, DropdownButton<CurrencyCode>(isExpanded:true, isDense: true, iconSize: 16, style: Theme.of(context).textTheme.labelMedium, value:_groupCurrencies[g.id] ?? fallback,
+                  items:[for(final c in CurrencyCode.values) DropdownMenuItem(value:c,child:Text(c.label, overflow: TextOverflow.ellipsis))],
+                  onChanged:(c){if(c!=null) setState(()=>_groupCurrencies[g.id]=c);}))
               ])
         ]);
     }
@@ -814,10 +814,10 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
     final scheme = Theme.of(context).colorScheme;
     return Table(
       columnWidths: const {
-        0: FlexColumnWidth(0.6),
-        1: FlexColumnWidth(2.25),
-        2: FlexColumnWidth(1.5),
-        3: FlexColumnWidth(1.05),
+        0: FixedColumnWidth(47),
+        1: FlexColumnWidth(2),
+        2: FlexColumnWidth(),
+        3: FixedColumnWidth(74),
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       border: TableBorder.all(color: scheme.outlineVariant),
@@ -929,7 +929,10 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
               ],
             )),
       ),
-      DropdownButton<String>(
+      _currencyBox(context, DropdownButton<String>(
+        isDense: true,
+        iconSize: 16,
+        style: Theme.of(context).textTheme.labelMedium,
         key: ValueKey('balance-currency-${category.name}'),
         isExpanded: true,
         value: resolvedValue,
@@ -943,8 +946,24 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
                 child: Text(c.label, overflow: TextOverflow.ellipsis)),
           const DropdownMenuItem(value: _all, child: Text('الكل')),
         ],
-      ),
+      )),
     ]);
+  }
+
+  Widget _currencyBox(BuildContext context, Widget dropdown) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 3),
+      constraints: const BoxConstraints(minHeight: 30),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        border: Border.all(color: scheme.outline),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: DropdownButtonHideUnderline(child: dropdown),
+    );
   }
 
   Widget _signedBalance(BuildContext context, double net, {CurrencyCode? currency}) {
