@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - integration/hybrid-seven-20261121
     paths:
       - 'flutter_app/**'
       - '.github/workflows/flutter-offline-apk.yml'
@@ -35,6 +36,9 @@ on:
 permissions:
   contents: read
 
+env:
+  HYBRID_REVIEW: ${{ inputs.hybrid_review || (github.event_name == 'push' && github.ref_name == 'integration/hybrid-seven-20261121') }}
+
 jobs:
   offline-apk:
     if: ${{ !inputs.reuse_debug_run }}
@@ -63,24 +67,28 @@ jobs:
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Unit tests
         working-directory: flutter_app
-        run: flutter test
+        run: flutter test --reporter expanded
+      - name: Verify posting receipts and the hybrid SQLite contract
+        if: github.ref_name == 'integration/hybrid-seven-20261121'
+        working-directory: flutter_app
+        run: ../qa/tools/test-linux.sh test/financial_form_receipt_test.dart test/hybrid_home_test.dart test/trial_balance_summary_test.dart
       - name: Compile Android update bridge and application plugins
         if: github.event_name == 'pull_request'
         working-directory: flutter_app/android
         run: bash gradlew :app:compileDebugKotlin --no-daemon
       - name: Build Android APK
-        if: github.event_name == 'workflow_dispatch' && !inputs.signed_run
+        if: (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_name == 'integration/hybrid-seven-20261121')) && !inputs.signed_run
         working-directory: flutter_app
         run: flutter build apk --debug --android-skip-build-dependency-validation
       - uses: actions/upload-artifact@v4
-        if: github.event_name == 'workflow_dispatch' && !inputs.signed_run
+        if: (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_name == 'integration/hybrid-seven-20261121')) && !inputs.signed_run
         with:
           name: nasqo-pro-android-apk
           path: flutter_app/build/app/outputs/flutter-apk/*.apk
           retention-days: 14
 
   offline-device:
-    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && (needs.offline-apk.result == 'success' || (inputs.hybrid_review && inputs.reuse_debug_run && needs.offline-apk.result == 'skipped')) }}
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_name == 'integration/hybrid-seven-20261121')) && (needs.offline-apk.result == 'success' || (inputs.hybrid_review && inputs.reuse_debug_run && needs.offline-apk.result == 'skipped')) }}
     needs: offline-apk
     permissions:
       actions: read
@@ -164,12 +172,12 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - uses: actions/setup-node@v4
-        if: inputs.hybrid_review
+        if: env.HYBRID_REVIEW == 'true'
         with:
           node-version: 24
           cache: npm
       - name: Prepare the React comparison for the debug APK
-        if: inputs.hybrid_review
+        if: env.HYBRID_REVIEW == 'true'
         run: |
           npm ci --ignore-scripts
           npm run check:runtime
@@ -179,15 +187,22 @@ jobs:
           CHROME_BIN=/usr/bin/google-chrome node qa/hybrid_home/reports-regression.mjs hybrid-evidence/fixed-web-reports
           CHROME_BIN=/usr/bin/google-chrome node qa/hybrid_home/browser.mjs hybrid-evidence/browser-check 427 900
           python3 -m pip install Pillow
+      - name: Check React accounting, appearance and web packaging
+        if: github.ref_name == 'integration/hybrid-seven-20261121'
+        run: |
+          npm run lint
+          node --import tsx --test tests/accounting.test.mjs tests/homeAppearanceSettings.test.ts
+          npm run build
+          npm run test:sites
       - name: Exercise the APK in airplane mode
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: ${{ inputs.hybrid_review && 35 || 30 }}
-          target: ${{ inputs.hybrid_review && 'google_apis' || 'default' }}
+          api-level: ${{ env.HYBRID_REVIEW == 'true' && 35 || 30 }}
+          target: ${{ env.HYBRID_REVIEW == 'true' && 'google_apis' || 'default' }}
           disable-animations: true
           arch: x86_64
           profile: pixel_4
-          script: ${{ inputs.hybrid_review && 'CHROME_BIN=/usr/bin/google-chrome python3 qa/hybrid_home/android_review.py --debug offline-apk/app-debug.apk' || inputs.upgrade_baseline == '10013' && 'python3 qa/tools/direct_signed_upgrade.py baseline.apk candidate/app-release.apk' || inputs.signed_run && 'python3 flutter_app/test/android_upgrade_smoke.py baseline.apk candidate/app-release.apk' || 'python3 flutter_app/test/android_offline_smoke.py' }}
+          script: ${{ env.HYBRID_REVIEW == 'true' && 'CHROME_BIN=/usr/bin/google-chrome python3 qa/hybrid_home/android_review.py --debug offline-apk/app-debug.apk' || inputs.upgrade_baseline == '10013' && 'python3 qa/tools/direct_signed_upgrade.py baseline.apk candidate/app-release.apk' || inputs.signed_run && 'python3 flutter_app/test/android_upgrade_smoke.py baseline.apk candidate/app-release.apk' || 'python3 flutter_app/test/android_offline_smoke.py' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
