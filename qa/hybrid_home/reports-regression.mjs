@@ -74,15 +74,21 @@ try {
       const menu=page.getByTestId('reports-hub-menu');
       const buttons=menu.getByRole('button');
       const names=await buttons.allTextContents();assert.equal(names.length,10);
-      await page.evaluate(async()=>{
+      const motion=await page.getByRole('dialog').evaluate(async dialog=>{
+        const style=getComputedStyle(dialog);
+        const signature={name:style.animationName,duration:style.animationDuration,curve:style.animationTimingFunction};
         await document.fonts.ready;
         await Promise.all(Array.from(document.images,img=>img.decode().catch(()=>{})));
-        for (const animation of document.getAnimations()) {
-          if (animation.effect?.getComputedTiming().iterations!==Infinity) animation.finish();
-        }
+        await Promise.all(document.getAnimations().filter(a=>a.effect?.getComputedTiming().iterations!==Infinity)
+          .map(a=>a.finished.catch(()=>{})));
         await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        return signature;
       });
-      await page.screenshot({path:path.join(out,variant+'-'+mode+'.png'),animations:'disabled'});
+      await page.waitForFunction(()=>{
+        const el=document.querySelector('[role="dialog"]');
+        return el && getComputedStyle(el).opacity==='1' && !el.getAnimations().some(a=>a.playState==='running');
+      });
+      await page.screenshot({path:path.join(out,variant+'-'+mode+'.png')});
       const details=[];
       for (const [i,name] of names.entries()) {
         await menu.getByRole('button',{name,exact:true}).click();
@@ -104,7 +110,7 @@ try {
       await page.locator('.account-groups-footer button').click();
       await menu.waitFor({state:'detached'});
       assert.deepEqual(errors,[]);assert.deepEqual(outside,[]);
-      evidence[variant+'-'+mode]={names,details,external:await page.evaluate(()=>window.actions)};
+      evidence[variant+'-'+mode]={names,details,motion,external:await page.evaluate(()=>window.actions)};
       if(variant==='after'){
         assert.deepEqual(evidence['after-'+mode],evidence['before-'+mode]);
         assert.ok(fs.readFileSync(path.join(out,'before-'+mode+'.png')).equals(fs.readFileSync(path.join(out,'after-'+mode+'.png'))),'menu pixels changed: '+mode);
