@@ -295,8 +295,26 @@ def verify_document_touch_layout(open_document):
     try:
         for width in (320, 393, 427):
             adb("shell", "wm", "size", f"{width}x952")
+            def statement_resized():
+                tree = nodes()
+                if not tree or bounds(tree[0])[2] != width:
+                    return False
+                return any("9041" in label(n) or "الرصيد الختامي" in label(n) or "كشف حساب" in label(n) for n in tree)
+            wait(statement_resized, f"Native statement laid out at {width}px")
             open_document()
-            find("معاينة المستند")
+            try:
+                find("معاينة المستند", 12)
+            except AssertionError:
+                tree = nodes()
+                if not any(n.get("class") == "android.webkit.WebView" for n in tree) or any(label(n) for n in tree):
+                    raise
+                # UIAutomator starts a fresh accessibility client for every dump.
+                # Request keyboard focus on the attached WebView after a resize;
+                # every subsequent measurement and action still uses real AX nodes.
+                shot(f"android-document-{width}-empty-accessibility-tree")
+                RESULT.setdefault("accessibility_focus_retries", []).append(width)
+                adb("shell", "input", "keyevent", "KEYCODE_TAB")
+                find("معاينة المستند", 25)
             box = viewport()
             require(box[2] - box[0] == width, f"Unexpected document width: {box}")
             require(adb("shell", "settings", "get", "system", "font_scale").strip() == b"1.3",
@@ -341,6 +359,10 @@ def verify_document_touch_layout(open_document):
                             "swipe_changed_document": True, "returned_to_statement": True})
             passed(f"rtl_document_touch_{width}", layouts[-1])
     finally:
+        if sys.exc_info()[0] is not None:
+            # Preserve the failing layout before resetting the system font.
+            shot("document-layout-failure")
+            record_diag("document-layout-failure")
         adb("shell", "wm", "size", "427x952")
         adb("shell", "settings", "put", "system", "font_scale", "1.0")
     passed("rtl_document_touch_layouts", layouts)
@@ -536,7 +558,10 @@ def run(baseline,candidate):
     passed("frame_and_memory_samples", {"process":PACKAGE})
     record_diag("review")
     runtime=(OUT/"review-log.txt").read_text()
-    require("FATAL EXCEPTION" not in runtime and "Uncaught " not in runtime,"Runtime failure during device review")
+    # The disposable Pixel image also runs standalone UiAutomation dumper
+    # processes. AndroidRuntime identifies the crashed application separately.
+    require(not re.search(r"AndroidRuntime: Process: " + re.escape(PACKAGE) + r"(?=[:, ])", runtime)
+            and "Uncaught " not in runtime, "NASQO or WebView runtime failure during device review")
     after=books();save("after-table-digests.json",after)
     require(after==baseline_books,"Business table difference: "+str([k for k in after if baseline_books.get(k)!=after[k]]))
     passed("accounting_and_stock_integrity",{"tables":len(after),"rows":sum(s[0] for s in after.values()),"foreign_key_errors":0})
