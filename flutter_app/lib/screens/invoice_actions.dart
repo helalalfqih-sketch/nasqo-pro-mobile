@@ -11,7 +11,7 @@ class InvoiceDateField extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
     title: const Text('تاريخ الفاتورة'),
-    subtitle: Text(value.toIso8601String().substring(0,10)),
+    subtitle: Text(value.toIso8601String().substring(0,10), textDirection: TextDirection.ltr),
     trailing: const Icon(Icons.calendar_today_outlined),
     onTap: () async {
       final selected = await showDatePicker(context:context,initialDate:value,
