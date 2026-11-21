@@ -1,0 +1,44 @@
+name: Archive verified hybrid integration evidence
+on:
+  push:
+    branches: ['qa/collect-integrated-hybrid-44945527636']
+    paths: ['.github/workflows/capture-integrated-review.yml','qa/hybrid_review_capture.py']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  collect-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NASQO_SOURCE: '95ceb9625d89ed7ec3491c69e862010d7d60af93'
+      NASQO_TEST_RUN: '44945527636'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate exact source, job results and evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp qa/hybrid_review_capture.py "$RUNNER_TEMP/review.py"
+          git checkout --detach "$NASQO_SOURCE"
+          test "$(git rev-parse HEAD)" = "$NASQO_SOURCE"
+          gh run watch "$NASQO_TEST_RUN" --exit-status --interval 25 > /dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$NASQO_TEST_RUN" > "$RUNNER_TEMP/run.json"
+          jq -e --arg sha "$NASQO_SOURCE" '.head_sha==$sha and .conclusion=="success" and .head_branch=="integration/hybrid-seven-20261121"' "$RUNNER_TEMP/run.json" > /dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$NASQO_TEST_RUN/jobs" > "$RUNNER_TEMP/jobs.json"
+          for job in offline-apk offline-device; do
+            jid="$(jq -er --arg n "$job" '.jobs[]|select(.name==$n and .conclusion=="success")|.id' "$RUNNER_TEMP/jobs.json")"
+            gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$jid/logs" > "$RUNNER_TEMP/$job.log"
+          done
+          gh run download "$NASQO_TEST_RUN" -n offline-screen-checks --dir "$RUNNER_TEMP/review-download"
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/flutter-dev-release.yml/runs?per_page=1" > "$RUNNER_TEMP/signed-status.json"
+          curl -fsSL --retry 1 --max-time 12 'https://erp.indexesstore.com/flutter-updates/manifest.json' -o "$RUNNER_TEMP/public-version.json" || true
+          python "$RUNNER_TEMP/review.py"
+          git add -- qa/PARITY_MATRIX.csv qa/PARITY_GAPS.md qa/PARITY_PROGRESS.json qa/REVIEW_HANDOFF.md qa/screenshots/hybrid-work qa/test_logs/work-integrated-tests.json qa/test_logs/work-android.json qa/test_logs/work-android-baseline.json qa/test_logs/work-android-after.json qa/test_logs/work-reports.json qa/test_logs/work-android-performance.json
+          git diff --cached --check
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Record integrated SQLite, offline Android and React comparison evidence [skip ci]'
+          git push origin "HEAD:refs/heads/qa/hybrid-evidence-$NASQO_TEST_RUN"
+          git rev-parse HEAD
