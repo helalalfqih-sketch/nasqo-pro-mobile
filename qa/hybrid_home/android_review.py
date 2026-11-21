@@ -556,8 +556,16 @@ def run(baseline,candidate):
     change=ImageStat.Stat(ImageChops.difference(base.crop(window),scrolled.crop(window))).mean
     require(max(change)<4,"Cold-start scroll viewport differs: "+repr(change))
     passed("offline_restart_scroll_and_filter",{"css_px":y,"rgb_mean_absolute_difference":change})
-    swipe(185,box[1]+150,185,box[1]+620,200)
-    wait(lambda:prefs().get("scroll",0)==0,"top after swipe")
+    # A cold-open scroll can exceed the travel of one physical gesture.
+    # Swipe the blank margin to avoid starting a drag on a dashboard tile.
+    scroll_positions = [prefs().get("scroll", 0)]
+    for _ in range(8):
+        if scroll_positions[-1] == 0:
+            break
+        swipe(box[0]+12, box[1]+160, box[0]+12, box[3]-140, 460)
+        time.sleep(.6)
+        scroll_positions.append(prefs().get("scroll", 0))
+    require(scroll_positions[-1] == 0, "Home did not scroll to top: " + str(scroll_positions))
     x,y=center(visible_button("سند جديد",box))
     swipe(x,y,x,y,740);find("تحرير البطائق")
     # WebView exposes each tile as one accessibility node; its center selects
