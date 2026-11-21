@@ -76,16 +76,16 @@ class _CashSupplierStatementViewState extends State<CashSupplierStatementView> {
     // Filter by query and criterion
     final filtered = ledger.where((e) {
       if (_searchQuery.trim().isEmpty) return true;
-      final q = _searchQuery.toLowerCase();
+      final q = _searchQuery.trim().toLowerCase();
       return switch (_searchCriterion) {
         'الرقم' => e.entryNumber.toString().contains(q),
         'البيان' => e.details.toLowerCase().contains(q),
-        'رقم المستند' => e.id.toLowerCase().contains(q),
+        'رقم المستند' => e.documentNumber.toLowerCase().contains(q),
         'المبلغ عليه' =>
           e.direction == EntryDirection.debit && e.amount.toString().contains(q),
         'المبلغ له' => e.direction == EntryDirection.credit &&
             e.amount.toString().contains(q),
-        _ => '${e.entryNumber} ${e.details} ${e.typeLabel} ${e.amount}'
+        _ => '${e.entryNumber} ${e.documentNumber} ${e.details} ${e.typeLabel} ${e.amount}'
             .toLowerCase()
             .contains(q),
       };

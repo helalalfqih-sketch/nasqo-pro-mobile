@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nasqo_pro_erp/models/erp_models.dart';
+import 'package:nasqo_pro_erp/screens/cash_supplier_statement_view.dart';
 import 'package:nasqo_pro_erp/screens/home_account_views.dart';
 import 'package:nasqo_pro_erp/state/erp_controller.dart';
 
@@ -10,6 +11,7 @@ LedgerEntryRecord entry(String id,
         bool deleted = false,
         LedgerKind kind = LedgerKind.voucher,
         String accountId = 'customer',
+        String documentNumber = '',
         EntryDirection direction = EntryDirection.debit,
         int number = 1}) =>
     LedgerEntryRecord(
@@ -22,6 +24,7 @@ LedgerEntryRecord entry(String id,
         direction: direction,
         amount: amount,
         currency: currency,
+        documentNumber: documentNumber,
         deleted: deleted,
         entryNumber: number,
         entryDate: '2026-01-01');
@@ -92,6 +95,43 @@ void main() {
     expect(find.text('عميل الاختبار'), findsNothing);
     expect(controller.ledger.length, 1);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('document search retains the balance after earlier postings',
+      (tester) async {
+    final controller = ErpController(autoInitDb: false);
+    addTearDown(controller.dispose);
+    controller.accounts..clear()..add(customer);
+    controller.ledger
+      ..clear()
+      ..add(entry('previous', amount: 5, direction: EntryDirection.credit))
+      ..add(entry('selected', number: 2, amount: 20, documentNumber: 'QA-9041'));
+    await tester.pumpWidget(MaterialApp(home: HomeAccountStatementView(
+        controller: controller, accountId: customer.id)));
+    await tester.enterText(find.byType(TextField), 'QA-9041');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('#1'), findsNothing);
+    expect(find.textContaining('#2'), findsOneWidget);
+    expect(find.textContaining('الرصيد: 65.00 ريال'), findsOneWidget);
+  });
+
+  testWidgets('cash statement finds the stored document number', (tester) async {
+    final controller = ErpController(autoInitDb: false);
+    addTearDown(controller.dispose);
+    controller.ledger
+      ..clear()
+      ..add(entry('unrelated-id', documentNumber: 'INV-9041', number: 42))
+      ..add(entry('INV-9041', documentNumber: 'OTHER', number: 43));
+    await tester.pumpWidget(MaterialApp(home: CashSupplierStatementView(
+        controller: controller, account: customer, onOpenModule: (_) {})));
+    await tester.tap(find.byTooltip('خيارات البحث'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('البحث بواسطة رقم المستند'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), ' inv-9041 ');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('#42'), findsOneWidget);
+    expect(find.textContaining('#43'), findsNothing);
   });
 
   testWidgets('missing account is explicit and narrow screen does not overflow',

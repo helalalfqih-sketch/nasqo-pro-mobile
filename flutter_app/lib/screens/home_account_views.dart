@@ -392,7 +392,12 @@ class _HomeAccountStatementViewState extends State<HomeAccountStatementView> {
               ? null
               : LocalAccountStatement(
                   account, widget.controller.ledger, currency);
-          var running = statement?.opening ?? 0;
+          var balance = statement?.opening ?? 0.0;
+          final runningBalances = <String, double>{};
+          for (final entry in statement?.entries ?? const <LedgerEntryRecord>[]) {
+            balance += entry.direction == EntryDirection.debit ? entry.amount : -entry.amount;
+            runningBalances[entry.id] = balance;
+          }
           final filteredEntries = statement == null
               ? const <LedgerEntryRecord>[]
               : statement.entries.where((e) {
@@ -495,7 +500,7 @@ class _HomeAccountStatementViewState extends State<HomeAccountStatementView> {
                         title: Text(
                             '${entry.entryDate} • ${entry.typeLabel} #${entry.entryNumber}'),
                         subtitle: Text(
-                            '${entry.details}\n${entry.direction == EntryDirection.debit ? "مدين" : "دائن"}: ${_money(entry.amount, currency)}\nالرصيد: ${_money(running += entry.direction == EntryDirection.debit ? entry.amount : -entry.amount, currency)}'),
+                            '${entry.details}\n${entry.direction == EntryDirection.debit ? "مدين" : "دائن"}: ${_money(entry.amount, currency)}\nالرصيد: ${_money(runningBalances[entry.id]!, currency)}'),
                         isThreeLine: true,
                         onTap: () {
                           if (widget.hybridDocuments) {

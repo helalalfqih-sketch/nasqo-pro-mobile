@@ -4,11 +4,13 @@ import io
 import json
 import os
 import re
+import shlex
 import sqlite3
 import subprocess
 import sys
 import tempfile
 import time
+import unicodedata
 from pathlib import Path
 from PIL import Image, ImageChops
 
@@ -79,6 +81,50 @@ def tap(n):
     tapxy(*center(n))
 def back():
     adb("shell","input","keyevent","4");time.sleep(.55)
+
+def verify_saved_document():
+    """Save the displayed SQLite invoice through Android's real print and file pickers."""
+    def saved_files():
+        return set(adb("shell", "find /sdcard/ -type f -iname '*.pdf'").decode().splitlines())
+
+    before = saved_files()
+    tap(exact_button("حفظ المستند PDF عبر Android"))
+    spooler = "com.android.printspooler"
+    def spooler_control(control):
+        return wait(lambda: next((n for n in nodes()
+            if n.get("resource-id") == f"{spooler}:id/{control}" and
+            n.get("enabled") == "true"), None), control, 30)
+
+    tap(spooler_control("destination_spinner"))
+    tap(wait(lambda: next((n for n in nodes() if n.get("package") == spooler and
+        label(n).casefold() in ("save as pdf", "حفظ بتنسيق pdf")), None), "Save as PDF destination"))
+    tap(spooler_control("print_button"))
+    save_file = wait(lambda: next((n for n in nodes() if n.get("package", "").endswith(".documentsui")
+        and n.get("enabled") == "true" and label(n).casefold() in ("save", "حفظ")), None),
+        "Android file picker save action")
+    tap(save_file)
+    def completed_pdf():
+        files = saved_files() - before
+        if len(files) != 1:
+            return None
+        raw = adb("exec-out", "cat", shlex.quote(next(iter(files))))
+        return raw if raw.startswith(b"%PDF-") and raw.rstrip().endswith(b"%%EOF") else None
+
+    raw = wait(completed_pdf, "completed PDF in emulator storage", 30)
+    path = OUT / "sqlite-invoice-9041.pdf"
+    path.write_bytes(raw)
+    extracted = subprocess.check_output(["pdftotext", "-layout", str(path), "-"]).decode()
+    (OUT / "sqlite-invoice-9041.txt").write_text(extracted)
+    normalized = "".join(c for c in unicodedata.normalize("NFKC", extracted)
+                         if unicodedata.category(c) != "Cf")
+    for token in ("9041", "QA-41", "8.5", "25.5", "خيط", "تجريبي"):
+        require(token in normalized or token[::-1] in normalized, "Missing saved invoice field: " + token)
+    find("معاينة المستند")
+    passed("native_saved_pdf_matches_sqlite_invoice", {
+        "entryNumber": 9041, "documentNumber": "QA-41", "quantity": 3,
+        "unitPrice": 8.5, "total": 25.5, "bytes": len(raw),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+    })
 def launch(expect_hybrid=True):
     adb("logcat","-c")
     adb("shell","wm","dismiss-keyguard")
@@ -331,6 +377,8 @@ def run(baseline,candidate):
     shot("android-document-print")
     back();find("معاينة المستند")
     passed("native_document_print_preview_and_cancel")
+    if DEBUG:
+        verify_saved_document()
     back()
     statement_entry()
     passed("react_document_saved_lines_zoom_and_back")
