@@ -532,8 +532,8 @@ class SupplierPerformanceMetric {
     required this.orderCount,
     required this.totalSpend,
     required this.avgOrderCost,
-    required this.avgDeliveryDays,
-    required this.onTimeScore,
+    this.avgDeliveryDays,
+    this.onTimeScore,
   });
 
   final String accountId;
@@ -541,19 +541,26 @@ class SupplierPerformanceMetric {
   final int orderCount;
   final double totalSpend;
   final double avgOrderCost;
-  final double avgDeliveryDays;
-  final int onTimeScore;
+  final double? avgDeliveryDays;
+  final int? onTimeScore;
 }
 
 List<SupplierPerformanceMetric> computeSupplierMetrics(
   List<AccountRecord> accounts,
   List<LedgerEntryRecord> ledger,
-  CurrencyCode currency,
-) {
-  final suppliers = accounts.where((a) => a.category == AccountCategory.purchases).toList();
+  CurrencyCode currency, {
+  List<ErpPurchaseOrder> purchaseOrders = const [],
+}) {
+  final suppliers = accounts
+      .where((a) => a.category == AccountCategory.purchases)
+      .toList()
+    ..sort((a, b) {
+      final codeCmp = a.codeNumber.compareTo(b.codeNumber);
+      return codeCmp != 0 ? codeCmp : a.id.compareTo(b.id);
+    });
   final metrics = <SupplierPerformanceMetric>[];
 
-  for (final (idx, s) in suppliers.indexed) {
+  for (final s in suppliers) {
     final entries = ledger
         .where((e) =>
             !e.deleted &&
@@ -564,17 +571,55 @@ List<SupplierPerformanceMetric> computeSupplierMetrics(
         .toList();
     final total = entries.fold<double>(0, (sum, e) => sum + e.amount);
     final count = entries.length;
-    if (count == 0 && s.openingBalance <= 0) continue;
+
+    final deliveryDays = <double>[];
+    var onTimeCount = 0;
+    var evaluatedOnTime = 0;
+
+    for (final po in purchaseOrders) {
+      if (po.supplierAccountId != s.id ||
+          po.currency != currency ||
+          po.status != PurchaseOrderStatus.received) {
+        continue;
+      }
+      final orderDt = DateTime.tryParse(po.orderDate);
+      final expectedDt = DateTime.tryParse(po.expectedDate);
+      final linked = ledger
+          .where((e) =>
+              !e.deleted &&
+              ((po.postedLedgerEntryId != null && e.id == po.postedLedgerEntryId) ||
+                  (po.poNumber.isNotEmpty && e.documentNumber == po.poNumber)))
+          .firstOrNull;
+      final receivedDt = linked != null ? DateTime.tryParse(linked.entryDate) : null;
+      if (orderDt != null && receivedDt != null && !receivedDt.isBefore(orderDt)) {
+        deliveryDays.add(receivedDt.difference(orderDt).inDays.toDouble());
+        if (expectedDt != null) {
+          evaluatedOnTime++;
+          if (!receivedDt.isAfter(expectedDt)) {
+            onTimeCount++;
+          }
+        }
+      }
+    }
+
+    if (count == 0 && s.openingBalance <= 0 && deliveryDays.isEmpty) continue;
     final effectiveTotal = total > 0 ? total : s.openingBalance;
     final effectiveCount = count > 0 ? count : 1;
+    final avgDelivery = deliveryDays.isEmpty
+        ? null
+        : deliveryDays.reduce((a, b) => a + b) / deliveryDays.length;
+    final score = evaluatedOnTime == 0
+        ? null
+        : ((onTimeCount / evaluatedOnTime) * 100).round();
+
     metrics.add(SupplierPerformanceMetric(
       accountId: s.id,
       name: s.name,
       orderCount: effectiveCount,
       totalSpend: effectiveTotal,
       avgOrderCost: effectiveTotal / effectiveCount,
-      avgDeliveryDays: 2.0 + (idx % 4),
-      onTimeScore: (96 - (idx * 3)).clamp(78, 99),
+      avgDeliveryDays: avgDelivery,
+      onTimeScore: score,
     ));
   }
   return metrics;
@@ -586,11 +631,13 @@ class SupplierPerformanceChartCard extends StatefulWidget {
     required this.accounts,
     required this.ledger,
     required this.currency,
+    this.purchaseOrders = const [],
   });
 
   final List<AccountRecord> accounts;
   final List<LedgerEntryRecord> ledger;
   final CurrencyCode currency;
+  final List<ErpPurchaseOrder> purchaseOrders;
 
   @override
   State<SupplierPerformanceChartCard> createState() =>
@@ -608,11 +655,13 @@ class _SupplierPerformanceChartCardState
       widget.accounts,
       widget.ledger,
       widget.currency,
+      purchaseOrders: widget.purchaseOrders,
     );
-    final avgDelivery = suppliers.isEmpty
-        ? 0.0
-        : suppliers.fold<double>(0, (s, m) => s + m.avgDeliveryDays) /
-            suppliers.length;
+    final withDelivery = suppliers.where((m) => m.avgDeliveryDays != null).toList();
+    final avgDelivery = withDelivery.isEmpty
+        ? null
+        : withDelivery.fold<double>(0, (s, m) => s + m.avgDeliveryDays!) /
+            withDelivery.length;
     final avgCost = suppliers.isEmpty
         ? 0.0
         : suppliers.fold<double>(0, (s, m) => s + m.avgOrderCost) /
@@ -640,7 +689,7 @@ class _SupplierPerformanceChartCardState
             Text(
               suppliers.isEmpty
                   ? 'لا توجد بيانات موردين كافية للمقارنة'
-                  : 'متوسط التوريد: ${avgDelivery.toStringAsFixed(1)} يوم · متوسط الفاتورة: ${AccountingEngine.formatAmount(avgCost)} ${widget.currency.label}',
+                  : 'متوسط التوريد: ${avgDelivery == null ? "غير متاح" : "${avgDelivery.toStringAsFixed(1)} يوم"} · متوسط الفاتورة: ${AccountingEngine.formatAmount(avgCost)} ${widget.currency.label}',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
@@ -670,7 +719,7 @@ class _SupplierPerformanceChartCardState
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'المورد: ${focused.name} · الالتزام: ${focused.onTimeScore}% · متوسط التوريد: ${focused.avgDeliveryDays.toStringAsFixed(1)} يوم · الإجمالي: ${AccountingEngine.formatAmount(focused.totalSpend)} ${widget.currency.label}',
+                  'المورد: ${focused.name} · الالتزام: ${focused.onTimeScore == null ? "غير متاح" : "${focused.onTimeScore}%"} · متوسط التوريد: ${focused.avgDeliveryDays == null ? "غير متاح" : "${focused.avgDeliveryDays!.toStringAsFixed(1)} يوم"} · الإجمالي: ${AccountingEngine.formatAmount(focused.totalSpend)} ${widget.currency.label}',
                   style: const TextStyle(fontSize: 11),
                 ),
               ),
@@ -702,7 +751,9 @@ class _SupplierPerformanceChartCardState
                             minHeight: 8,
                             borderRadius: BorderRadius.circular(4),
                             value: _metricView == 'delivery'
-                                ? (s.avgDeliveryDays / 7.0).clamp(0.1, 1.0)
+                                ? (s.avgDeliveryDays == null
+                                    ? 0.0
+                                    : (s.avgDeliveryDays! / 7.0).clamp(0.1, 1.0))
                                 : (avgCost > 0
                                     ? (s.avgOrderCost / (avgCost * 2))
                                         .clamp(0.1, 1.0)
@@ -712,7 +763,9 @@ class _SupplierPerformanceChartCardState
                         const SizedBox(width: 8),
                         Text(
                           _metricView == 'delivery'
-                              ? '${s.avgDeliveryDays.toStringAsFixed(1)} يوم'
+                              ? (s.avgDeliveryDays == null
+                                  ? 'غير متاح'
+                                  : '${s.avgDeliveryDays!.toStringAsFixed(1)} يوم')
                               : AccountingEngine.formatAmount(s.avgOrderCost),
                           style: const TextStyle(
                               fontSize: 11, fontWeight: FontWeight.bold),

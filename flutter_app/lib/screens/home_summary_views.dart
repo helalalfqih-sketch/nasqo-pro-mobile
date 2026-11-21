@@ -149,6 +149,7 @@ class HomeSalesOverviewView extends StatelessWidget {
                 accounts: controller.accounts,
                 ledger: controller.ledger,
                 currency: controller.defaultCurrency,
+                purchaseOrders: controller.purchaseOrders,
               ),
             ]),
           ),

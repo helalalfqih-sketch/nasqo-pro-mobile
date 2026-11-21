@@ -105,6 +105,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
             accounts: widget.controller.accounts,
             ledger: widget.controller.ledger,
             currency: widget.controller.defaultCurrency,
+            purchaseOrders: widget.controller.purchaseOrders,
           ),
         ],
         if (_tab == 2 && widget.openRecordedSalesTax != null)

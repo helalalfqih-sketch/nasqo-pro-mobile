@@ -11,7 +11,6 @@ import 'nasqo_brand_mark.dart';
 
 import '../services/local_backup_files.dart';
 import '../services/legacy_backup_inspection.dart';
-import 'web_auxiliary_views.dart';
 
 class LocalBackupWorkspaceView extends StatefulWidget {
   const LocalBackupWorkspaceView(
@@ -394,16 +393,6 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
                       onPressed: _busy ? null : _refresh,
                       icon: const Icon(Icons.refresh),
                       label: const Text('تحديث القائمة')),
-                  OutlinedButton.icon(
-                      key: const ValueKey('backup-open-name-modal'),
-                      onPressed: _busy
-                          ? null
-                          : () => showBackupNameModal(
-                                context,
-                                onSaveLocal: (_) async => _create(),
-                              ),
-                      icon: const Icon(Icons.drive_file_rename_outline),
-                      label: const Text('تسمية نسخة احتياطية')),
                 ]),
                 if (_busy)
                   const Padding(

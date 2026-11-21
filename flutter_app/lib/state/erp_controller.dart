@@ -1262,21 +1262,75 @@ class ErpController extends ChangeNotifier {
         throw const SaleValidationException('الكمية المحولة غير صالحة أو تتجاوز المتوفر في المستودع.');
       }
       final next = List<InventoryItemRecord>.of(inventory);
+      final srcSku = src.sku.trim().toLowerCase();
+      final srcName = src.name.trim().toLowerCase();
+      final srcUnit = src.unit.trim().toLowerCase();
+
+      int dstIdx = -1;
+      if (srcSku.isNotEmpty) {
+        final sameSkuIndices = <int>[
+          for (var i = 0; i < next.length; i++)
+            if (next[i].warehouseId == toWarehouseId &&
+                next[i].sku.trim().toLowerCase() == srcSku)
+              i,
+        ];
+        if (sameSkuIndices.length > 1) {
+          throw const SaleValidationException('توجد سجلات مكررة لرمز الصنف في مستودع الوجهة.');
+        }
+        if (sameSkuIndices.length == 1) {
+          final candidate = next[sameSkuIndices.single];
+          if (candidate.name.trim().toLowerCase() != srcName ||
+              candidate.unit.trim().toLowerCase() != srcUnit) {
+            throw const SaleValidationException(
+                'تعارض في اسم الصنف أو وحدة القياس لنفس الرمز في مستودع الوجهة.');
+          }
+          dstIdx = sameSkuIndices.single;
+        } else {
+          final ambiguousUnsubmittedSku = next.any((i) =>
+              i.warehouseId == toWarehouseId &&
+              i.sku.trim().isEmpty &&
+              i.name.trim().toLowerCase() == srcName);
+          if (ambiguousUnsubmittedSku) {
+            throw const SaleValidationException(
+                'يوجد صنف بنفس الاسم دون رمز في مستودع الوجهة؛ حدّد الرمز أولًا لمنع الالتباس.');
+          }
+        }
+      } else {
+        final sameNameIndices = <int>[
+          for (var i = 0; i < next.length; i++)
+            if (next[i].warehouseId == toWarehouseId &&
+                next[i].name.trim().toLowerCase() == srcName)
+              i,
+        ];
+        if (sameNameIndices.length > 1) {
+          throw const SaleValidationException(
+              'توجد عدة أصناف بنفس الاسم في مستودع الوجهة؛ حدّد رمز الصنف لمنع الالتباس.');
+        }
+        if (sameNameIndices.length == 1) {
+          final candidate = next[sameNameIndices.single];
+          if (candidate.sku.trim().isNotEmpty ||
+              candidate.unit.trim().toLowerCase() != srcUnit) {
+            throw const SaleValidationException(
+                'تعارض أو التباس في رمز الصنف أو وحدة القياس في مستودع الوجهة.');
+          }
+          dstIdx = sameNameIndices.single;
+        }
+      }
+
       next[srcIdx] = src.copyWith(quantity: src.quantity - quantity);
-      final dstIdx = next.indexWhere((i) =>
-          i.warehouseId == toWarehouseId &&
-          ((src.sku.isNotEmpty && i.sku.toLowerCase() == src.sku.toLowerCase()) ||
-              i.name.toLowerCase() == src.name.toLowerCase()));
       if (dstIdx >= 0) {
         final dst = next[dstIdx];
         final totalQty = dst.quantity + quantity;
         final weightedCost = totalQty > 0
             ? (dst.quantity * dst.avgCost + quantity * src.avgCost) / totalQty
             : src.avgCost;
+        if (!totalQty.isFinite || !weightedCost.isFinite || totalQty == dst.quantity) {
+          throw const SaleValidationException('قيمة التحويل المخزني خارج النطاق.');
+        }
         next[dstIdx] = dst.copyWith(quantity: totalQty, avgCost: weightedCost);
       } else {
         next.add(InventoryItemRecord(
-          id: 'item_${DateTime.now().microsecondsSinceEpoch}',
+          id: 'item_${DateTime.now().microsecondsSinceEpoch}_${next.length}',
           name: src.name,
           sku: src.sku,
           unit: src.unit,
