@@ -62,6 +62,7 @@ html, body { margin: 0; height: 100%; }
     flex-wrap: wrap;
     overflow: visible;
   }
+  .hybrid-document .simple-app-header .header-icon,
   .hybrid-document .cash-invoice-controls button,
   .hybrid-document .cash-invoice-reader-hint button {
     box-sizing: border-box;
@@ -78,6 +79,9 @@ html, body { margin: 0; height: 100%; }
     padding: 2px 6px;
     text-align: center;
   }
+  .hybrid-document,
+  .hybrid-document .cash-invoice-scroll,
+  .hybrid-document .cash-invoice-horizontal {touch-action: pan-x pan-y;}
   .hybrid-document .cash-invoice-scroll {position: relative; inset: auto; min-height: 0;}
 }
 

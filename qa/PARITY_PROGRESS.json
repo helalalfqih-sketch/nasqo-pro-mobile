@@ -1,29 +1,48 @@
 {
   "branch": "integration/hybrid-seven-20261121",
   "react_reference_sha": "2e4396b347b21a1378e82e8124b2ef461b3ad02f",
-  "integration_base_sha": "bebf6153246300999d10f93ad67be69586cebba9",
+  "integration_base_sha": "4d645d02f7f15975822fab752dcfb81b03612fd4",
   "matrix_scenario_prefix": "INT-",
   "status": "awaiting_candidate_ci",
   "reviewed_run": {
-    "id": 44947783678,
-    "sha": "78c00a833a7b2274e644ecfd542410534000a5ee",
+    "id": 44950801587,
+    "sha": "4d645d02f7f15975822fab752dcfb81b03612fd4",
+    "attempt": 1,
     "flutter_unit_passed": 282,
     "flutter_targeted_passed": 6,
-    "apk": "failure",
-    "android_device": "skipped"
+    "apk": "success",
+    "android_device": "failure",
+    "failure": "No unobstructed sales metric after cold reopen",
+    "browser_rtl_document_cases_passed": 6
   },
   "document_touch_layout": {
-    "widths_px": [320, 393, 427],
-    "browser_font_scales": [1, 1.3],
+    "widths_px": [
+      320,
+      393,
+      427
+    ],
+    "browser_font_scales": [
+      1,
+      1.3
+    ],
     "android_font_scale": 1.3,
     "minimum_action_size_css_px": 48,
     "browser_cases_passed": 6,
-    "android": "pending"
+    "android": "pending_device_evidence"
   },
   "candidate_evidence": {
     "android_device": "pending",
     "native_pdf_artifact": "pending",
-    "physical_phone": "pending"
+    "physical_phone": "pending",
+    "adb_before_install_run": 44943597143,
+    "android_native_print_preview_and_cancel_run": 44950622876,
+    "android_pdf_save_failure_run": 44950622876,
+    "synthetic_cash_invoice_plus_voucher": {
+      "invoice_cash": 8,
+      "voucher_cash": 3.25,
+      "combined_cash": 11.25,
+      "test": "flutter_app/test/financial_form_receipt_test.dart"
+    }
   },
   "historical_audit": {
     "batch": 1,

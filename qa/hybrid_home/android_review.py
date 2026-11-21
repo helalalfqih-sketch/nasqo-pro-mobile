@@ -269,16 +269,21 @@ def taprect(box,rect):
 def swipe(x,y,x2,y2,ms=360):
     adb("shell","input","swipe",str(round(x)),str(round(y)),str(round(x2)),str(round(y2)),str(ms))
 def visible_button(text,box,direction="down"):
-    for _ in range(7):
+    for step in range(16):
         for n in nodes():
             if n.get("class")!="android.widget.Button" or text not in label(n):continue
             l,t,r,b=bounds(n)
             if r>l and b-t>=18 and box[1]+56<(t+b)/2<box[3]-80:return n
-        upper,lower=box[1]+170,box[1]+410
-        if direction=="up":swipe(160,upper,160,lower)
+        upper,lower=box[1]+170,box[1]+355
+        # On a cold reopen the restored position may be above or below the card.
+        if (direction=="up") == (step < 7):swipe(160,upper,160,lower)
         else:swipe(160,lower,160,upper)
-        time.sleep(.25)
+        time.sleep(.4)
     raise AssertionError("No unobstructed button: "+text)
+
+def rendered_print_page():
+    return next((n for n in nodes() if n.get("package")=="com.android.printspooler" and
+                     re.search(r"Page 1 of [1-9]|صفحة 1 من",label(n),re.I)),None)
 
 def verify_document_touch_layout(open_document):
     labels = (
@@ -294,7 +299,11 @@ def verify_document_touch_layout(open_document):
             find("معاينة المستند")
             box = viewport()
             require(box[2] - box[0] == width, f"Unexpected document width: {box}")
+            require(adb("shell", "settings", "get", "system", "font_scale").strip() == b"1.3",
+                    "Android did not retain the enlarged system font")
             back_button = exact_button("رجوع")
+            bl, bt, br, bb = bounds(back_button)
+            require(br - bl >= 48 and bb - bt >= 48, "Undersized Back button")
             back_bottom = bounds(back_button)[3]
             controls = {label: bounds(exact_button(label)) for label in labels}
             for label, (left, top, right, bottom) in controls.items():
@@ -320,8 +329,17 @@ def verify_document_touch_layout(open_document):
                     f"Horizontal swipe did not move the document at width {width}")
             tap(exact_button("ملاءمة العرض"))
             find("يمكن طباعة المستند أو حفظه")
+            for action in ("طباعة الفاتورة", "حفظ المستند PDF عبر Android"):
+                tap(exact_button(action))
+                wait(rendered_print_page, f"Rendered Android page for {action} at {width}px", 35)
+                back()
+                find("معاينة المستند")
             tap(exact_button("رجوع"))
-            layouts.append({"width": width, "font_scale": 1.3, "controls": controls})
+            find("الرصيد الختامي: 25.00 دولار")
+            layouts.append({"width": width, "font_scale": 1.3, "controls": controls,
+                            "back_bounds": bounds(back_button), "native_print_and_pdf_preview": True,
+                            "swipe_changed_document": True, "returned_to_statement": True})
+            passed(f"rtl_document_touch_{width}", layouts[-1])
     finally:
         adb("shell", "wm", "size", "427x952")
         adb("shell", "settings", "put", "system", "font_scale", "1.0")
@@ -444,20 +462,19 @@ def run(baseline,candidate):
     tap(exact_button("ملاءمة العرض"))
     find("يمكن طباعة المستند أو حفظه")
     tap(exact_button("طباعة الفاتورة"))
-    def rendered_print_page():
-        return next((n for n in nodes() if n.get("package")=="com.android.printspooler" and
-                     re.search(r"Page 1 of [1-9]|صفحة 1 من",label(n),re.I)),None)
     wait(rendered_print_page,"Android produced a document preview",30)
     shot("android-document-print")
     back();find("معاينة المستند")
     passed("native_document_print_preview_and_cancel")
-    if DEBUG:
-        verify_saved_document()
     back()
     statement_entry()
     passed("react_document_saved_lines_zoom_and_back")
     if DEBUG:
         verify_document_touch_layout(lambda: tap(statement_entry()))
+        tap(statement_entry())
+        find("خيط تجريبي")
+        verify_saved_document()
+        back()
         statement_entry()
     back();find("عميل دولار تجريبي");back();find("مجموعة الشمال")
     require(prefs()["filters"]["group-41"]=="دولار","lost filter on return");passed("native_statement_back")
