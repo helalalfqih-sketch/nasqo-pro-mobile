@@ -1,0 +1,39 @@
+name: Prepare the hybrid Android presentation for review
+on:
+  push:
+    branches: ['qa/stage-hybrid-doc-20261121']
+    paths: ['.github/workflows/prepare-hybrid-review.yml']
+permissions:
+  contents: write
+jobs:
+  package-presentation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: 9504c475450ac920b446b033d729ee9f2ad633d7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Package and verify the local document
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "9504c475450ac920b446b033d729ee9f2ad633d7"
+          npm ci --ignore-scripts
+          npm run check:runtime
+          node qa/hybrid_home/build.mjs
+          node qa/hybrid_home/build.mjs --reference /tmp/nasqo-hybrid-ref
+          CHROME_BIN=/usr/bin/google-chrome node qa/hybrid_home/browser.mjs "$RUNNER_TEMP/browser" 427 900
+          git add -- flutter_app/android/app/src/main/assets/hybrid_home
+          git diff --cached --check
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Bundle the verified React document and offline styles into Android'
+          git push origin "HEAD:refs/heads/qa/hybrid-packaged-$GITHUB_RUN_ID"
+          git rev-parse HEAD
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: packaged-react-review
+          path: ${{ runner.temp }}/browser
