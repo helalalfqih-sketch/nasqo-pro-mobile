@@ -1,3 +1,4 @@
+import 'cash_sale_settlement.dart' show linkedCashVoucherIds;
 import '../models/erp_models.dart';
 import '../state/erp_controller.dart';
 
@@ -50,6 +51,7 @@ Map<(String, CurrencyCode), AccountAmounts> accountAmountsByCurrency(
     _ => '',
   };
   final archive = controller.restoredGroups;
+  final linkedVouchers = linkedCashVoucherIds(controller.ledger);
   for (final e in controller.ledger) {
     if (e.deleted ||
         (start.isNotEmpty &&
@@ -68,6 +70,7 @@ Map<(String, CurrencyCode), AccountAmounts> accountAmountsByCurrency(
         final wash = (archive?.settledEntries.contains(e.id) ?? false) ||
             (archive?.sides[e.id] == null &&
                 primary.isCashAccount &&
+                !linkedVouchers.contains(e.id) &&
                 e.payment == PaymentMethod.cash);
         b.add(e.amount, credit);
         if (wash) b.add(e.amount, !credit);

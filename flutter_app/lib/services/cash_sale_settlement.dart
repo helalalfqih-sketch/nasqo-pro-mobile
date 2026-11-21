@@ -32,3 +32,25 @@ List<LedgerEntryRecord> cashSaleSettlement(LedgerEntryRecord document,
         cashOut ? EntryDirection.debit : EntryDirection.credit),
   ];
 }
+
+
+/// Native cash vouchers have two real account legs under one entry number.
+/// Imported and older unpaired entries retain their original interpretation.
+Set<String> linkedCashVoucherIds(Iterable<LedgerEntryRecord> entries) {
+  final vouchers = {
+    for (final e in entries)
+      if (!e.deleted && e.kind == LedgerKind.voucher &&
+          e.payment == PaymentMethod.cash && e.id.startsWith('local_')) e.id: e
+  };
+  final linked = <String>{};
+  for (final primary in vouchers.values) {
+    final other = vouchers['${primary.id}_counter'];
+    if (other != null && other.entryNumber == primary.entryNumber &&
+        other.currency == primary.currency && other.direction != primary.direction &&
+        other.amount == primary.amount && other.accountId != primary.accountId) {
+      linked.add(primary.id);
+      linked.add(other.id);
+    }
+  }
+  return linked;
+}

@@ -9,6 +9,7 @@ import 'package:nasqo_pro_erp/screens/invoice_actions.dart';
 import 'package:nasqo_pro_erp/services/local_database.dart';
 import 'package:nasqo_pro_erp/services/posting_receipt.dart';
 import 'package:nasqo_pro_erp/services/trial_balance_summary.dart';
+import 'package:nasqo_pro_erp/services/account_amounts.dart';
 import 'package:nasqo_pro_erp/state/erp_controller.dart';
 
 void main() {
@@ -126,10 +127,17 @@ void main() {
     await expectLater(purchase(), throwsA(isA<SaleValidationException>()));
     final purchaseNumber = await pendingPurchase;
     final cashBefore = trialBalanceSummary(c, CurrencyCode.sar).cash;
+    double boxNet() {
+      final a = c.accounts.singleWhere((a) => a.id == 'b');
+      final amount = accountAmountsByCurrency(c, [a])[(a.id, CurrencyCode.sar)];
+      return (amount?.debit ?? 0) - (amount?.credit ?? 0);
+    }
+    final boxBefore = boxNet();
     final pendingVoucher = voucher();
     await expectLater(voucher(), throwsA(isA<SaleValidationException>()));
     final voucherNumber = await pendingVoucher;
     expect(trialBalanceSummary(c, CurrencyCode.sar).cash, cashBefore + 3.25);
+    expect(boxNet(), boxBefore + 3.25);
     expect(trialBalanceSummary(c, CurrencyCode.usd).cash, 0);
     expect(c.inventory.single.quantity, 10);
     expect(c.saleLines.length, 2);
@@ -155,6 +163,7 @@ void main() {
     await expectLater(purchase(reference: 'changed'), throwsA(isA<SaleValidationException>()));
     expect(await voucher(), voucherNumber);
     expect(trialBalanceSummary(c, CurrencyCode.sar).cash, cashBefore + 3.25);
+    expect(boxNet(), boxBefore + 3.25);
     await expectLater(sale(tax: true), throwsA(isA<SaleValidationException>()));
     await expectLater(
         voucher(amount: 4), throwsA(isA<SaleValidationException>()));
