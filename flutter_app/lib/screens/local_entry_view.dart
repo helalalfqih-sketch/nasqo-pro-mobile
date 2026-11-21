@@ -18,6 +18,8 @@ class LocalEntryView extends StatefulWidget {
 
 class _LocalEntryState extends State<LocalEntryView> {
   String? accountId, counterpart, error;
+  String expenseCategory = '';
+  String? categoryNotice;
   final document = TextEditingController(), sender = TextEditingController(), recipient = TextEditingController(), company = TextEditingController();
   late CurrencyCode currency, fromCurrency;
   EntryDirection direction = EntryDirection.debit;
@@ -25,6 +27,75 @@ class _LocalEntryState extends State<LocalEntryView> {
   final amount = TextEditingController(), rate = TextEditingController(text: '1'), note = TextEditingController();
   bool saving = false;
   final accountSearch = TextEditingController();
+
+  double _accountBalance(String? id) {
+    if (id == null) return 0;
+    final acc = widget.controller.accounts.where((a) => a.id == id).firstOrNull;
+    if (acc == null) return 0;
+    var total = acc.currency == currency
+        ? acc.openingBalance * (acc.openingDirection == EntryDirection.debit ? 1 : -1)
+        : 0.0;
+    for (final e in widget.controller.ledger) {
+      if (e.deleted || e.accountId != id || e.currency != currency ||
+          e.kind == LedgerKind.quote || e.kind == LedgerKind.order) {
+        continue;
+      }
+      total += e.direction == EntryDirection.debit ? e.amount : -e.amount;
+    }
+    return total;
+  }
+
+  Widget _balanceStrip(String? id) {
+    final acc = widget.controller.accounts.where((a) => a.id == id).firstOrNull;
+    if (acc == null) return const SizedBox.shrink();
+    final bal = _accountBalance(id);
+    final side = bal > 0 ? 'عليه' : bal < 0 ? 'له' : 'متزن';
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFFDBA74)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('رصيد ${acc.name}:', style: const TextStyle(fontSize: 12, color: Color(0xFF9A3412))),
+          Text(
+            '${AccountingEngine.formatAmount(bal.abs())} ${currency.label} ($side)',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFC2410C)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _swapAccounts() {
+    if (accountId == null && counterpart == null) return;
+    setState(() {
+      final tmp = accountId;
+      accountId = counterpart;
+      counterpart = tmp;
+    });
+  }
+
+  void _suggestExpenseCategory() {
+    final acc = widget.controller.accounts.where((a) => a.id == accountId).firstOrNull;
+    if (note.text.trim().isEmpty && acc == null) {
+      setState(() => categoryNotice = 'أدخل البيان أو اختر الحساب أولًا لاقتراح التصنيف.');
+      return;
+    }
+    final suggested = ErpController.inferExpenseCategory(
+      note.text,
+      acc?.name ?? '',
+      acc?.category,
+    );
+    setState(() {
+      expenseCategory = suggested;
+      categoryNotice = 'اقتراح التصنيف الذكي: $suggested';
+    });
+  }
 
   List<AccountRecord> get matchingAccounts {
     String normalize(String value) => value.trim().toLowerCase().replaceAllMapped(
@@ -79,7 +150,9 @@ class _LocalEntryState extends State<LocalEntryView> {
         kind: widget.kind, direction: direction, counterpartId: counterpart, documentNumber: document.text,
         payment: payment, amount: AccountingEngine.parseArabicNumber(amount.text), currency: currency,
         fromCurrency: widget.exchange ? fromCurrency : null, exchangeRate: widget.exchange
-          ? AccountingEngine.parseArabicNumber(rate.text) : 1, note: [
+          ? AccountingEngine.parseArabicNumber(rate.text) : 1,
+        expenseCategory: expenseCategory,
+        note: [
             if (sender.text.trim().isNotEmpty) 'المرسل: ${sender.text.trim()}',
             if (recipient.text.trim().isNotEmpty) 'المستلم: ${recipient.text.trim()}',
             if (company.text.trim().isNotEmpty) 'شركة التحويل: ${company.text.trim()}',
@@ -139,11 +212,22 @@ class _LocalEntryState extends State<LocalEntryView> {
             if (!widget.exchange && c != null) currency = c;
           })),
         if (widget.journal || widget.transfer) ...[
+          _balanceStrip(accountId),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: const ValueKey('local-entry-swap-accounts'),
+              onPressed: _swapAccounts,
+              icon: const Icon(Icons.swap_vert, size: 18),
+              label: const Text('تبديل الحسابين'),
+            ),
+          ),
           DropdownButtonFormField<String>(value: counterpart, isExpanded: true,
             decoration: InputDecoration(labelText: widget.journal ? 'من حساب (مدين)' : 'الحساب المقابل'),
             items: [for (final a in widget.controller.accounts.where((a) => a.id != accountId))
               DropdownMenuItem(value: a.id, child: Text(a.name))],
             onChanged: (v) => setState(() => counterpart = v)),
+          _balanceStrip(counterpart),
           TextField(controller: document, decoration: InputDecoration(labelText: widget.transfer ? 'رقم الحوالة' : 'رقم المستند')),
         ],
         if (widget.transfer) ...[
@@ -172,6 +256,44 @@ class _LocalEntryState extends State<LocalEntryView> {
           ButtonSegment(value: PaymentMethod.balance, label: Text('رصيد')),
         ], selected: {payment}, onSelectionChanged: (v) => setState(() => payment = v.single)),
         TextField(controller: note, decoration: const InputDecoration(labelText: 'البيان')),
+        if (widget.kind == LedgerKind.voucher) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: expenseCategory,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'التصنيف المحاسبي'),
+                  items: [
+                    const DropdownMenuItem(value: '', child: Text('تلقائي حسب البيان')),
+                    for (final cat in ErpController.expenseCategories)
+                      DropdownMenuItem(value: cat, child: Text(cat)),
+                  ],
+                  onChanged: (v) => setState(() {
+                    expenseCategory = v ?? '';
+                    categoryNotice = null;
+                  }),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                key: const ValueKey('local-entry-smart-category'),
+                onPressed: _suggestExpenseCategory,
+                icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                label: const Text('تصنيف ذكي'),
+              ),
+            ],
+          ),
+          if (categoryNotice != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                categoryNotice!,
+                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary),
+              ),
+            ),
+        ],
         if (error != null) Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
         const SizedBox(height: 16),
         FilledButton.icon(onPressed: saving ? null : _save, icon: const Icon(Icons.save_outlined),

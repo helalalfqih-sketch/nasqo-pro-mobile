@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/erp_models.dart';
 import '../services/account_csv.dart';
 import '../state/erp_controller.dart';
+import 'web_auxiliary_views.dart';
 
 /// Conservative classification: only explicit sale labels produced by the local
 /// controller. Unknown/imported headers are not guessed to be sales.
@@ -21,6 +22,9 @@ class LocalSalesSummary {
   final List<LedgerEntryRecord> entries;
   int get count => entries.length;
   double get total => entries.fold(0.0, (sum, e) => sum + e.amount);
+  int get cashCount =>
+      entries.where((e) => e.payment == PaymentMethod.cash || e.typeLabel == 'ف.مبيعات نقدية').length;
+  int get creditCount => count - cashCount;
 }
 
 class HomeCurrencyDirectoryView extends StatelessWidget {
@@ -136,6 +140,17 @@ class HomeSalesOverviewView extends StatelessWidget {
                 _SalesCurrencyCard(
                     summary: LocalSalesSummary(controller.ledger, currency),
                     currency: currency),
+              const SizedBox(height: 8),
+              SalesTrendChartCard(
+                ledger: controller.ledger,
+                currency: controller.defaultCurrency,
+              ),
+              SupplierPerformanceChartCard(
+                accounts: controller.accounts,
+                ledger: controller.ledger,
+                currency: controller.defaultCurrency,
+                purchaseOrders: controller.purchaseOrders,
+              ),
             ]),
           ),
         ),

@@ -1082,6 +1082,274 @@ class ErpController extends ChangeNotifier {
     } finally { _editingWorkspace = false; }
   }
 
+  Future<void> setDefaultCurrency(CurrencyCode code) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      defaultCurrency = code;
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw const SaleValidationException('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+        await _saveCurrentSnapshot();
+      }
+      if (!_disposed) notifyListeners();
+    } finally { _editingWorkspace = false; }
+  }
+
+  static const List<String> expenseCategories = [
+    'مشتريات بضائع',
+    'مصروفات تشغيلية',
+    'شحن ونقل',
+    'رواتب وأجور',
+    'صيانة ومرافق',
+    'تسويق ومبيعات',
+    'إيجار ومقر',
+    'أخرى',
+  ];
+
+  static String inferExpenseCategory(
+    String description,
+    String accountName, [
+    AccountCategory? category,
+  ]) {
+    final text = '$description $accountName'.toLowerCase();
+    if (text.contains('راتب') || text.contains('رواتب') || text.contains('أجر') ||
+        text.contains('سلفة') || category == AccountCategory.employees) {
+      return 'رواتب وأجور';
+    }
+    if (text.contains('شحن') || text.contains('نقل') || text.contains('توصيل') ||
+        text.contains('ديزل') || text.contains('وقود')) {
+      return 'شحن ونقل';
+    }
+    if (text.contains('إيجار') || text.contains('ايجار') || text.contains('مقر') ||
+        text.contains('مستودع')) {
+      return 'إيجار ومقر';
+    }
+    if (text.contains('كهرباء') || text.contains('ماء') || text.contains('صيانة') ||
+        text.contains('إنترنت') || text.contains('انترنت')) {
+      return 'صيانة ومرافق';
+    }
+    if (text.contains('إعلان') || text.contains('اعلان') || text.contains('تسويق') ||
+        text.contains('عمولة') || category == AccountCategory.sales) {
+      return 'تسويق ومبيعات';
+    }
+    if (text.contains('بضاعة') || text.contains('توريد') || text.contains('شراء') ||
+        category == AccountCategory.purchases) {
+      return 'مشتريات بضائع';
+    }
+    if (category == AccountCategory.shop || text.contains('مصروف') || text.contains('قرطاسية')) {
+      return 'مصروفات تشغيلية';
+    }
+    return 'أخرى';
+  }
+
+  Future<void> moveEntryToTrash(String id) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw const SaleValidationException('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final idx = ledger.indexWhere((e) => e.id == id && !e.deleted);
+      if (idx < 0) throw const SaleValidationException('القيد غير موجود أو محذوف مسبقًا.');
+      final nextLedger = List<LedgerEntryRecord>.of(ledger);
+      nextLedger[idx] = nextLedger[idx].copyWith(deleted: true);
+      final counterIdx = nextLedger.indexWhere((e) => e.id == '${id}_counter' && !e.deleted);
+      if (counterIdx >= 0) {
+        nextLedger[counterIdx] = nextLedger[counterIdx].copyWith(deleted: true);
+      }
+      if (_usesPersistentStore) {
+        await _saveCurrentSnapshot(nextLedger: nextLedger);
+      }
+      ledger
+        ..clear()
+        ..addAll(nextLedger);
+      if (!_disposed) notifyListeners();
+    } finally { _editingWorkspace = false; }
+  }
+
+  Future<int> batchUpdateInventoryItems(
+    Set<String> selectedIds, {
+    String priceMode = 'keep',
+    double? priceValue,
+    String stockMode = 'keep',
+    double? stockValue,
+    double? minThreshold,
+  }) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      if (selectedIds.isEmpty) {
+        throw const SaleValidationException('حدد صنفًا واحدًا على الأقل للتعديل الجماعي.');
+      }
+      if (priceMode == 'keep' && stockMode == 'keep' && minThreshold == null) {
+        throw const SaleValidationException(
+            'اختر حقلًا واحدًا على الأقل للتحديث الجماعي (التكلفة أو الكمية أو حد التنبيه).');
+      }
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw const SaleValidationException('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final next = List<InventoryItemRecord>.of(inventory);
+      var updatedCount = 0;
+      for (var i = 0; i < next.length; i++) {
+        final item = next[i];
+        if (!selectedIds.contains(item.id)) continue;
+        var nextCost = item.avgCost;
+        if (priceMode == 'set' && priceValue != null && priceValue.isFinite && priceValue >= 0) {
+          nextCost = priceValue;
+        } else if (priceMode == 'percent' && priceValue != null && priceValue.isFinite) {
+          nextCost = (item.avgCost * (1 + priceValue / 100) * 100).roundToDouble() / 100;
+          if (nextCost < 0) nextCost = 0;
+        }
+        var nextQty = item.quantity;
+        if (stockMode == 'set' && stockValue != null && stockValue.isFinite && stockValue >= 0) {
+          nextQty = stockValue;
+        } else if (stockMode == 'delta' && stockValue != null && stockValue.isFinite) {
+          nextQty = item.quantity + stockValue;
+          if (nextQty < 0) nextQty = 0;
+        }
+        final nextThreshold = (minThreshold != null && minThreshold.isFinite && minThreshold >= 0)
+            ? minThreshold
+            : item.minThreshold;
+        next[i] = InventoryItemRecord(
+          id: item.id,
+          name: item.name,
+          sku: item.sku,
+          unit: item.unit,
+          warehouseId: item.warehouseId,
+          quantity: nextQty,
+          avgCost: nextCost,
+          minThreshold: nextThreshold,
+        );
+        updatedCount++;
+      }
+      if (_usesPersistentStore) {
+        await _saveCurrentSnapshot(nextInventory: next);
+      }
+      inventory
+        ..clear()
+        ..addAll(next);
+      if (!_disposed) notifyListeners();
+      return updatedCount;
+    } finally { _editingWorkspace = false; }
+  }
+
+  Future<void> transferWarehouseStock({
+    required String itemId,
+    required String toWarehouseId,
+    required double quantity,
+  }) async {
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw const SaleValidationException('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+      }
+      final srcIdx = inventory.indexWhere((i) => i.id == itemId);
+      if (srcIdx < 0) throw const SaleValidationException('الصنف غير موجود.');
+      final src = inventory[srcIdx];
+      if (src.warehouseId == toWarehouseId || !warehouses.any((w) => w.id == toWarehouseId)) {
+        throw const SaleValidationException('اختر مستودع وجهة مختلفًا وصالحًا.');
+      }
+      if (!quantity.isFinite || quantity <= 0 || quantity > src.quantity) {
+        throw const SaleValidationException('الكمية المحولة غير صالحة أو تتجاوز المتوفر في المستودع.');
+      }
+      final next = List<InventoryItemRecord>.of(inventory);
+      final srcSku = src.sku.trim().toLowerCase();
+      final srcName = src.name.trim().toLowerCase();
+      final srcUnit = src.unit.trim().toLowerCase();
+
+      int dstIdx = -1;
+      if (srcSku.isNotEmpty) {
+        final sameSkuIndices = <int>[
+          for (var i = 0; i < next.length; i++)
+            if (next[i].warehouseId == toWarehouseId &&
+                next[i].sku.trim().toLowerCase() == srcSku)
+              i,
+        ];
+        if (sameSkuIndices.length > 1) {
+          throw const SaleValidationException('توجد سجلات مكررة لرمز الصنف في مستودع الوجهة.');
+        }
+        if (sameSkuIndices.length == 1) {
+          final candidate = next[sameSkuIndices.single];
+          if (candidate.name.trim().toLowerCase() != srcName ||
+              candidate.unit.trim().toLowerCase() != srcUnit) {
+            throw const SaleValidationException(
+                'تعارض في اسم الصنف أو وحدة القياس لنفس الرمز في مستودع الوجهة.');
+          }
+          dstIdx = sameSkuIndices.single;
+        } else {
+          final ambiguousUnsubmittedSku = next.any((i) =>
+              i.warehouseId == toWarehouseId &&
+              i.sku.trim().isEmpty &&
+              i.name.trim().toLowerCase() == srcName);
+          if (ambiguousUnsubmittedSku) {
+            throw const SaleValidationException(
+                'يوجد صنف بنفس الاسم دون رمز في مستودع الوجهة؛ حدّد الرمز أولًا لمنع الالتباس.');
+          }
+        }
+      } else {
+        final sameNameIndices = <int>[
+          for (var i = 0; i < next.length; i++)
+            if (next[i].warehouseId == toWarehouseId &&
+                next[i].name.trim().toLowerCase() == srcName)
+              i,
+        ];
+        if (sameNameIndices.length > 1) {
+          throw const SaleValidationException(
+              'توجد عدة أصناف بنفس الاسم في مستودع الوجهة؛ حدّد رمز الصنف لمنع الالتباس.');
+        }
+        if (sameNameIndices.length == 1) {
+          final candidate = next[sameNameIndices.single];
+          if (candidate.sku.trim().isNotEmpty ||
+              candidate.unit.trim().toLowerCase() != srcUnit) {
+            throw const SaleValidationException(
+                'تعارض أو التباس في رمز الصنف أو وحدة القياس في مستودع الوجهة.');
+          }
+          dstIdx = sameNameIndices.single;
+        }
+      }
+
+      next[srcIdx] = src.copyWith(quantity: src.quantity - quantity);
+      if (dstIdx >= 0) {
+        final dst = next[dstIdx];
+        final totalQty = dst.quantity + quantity;
+        final weightedCost = totalQty > 0
+            ? (dst.quantity * dst.avgCost + quantity * src.avgCost) / totalQty
+            : src.avgCost;
+        if (!totalQty.isFinite || !weightedCost.isFinite || totalQty == dst.quantity) {
+          throw const SaleValidationException('قيمة التحويل المخزني خارج النطاق.');
+        }
+        next[dstIdx] = dst.copyWith(quantity: totalQty, avgCost: weightedCost);
+      } else {
+        next.add(InventoryItemRecord(
+          id: 'item_${DateTime.now().microsecondsSinceEpoch}_${next.length}',
+          name: src.name,
+          sku: src.sku,
+          unit: src.unit,
+          warehouseId: toWarehouseId,
+          quantity: quantity,
+          avgCost: src.avgCost,
+          minThreshold: src.minThreshold,
+        ));
+      }
+      if (_usesPersistentStore) {
+        await _saveCurrentSnapshot(nextInventory: next);
+      }
+      inventory
+        ..clear()
+        ..addAll(next);
+      if (!_disposed) notifyListeners();
+    } finally { _editingWorkspace = false; }
+  }
+
   Future<void> saveWarehouse({String? id, required String name, required String details,
       required bool isDefault}) async {
     _requireAvailableMutation();
@@ -1127,6 +1395,7 @@ class ErpController extends ChangeNotifier {
     CurrencyCode? fromCurrency,
     double exchangeRate = 1,
     String note = '',
+    String expenseCategory = '',
   }) async {
     _requireAvailableMutation();
     _editingWorkspace = true;
@@ -1167,6 +1436,7 @@ class ErpController extends ChangeNotifier {
         amount: total, currency: currency, exchangeRate: exchangeRate,
         details: [if (exchange) 'صرف $amount ${fromCurrency!.label} بسعر $exchangeRate إلى ${currency.label}',
           if (note.trim().isNotEmpty) note.trim(), if (!exchange && note.trim().isEmpty) label].join(' · '),
+        expenseCategory: expenseCategory.trim(),
         entryNumber: nextNumber, entryDate: DateTime.now().toIso8601String().substring(0, 10),
         warehouseId: '', warehouseName: '', documentNumber: reference,
       );
