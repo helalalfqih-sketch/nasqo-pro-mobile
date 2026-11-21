@@ -207,4 +207,55 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('returning from the selected group keeps its scroll offset and currency',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 667);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    final controller = ErpController(autoInitDb: false);
+    addTearDown(controller.dispose);
+    controller.ledger.clear();
+    controller.accounts
+      ..clear()
+      ..add(const AccountRecord(id: 'qa-26', name: 'حساب فرعي',
+        category: AccountCategory.clients, currency: CurrencyCode.usd,
+        openingBalance: 25, openingDirection: EntryDirection.debit));
+    controller.restoredGroups = RestoredGroups.fromJson({
+      'accountGroups': [for (int i = 1; i <= 35; i++) {'id': i,'name': 'مجموعة $i'}],
+      'accounts': [{'id': 'qa-26', 'groupId': 26}],
+    });
+    await tester.pumpWidget(MaterialApp(home: Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(body: SingleChildScrollView(controller: scroll,
+        child: GroupBalancesPanel(controller: controller))),
+    )));
+    final group = find.text('مجموعة 26');
+    await tester.ensureVisible(group);
+    await tester.pumpAndSettle();
+    final filter = find.byKey(const ValueKey('balance-restored-26'));
+    await tester.tap(filter);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('دولار').last);
+    await tester.pumpAndSettle();
+    final before = scroll.offset;
+    expect(before, greaterThan(0));
+    await tester.tap(group);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حساب فرعي'));
+    await tester.pumpAndSettle();
+    expect(find.text('الرصيد الختامي: 25.00 دولار'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(scroll.offset, closeTo(before, 0.1));
+    expect(tester.widget<DropdownButton<String>>(filter).value, 'usd');
+    expect(tester.widget<DropdownButton<String>>(
+      find.byKey(const ValueKey('balance-restored-25'))).value, 'sar');
+    expect(tester.takeException(), isNull);
+  });
 }
