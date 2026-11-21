@@ -73,7 +73,34 @@ try{
    await page.waitForFunction(()=>window.events.some(e=>e.action==='tile'&&e.id==='qr-scanner'));
    await quick.waitFor({state:'detached'});
    await page.getByRole('button',{name:'فتح القائمة',exact:true}).tap();
-   await page.getByRole('complementary',{name:'قائمة نسقو'}).getByText('حركة المخزون').waitFor();
+   const drawer=page.getByRole('complementary',{name:'قائمة نسقو'});
+   await drawer.getByText('حركة المخزون').waitFor();
+   async function alignDrawerRow(name) {
+     const row=drawer.getByRole('button',{name,exact:true});
+     await row.evaluate(el=>{
+       const scroll=el.closest('.mobile-scroll');
+       scroll.scrollTop+=el.getBoundingClientRect().top-scroll.getBoundingClientRect().top;
+     });
+     return row;
+   }
+   async function visibleInDrawer(row) {
+     return row.evaluate(el=>{
+       const view=el.closest('.mobile-scroll').getBoundingClientRect();
+       const rect=el.getBoundingClientRect();
+       return rect.top>=view.top-1 && rect.bottom<=view.bottom+1;
+     });
+   }
+   const backup=await alignDrawerRow('حفظ نسخة احتياطية على الهاتف');
+   assert.ok(await visibleInDrawer(backup));
+   assert.ok(await visibleInDrawer(drawer.getByRole('button',{name:'استعادة الصور من جوجل درايف',exact:true})));
+   await page.screenshot({path:path.join(out,name+'-drawer-backup.png'),animations:'disabled'});
+   await alignDrawerRow('مشاركة مجلد الصور');
+   const about=drawer.locator('.drawer-sections > section').filter({has:page.getByRole('heading',{name:'عن التطبيق',exact:true})});
+   assert.deepEqual(await about.getByRole('button').allTextContents(),[
+     'شرح عن التطبيق على اليوتيوب','شروط الخدمة','سياسة الخصوصية','تواصل معنا',
+     'تحديث التطبيق','مشاركة التطبيق','عن التطبيق','قيم التطبيق']);
+   assert.ok(await visibleInDrawer(about.getByRole('button',{name:'قيم التطبيق',exact:true})));
+   await page.screenshot({path:path.join(out,name+'-drawer-about.png'),animations:'disabled'});
    assert.ok(await page.evaluate(()=>window.nasqoBack()));
    await page.getByTestId('header-options-btn').tap();
    const opts=page.getByTestId('options-menu');

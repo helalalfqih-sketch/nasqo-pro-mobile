@@ -7,6 +7,7 @@ on:
       - integration/hybrid-seven-20261121
     paths:
       - 'flutter_app/**'
+      - 'qa/hybrid_home/**'
       - '.github/workflows/flutter-offline-apk.yml'
   pull_request:
     paths:
