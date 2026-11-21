@@ -53,14 +53,15 @@ void main() {
         child: Scaffold(body: GroupBalancesPanel(controller: controller)),
       ),
     ));
-    expect(find.text('60 له'), findsOneWidget);
+    expect(find.byType(Table), findsOneWidget);
+    expect(find.text('60-'), findsOneWidget);
     final filter = find.byKey(const ValueKey('balance-currency-purchases'));
     await tester.tap(filter);
     await tester.pumpAndSettle();
     await tester.tap(find.text('الكل').last);
     await tester.pumpAndSettle();
-    expect(find.text('60 له · ريال'), findsOneWidget);
-    expect(find.text('25 عليه · دولار'), findsOneWidget);
+    expect(find.text('60- · ريال'), findsOneWidget);
+    expect(find.text('25 · دولار'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('balance-group-purchases')));
     await tester.pumpAndSettle();

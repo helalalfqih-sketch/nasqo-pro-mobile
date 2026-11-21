@@ -64,8 +64,8 @@ class DashboardScreen extends StatelessWidget {
       _Tile('كشف حساب', Icons.fact_check_outlined,
           highlight: true, id: 'account-statement',
           action: () => onOpenModule('account-statement')),
-      _Tile('مسح رمز QR', Icons.qr_code_scanner,
-          id: 'qr-scanner', action: () => onOpenModule('qr-scanner')),
+      _Tile('التقارير', Icons.assessment_outlined,
+          id: 'reports', highlight: true, action: () => onOpenModule('reports')),
     ];
 
     // Additional administration and advanced tools (for mobile administration list)
@@ -177,7 +177,7 @@ class DashboardScreen extends StatelessWidget {
       color: Theme.of(context).brightness == Brightness.dark ? colors.surface : const Color(0xFFEEF2FF),
       elevation: 0.5,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.5)),
       ),
       margin: EdgeInsets.zero,
@@ -208,6 +208,7 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
             IconButton(
+              key: const ValueKey('home-qr-scanner'),
               tooltip: 'مسح رمز QR',
               icon: const Icon(Icons.qr_code_2, color: Color(0xFF4338CA)),
               onPressed: () => onOpenModule('qr-scanner'),
@@ -261,29 +262,25 @@ class DashboardScreen extends StatelessWidget {
               ),
             ])
           else ...[
-            brandPlaque,
-            const SizedBox(height: 12),
-
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: brandPlaque,
+              ),
+            ),
+            const SizedBox(height: 10),
             balance,
             const SizedBox(height: 14),
-            _QuickActionsGrid(tiles:quickActions,controller:controller),
+            _QuickActionsGrid(tiles: quickActions, controller: controller),
+            const SizedBox(height: 10),
+            _QuickActionsGrid(tiles: administration, controller: controller),
             const SizedBox(height: 14),
-
-            // 8 Metric Cards Grid (2 columns) with 2px solid blue border
-            const _SectionHeader(title: 'المؤشرات والأرصدة'),
-            const SizedBox(height: 6),
-            _MetricCardsGrid(
-              controller: controller,
-              onOpenModule: onOpenModule,
+            ExpansionTile(
+              title: const Text('المؤشرات والأرصدة'),
+              children: [
+                _MetricCardsGrid(controller: controller, onOpenModule: onOpenModule),
+              ],
             ),
-            const SizedBox(height: 14),
-
-
-
-            // Administration & Advanced Tools Grid
-            const _SectionHeader(title: 'لوحة التحكم والعمليات المتقدمة'),
-            const SizedBox(height: 6),
-            _AdministrationGrid(tiles: administration),
           ],
           const SizedBox(height: 16),
           const SizedBox(height: 8),
@@ -323,7 +320,7 @@ class _Tile {
   final bool highlight;
 }
 
-/// 9 Compact Quick Actions: 3 columns x 3 rows
+/// Phone dashboard actions use the two-column layout of the React home screen.
 class _QuickActionsGrid extends StatelessWidget {
   const _QuickActionsGrid({required this.tiles,required this.controller});
   final ErpController controller;
@@ -742,7 +739,6 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
         final id = restored.membership[a.id];
         if (id != null) counts[id] = (counts[id] ?? 0) + 1;
       }
-      final scheme = Theme.of(context).colorScheme;
       void openGroup(int groupId) {
         Navigator.of(context).push(MaterialPageRoute<void>(
           builder: (_) => HomeAccountsView.restoredGroup(
@@ -753,19 +749,9 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
         ));
       }
 
-      return Table(
-        columnWidths: const {0:FlexColumnWidth(0.6),1:FlexColumnWidth(2.25),
-          2:FlexColumnWidth(1.5),3:FlexColumnWidth(1.05)},
-        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-        border:TableBorder.all(color:scheme.outlineVariant),
-        children:[
-          TableRow(decoration:BoxDecoration(color:scheme.surfaceContainerLow),children:[
-            for (final title in ['الرقم','الاسم','الرصيد','العملة'])
-              Padding(padding:const EdgeInsets.symmetric(vertical:10),child:Text(title,textAlign:TextAlign.center,
-                  style:const TextStyle(fontWeight:FontWeight.bold)))
-          ]),
+      return _balanceTable(context, [
           for (final (index,g) in restored.groups.indexed)
-            TableRow(decoration:BoxDecoration(color:index.isEven ? scheme.surface : scheme.surfaceContainerHighest),
+            TableRow(decoration: _rowDecoration(context, index),
               children:[
                 Center(child:Text('${g.number}')),
                 TextButton(
@@ -781,17 +767,10 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
                 ),
                 TextButton(
                   onPressed: () => openGroup(g.id),
-                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 2)),
-                  child: Text(
-                    AccountingEngine.formatAmount(totals[g.id] ?? 0),
-                    textAlign: TextAlign.center,
-                    textDirection: TextDirection.ltr,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: (totals[g.id] ?? 0) < -0.005 ? scheme.error
-                          : (totals[g.id] ?? 0) > 0.005 ? scheme.primary : scheme.onSurface,
-                    ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
                   ),
+                  child: _signedBalance(context, totals[g.id] ?? 0),
                 ),
                 DropdownButton<CurrencyCode>(isExpanded:true,value:_groupCurrencies[g.id] ?? fallback,
                   items:[for(final c in CurrencyCode.values) DropdownMenuItem(value:c,child:Text(c.label))],
@@ -810,84 +789,59 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
             group.category: group
         },
     };
-    final colors = Theme.of(context).colorScheme;
-    return Card(
-      color: colors.surface,
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('مجموعات الحسابات والأرصدة',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF312E81),
-                  )),
-          const SizedBox(height: 3),
-          const Text(
-            'الأرصدة حسب فئات الحسابات المحلية، من دون تحويل العملات.',
-            style: TextStyle(fontSize: 11, color: Colors.grey),
-          ),
-          const SizedBox(height: 7),
-          if (cats.isEmpty)
-            const Padding(
-                padding: EdgeInsets.all(12),
-                child: Text('لا توجد حسابات محلية لعرض أرصدتها.'))
-          else ...[
-            _line(
-              context,
-              const [
-                Text('الرقم', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text('الاسم', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text('الرصيد', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text('العملة', style: TextStyle(fontWeight: FontWeight.bold))
-              ],
-              header: true,
-            ),
-            for (var index = 0; index < cats.length; index++)
-              _groupRow(
-                  context,
-                  cats[index],
-                  _orderedCategories.indexOf(cats[index]) + 1,
-                  byCurrency,
-                  accounts,
-                  ledger),
-          ],
-        ]),
-      ),
-    );
+    if (cats.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: Text('لا توجد حسابات محلية لعرض أرصدتها.'),
+      );
+    }
+    return _balanceTable(context, [
+      for (final (index, category) in cats.indexed)
+        _groupRow(context, category, index, byCurrency, accounts, ledger),
+    ]);
   }
 
-  Widget _line(BuildContext context, List<Widget> fields,
-      {bool header = false}) {
+  BoxDecoration _rowDecoration(BuildContext context, int index) {
+    final theme = Theme.of(context);
+    return BoxDecoration(color: index.isEven
+        ? theme.colorScheme.surface
+        : theme.brightness == Brightness.dark
+            ? theme.colorScheme.surfaceContainerHighest
+            : const Color(0xFFDCE6F2));
+  }
+
+  Widget _balanceTable(BuildContext context, List<TableRow> rows) {
     final scheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: header ? scheme.surfaceContainerHighest : null,
-        border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
-      ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        SizedBox(width: 40, child: Center(child: fields[0])),
-        Expanded(flex: 3, child: fields[1]),
-        Expanded(
-            flex: 3,
-            child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: fields[2])),
-        SizedBox(width: 76, child: fields[3]),
-      ]),
+    return Table(
+      columnWidths: const {
+        0: FlexColumnWidth(0.6),
+        1: FlexColumnWidth(2.25),
+        2: FlexColumnWidth(1.5),
+        3: FlexColumnWidth(1.05),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      border: TableBorder.all(color: scheme.outlineVariant),
+      children: [
+        TableRow(
+          decoration: BoxDecoration(color: scheme.surfaceContainerLow),
+          children: [
+            for (final title in ['الرقم', 'الاسم', 'الرصيد', 'العملة'])
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Text(title, textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+              ),
+          ],
+        ),
+        ...rows,
+      ],
     );
   }
 
-  Widget _groupRow(
+  TableRow _groupRow(
       BuildContext context,
       AccountCategory category,
-      int number,
+      int index,
       Map<CurrencyCode, Map<AccountCategory, HomeBalanceGroup>> byCurrency,
       List<AccountRecord> accounts,
       List<LedgerEntryRecord> ledger) {
@@ -946,8 +900,8 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
           )),
         );
 
-    return _line(context, [
-      Text('$number'),
+    return TableRow(decoration: _rowDecoration(context, index), children: [
+      Center(child: Text('${_orderedCategories.indexOf(category) + 1}')),
       TextButton(
         key: ValueKey('balance-group-${category.name}'),
         style: TextButton.styleFrom(
@@ -955,7 +909,9 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8)),
         onPressed: showMembers,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_title(category)),
+          Text(_title(category), style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.bold)),
           Text('${members.length} حساب',
               style: Theme.of(context).textTheme.labelSmall),
         ]),
@@ -965,11 +921,11 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
         child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 for (final c in selected)
-                  _amount(context, byCurrency[c]![category]!,
-                      withCurrency: current == _all),
+                  _signedBalance(context, byCurrency[c]![category]!.netDebitMinusCredit,
+                      currency: current == _all ? c : null),
               ],
             )),
       ),
@@ -989,6 +945,25 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
         ],
       ),
     ]);
+  }
+
+  Widget _signedBalance(BuildContext context, double net, {CurrencyCode? currency}) {
+    final negative = net < 0 && net.abs() >= 0.005;
+    final magnitude = AccountingEngine.formatAmount(net.abs() < 0.005 ? 0 : net.abs());
+    final amount = negative ? '$magnitude-' : magnitude;
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final color = net.abs() < 0.005
+        ? theme.colorScheme.onSurface
+        : negative
+            ? (dark ? theme.colorScheme.error : const Color(0xFF9F1239))
+            : (dark ? theme.colorScheme.primary : const Color(0xFF0B5CA8));
+    return Text(
+      currency == null ? amount : '$amount · ${currency.label}',
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+      style: TextStyle(color: color, fontWeight: FontWeight.bold),
+    );
   }
 
   Widget _amount(BuildContext context, HomeBalanceGroup g,
