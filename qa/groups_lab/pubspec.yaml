@@ -1,0 +1,27 @@
+name: nasqo_groups_lab
+publish_to: none
+version: 0.1.0+1
+environment:
+  sdk: '>=3.7.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  nasqo_pro_erp:
+    path: ../../flutter_app
+  sqflite: ^2.4.2
+  path: ^1.9.0
+  webview_flutter: 4.10.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  sqflite_common_ffi: ^2.3.6
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/fixture.json
+    - assets/table.html
+
+  fonts:
+    - family: LabArabic
+      fonts:
+        - asset: assets/NotoSansArabic-Regular.ttf

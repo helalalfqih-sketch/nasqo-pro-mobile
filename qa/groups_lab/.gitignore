@@ -1,0 +1,8 @@
+.dart_tool/
+build/
+.flutter-plugins*
+android/
+assets/table.html
+
+assets/NotoSansArabic-Regular.ttf
+assets/reference.html

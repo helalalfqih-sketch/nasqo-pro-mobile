@@ -1,0 +1,46 @@
+{
+  "accountGroups": [
+    {
+      "id": 41,
+      "legacyId": 1,
+      "name": "مجموعة الشمال",
+      "category": "clients"
+    },
+    {
+      "id": 52,
+      "legacyId": 2,
+      "name": "مجموعة الجنوب",
+      "category": "purchases"
+    }
+  ],
+  "accounts": [
+    {
+      "id": "qa-n",
+      "groupId": 41,
+      "category": "clients",
+      "name": "عميل شمال تجريبي",
+      "currency": "ريال",
+      "openingBalance": 1250.5,
+      "openingDirection": "credit"
+    },
+    {
+      "id": "qa-u",
+      "groupId": 41,
+      "category": "clients",
+      "name": "عميل دولار تجريبي",
+      "currency": "دولار",
+      "openingBalance": 25,
+      "openingDirection": "debit"
+    },
+    {
+      "id": "qa-s",
+      "groupId": 52,
+      "category": "purchases",
+      "name": "مورد جنوب تجريبي",
+      "currency": "ريال",
+      "openingBalance": 80,
+      "openingDirection": "debit"
+    }
+  ],
+  "ledger": []
+}

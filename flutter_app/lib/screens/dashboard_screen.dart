@@ -727,7 +727,7 @@ class GroupBalancesPanel extends StatefulWidget {
 class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
   final _filters = <AccountCategory, String>{};
   static const _all = 'all';
-  final _groupCurrencies = <int, CurrencyCode>{};
+  final _groupCurrencies = <int, String>{};
 
   @override
   Widget build(BuildContext context) {
@@ -736,19 +736,22 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
     final restored = widget.controller.restoredGroups;
     if (restored != null && restored.groups.isNotEmpty) {
       final fallback = widget.controller.defaultCurrency;
-      final totals = restored.balances(accounts,ledger,_groupCurrencies,fallback);
+      final totals = restored.balancesByCurrency(accounts, ledger);
+      CurrencyCode currencyFor(int id) => CurrencyCode.values
+          .where((c) => c.name == _groupCurrencies[id]).firstOrNull ?? fallback;
       final counts = <int,int>{};
       for (final a in accounts) {
         final id = restored.membership[a.id];
         if (id != null) counts[id] = (counts[id] ?? 0) + 1;
       }
-      final scheme = Theme.of(context).colorScheme;
+      final dark = Theme.of(context).brightness == Brightness.dark;
+      final separator = Color(dark ? 0xff294162 : 0xffcbd5e1);
       void openGroup(int groupId) {
         Navigator.of(context).push(MaterialPageRoute<void>(
           builder: (_) => HomeAccountsView.restoredGroup(
             controller: widget.controller,
             groupId: groupId,
-            initialCurrency: _groupCurrencies[groupId] ?? fallback,
+            initialCurrency: currencyFor(groupId),
           ),
         ));
       }
@@ -757,15 +760,17 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
         columnWidths: const {0:FlexColumnWidth(0.6),1:FlexColumnWidth(2.25),
           2:FlexColumnWidth(1.5),3:FlexColumnWidth(1.05)},
         defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-        border:TableBorder.all(color:scheme.outlineVariant),
+        border:TableBorder.all(color:separator),
         children:[
-          TableRow(decoration:BoxDecoration(color:scheme.surfaceContainerLow),children:[
+          TableRow(decoration:BoxDecoration(color:Color(dark ? 0xff1a2944 : 0xfff8fafc)),children:[
             for (final title in ['الرقم','الاسم','الرصيد','العملة'])
               Padding(padding:const EdgeInsets.symmetric(vertical:10),child:Text(title,textAlign:TextAlign.center,
                   style:const TextStyle(fontWeight:FontWeight.bold)))
           ]),
           for (final (index,g) in restored.groups.indexed)
-            TableRow(decoration:BoxDecoration(color:index.isEven ? scheme.surface : scheme.surfaceContainerHighest),
+            TableRow(decoration:BoxDecoration(color:index.isEven
+                ? Color(dark ? 0xff111c30 : 0xffffffff)
+                : Color(dark ? 0xff17263f : 0xffdce6f2)),
               children:[
                 Center(child:Text('${g.number}')),
                 TextButton(
@@ -782,19 +787,17 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
                 TextButton(
                   onPressed: () => openGroup(g.id),
                   style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 2)),
-                  child: Text(
-                    AccountingEngine.formatAmount(totals[g.id] ?? 0),
-                    textAlign: TextAlign.center,
-                    textDirection: TextDirection.ltr,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: (totals[g.id] ?? 0) < -0.005 ? scheme.error
-                          : (totals[g.id] ?? 0) > 0.005 ? scheme.primary : scheme.onSurface,
-                    ),
-                  ),
+                  child: _groupCurrencies[g.id] == _all
+                      ? Column(children: [
+                          for (final c in CurrencyCode.values)
+                            _GroupNetAmount(value: totals[c]![g.id] ?? 0, dark: dark, currency: c),
+                        ])
+                      : _GroupNetAmount(value: totals[currencyFor(g.id)]![g.id] ?? 0, dark: dark),
                 ),
-                DropdownButton<CurrencyCode>(isExpanded:true,value:_groupCurrencies[g.id] ?? fallback,
-                  items:[for(final c in CurrencyCode.values) DropdownMenuItem(value:c,child:Text(c.label))],
+                DropdownButton<String>(key: ValueKey('balance-restored-${g.id}'),
+                  isExpanded:true,value:_groupCurrencies[g.id] ?? fallback.name,
+                  items:[for(final c in CurrencyCode.values) DropdownMenuItem(value:c.name,child:Text(c.label)),
+                    const DropdownMenuItem(value:_all,child:Text('الكل'))],
                   onChanged:(c){if(c!=null) setState(()=>_groupCurrencies[g.id]=c);})
               ])
         ]);
@@ -994,17 +997,35 @@ class _GroupBalancesPanelState extends State<GroupBalancesPanel> {
   Widget _amount(BuildContext context, HomeBalanceGroup g,
       {required bool withCurrency}) {
     final value = AccountingEngine.formatAmount(g.magnitude);
-    final red = Theme.of(context).colorScheme.error;
-    final primary = Theme.of(context).colorScheme.primary;
     return Semantics(
       label: '$value ${g.currency.label} ${g.balanceLabel}',
       excludeSemantics: true,
-      child: Text(
-          '$value ${g.balanceLabel}${withCurrency ? ' · ${g.currency.label}' : ''}',
-          style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: g.netDebitMinusCredit < 0 ? red : primary)),
+      child: _GroupNetAmount(value: g.netDebitMinusCredit,
+          dark: Theme.of(context).brightness == Brightness.dark,
+          currency: withCurrency ? g.currency : null),
     );
   }
 }
 
+
+class _GroupNetAmount extends StatelessWidget {
+  const _GroupNetAmount({required this.value, required this.dark, this.currency});
+  final double value;
+  final bool dark;
+  final CurrencyCode? currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final amount = value.abs() < 0.005 ? '0' : AccountingEngine.formatAmount(value.abs());
+    final negative = value <= -0.005;
+    final color = value < -0.005
+        ? Color(dark ? 0xfffb7185 : 0xff9f1239)
+        : value > 0.005
+            ? Color(dark ? 0xff60a5fa : 0xff0b5ca8)
+            : Theme.of(context).colorScheme.onSurface;
+    final signed = negative ? '$amount-' : amount;
+    return Text(currency == null ? signed : '$signed · ${currency!.label}',
+        textAlign: TextAlign.center, textDirection: TextDirection.ltr,
+        style: TextStyle(fontWeight: FontWeight.w800, color: color));
+  }
+}

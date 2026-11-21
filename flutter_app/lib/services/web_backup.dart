@@ -207,6 +207,12 @@ class RestoredGroups {
     return result;
   }
 
+  /// A separate nominal balance per group and currency; no cross-currency sum.
+  Map<CurrencyCode, Map<int, double>> balancesByCurrency(
+      List<AccountRecord> accounts, List<LedgerEntryRecord> ledger) => {
+    for (final c in CurrencyCode.values) c: balances(accounts, ledger, const {}, c),
+  };
+
   Map<int, double> balances(List<AccountRecord> accounts, List<LedgerEntryRecord> ledger,
       Map<int, CurrencyCode> filters, CurrencyCode fallback) {
     final result = <int,double>{};

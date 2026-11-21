@@ -1,0 +1,200 @@
+00:00 +0: loading /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/cash_transfer_draft_storage_test.dart
+00:00 +0: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/cash_transfer_draft_storage_test.dart: v6 upgrade only adds a draft table and preserves other records
+00:00 +1: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/cash_transfer_draft_storage_test.dart: stable create/edit/reopen preserves precision with zero effects outside draft table
+00:00 +2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/cash_transfer_draft_storage_test.dart: atomic failure and stale revisions cannot modify draft or financial tables
+00:01 +3: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/cash_transfer_draft_storage_test.dart: reject same, unknown, noncash and differing currency; revalidate saved accounts
+00:01 +4: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/cash_transfer_draft_storage_test.dart: invalid dates/amounts/ids reject before persistence
+00:01 +5: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/cash_transfer_draft_storage_test.dart: schema repeat and clear helper affect only drafts; IDs not reused
+00:07 +6: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/voucher_workspace_test.dart: home receipt and payment lead to separate nonposting lists
+00:07 +7: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/voucher_workspace_test.dart: home receipt and payment lead to separate nonposting lists
+00:07 +8: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/voucher_workspace_test.dart: home receipt and payment lead to separate nonposting lists
+00:07 +9: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/voucher_workspace_test.dart: home receipt and payment lead to separate nonposting lists
+00:07 +10: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/voucher_workspace_test.dart: home receipt and payment lead to separate nonposting lists
+00:08 +11: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/voucher_workspace_test.dart: home receipt and payment lead to separate nonposting lists
+00:08 +12: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/voucher_workspace_test.dart: home receipt and payment lead to separate nonposting lists
+00:10 +13: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sale_tax_register_workspace_test.dart: local finance opens a separate read-only recorded-tax register
+00:13 +14: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sale_tax_register_workspace_test.dart: local finance opens a separate read-only recorded-tax register
+00:13 +15: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sale_tax_register_workspace_test.dart: local finance opens a separate read-only recorded-tax register
+00:15 +16: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sale_tax_register_view_test.dart: stored tax and unknown records shown separately by currency, readonly RTL
+00:17 +17: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/original_sale_facts_workspace_test.dart: stock movement links original sale number to a read-only view
+00:17 +18: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/original_sale_facts_workspace_test.dart: stock movement links original sale number to a read-only view
+00:17 +19: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sale_tax_register_view_test.dart: invalid and reversed dates do not request register
+00:18 +20: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sale_tax_register_view_test.dart: error retry loads empty result without exposing exception
+00:18 +21: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sale_tax_register_view_test.dart: unknown-only and invalid headers not misrepresented as empty
+00:19 +22: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/offline_posting_test.dart: website JSON imports supported currency quotes without aliasing unknown codes
+00:19 +23: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/offline_posting_test.dart: catalog, imported accounts, message settings and purchases survive a cold reopen
+00:19 +23 -1: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/nonposting_workspace_integration_test.dart: home and drawer distinguish direct drafts from document lists
+00:19 +23 -1: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/offline_posting_test.dart: catalog, imported accounts, message settings and purchases survive a cold reopen [E]
+  Bad state: قاعدة البيانات غير جاهزة.
+  package:nasqo_pro_erp/state/erp_controller.dart 1320:22  ErpController.saveAccountRows
+  
+00:19 +23 -1: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/offline_posting_test.dart: stock, vouchers and exchanges survive closing and reopening SQLite
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:19 +23 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/nonposting_workspace_integration_test.dart: home and drawer distinguish direct drafts from document lists
+00:19 +23 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/offline_posting_test.dart: stock, vouchers and exchanges survive closing and reopening SQLite [E]
+  قاعدة البيانات غير جاهزة.
+  package:nasqo_pro_erp/state/erp_controller.dart 1926:23  ErpController.receiveStock
+  
+00:21 +24 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/nonposting_workspace_integration_test.dart: home and drawer distinguish direct drafts from document lists
+00:24 +25 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_views_test.dart: failed draft list reload can retry without writes
+00:24 +26 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_views_test.dart: partial draft uses stable positions and awaits save without duplicates
+00:25 +27 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_views_test.dart: partial draft uses stable positions and awaits save without duplicates
+00:25 +28 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_views_test.dart: partial draft uses stable positions and awaits save without duplicates
+00:25 +29 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_views_test.dart: partial draft uses stable positions and awaits save without duplicates
+00:25 +30 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_views_test.dart: partial draft uses stable positions and awaits save without duplicates
+00:25 +31 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_views_test.dart: partial draft uses stable positions and awaits save without duplicates
+00:25 +32 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_views_test.dart: partial draft uses stable positions and awaits save without duplicates
+00:25 +33 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_views_test.dart: partial draft uses stable positions and awaits save without duplicates
+00:26 +34 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_views_test.dart: cancel and Back never save; ineligible sources are excluded
+00:26 +35 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_views_test.dart: edit retains revision/source and failed save retains quantities
+00:27 +36 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/site_navigation_test.dart: group editor and appearance preview save only after confirmation
+00:28 +37 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/site_navigation_test.dart: group editor and appearance preview save only after confirmation
+00:30 +38 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/site_navigation_test.dart: group editor and appearance preview save only after confirmation
+00:30 +39 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/site_navigation_test.dart: group editor and appearance preview save only after confirmation
+00:30 +40 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/site_navigation_test.dart: offline reports reconcile synthetic categories, free invoices and dated stock
+00:31 +41 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/site_navigation_test.dart: home quick actions resolve a stock code and receive its quantity
+00:32 +42 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/site_navigation_test.dart: home quick actions resolve a stock code and receive its quantity
+00:32 +43 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/site_navigation_test.dart: home quick actions resolve a stock code and receive its quantity
+00:32 +44 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/site_navigation_test.dart: home quick actions resolve a stock code and receive its quantity
+00:32 +45 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/site_navigation_test.dart: home quick actions resolve a stock code and receive its quantity
+00:33 +46 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/site_navigation_test.dart: reports open the inventory and back returns to the report menu
+00:34 +47 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/home_account_views_test.dart: statement isolates currency/account and excludes non-posted records
+00:34 +48 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/home_account_views_test.dart: customer list opens statement and cashboxes only use cash flag
+00:36 +49 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/home_account_views_test.dart: customer list opens statement and cashboxes only use cash flag
+00:36 +50 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/home_summary_views_test.dart: currency directory shows counts and commits only valid confirmed quote edits
+00:36 +51 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/home_summary_views_test.dart: currency directory shows counts and commits only valid confirmed quote edits
+00:38 +52 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/home_summary_views_test.dart: sales dashboard labels limited local scope and never totals mixed currencies
+00:38 +53 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/local_backup_workspace_view_test.dart: read only on open, distinct explicit verify and isolated restore
+00:40 +54 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_workspace_test.dart: home offers purchase returns and opens sales drafts without posting
+00:40 +55 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_workspace_test.dart: home offers purchase returns and opens sales drafts without posting
+00:40 +56 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_workspace_test.dart: home offers purchase returns and opens sales drafts without posting
+00:40 +57 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_workspace_test.dart: home offers purchase returns and opens sales drafts without posting
+00:43 +58 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/invoice_mode_navigation_test.dart: switching invoice modes preserves the typed drafts and posts only the visible free purchase
+00:46 +59 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/local_backup_route_test.dart: options opens backup workspace in read-only list state
+00:49 +60 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/document_cancel_test.dart: cancel discards populated draft without writes
+00:51 +61 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/document_cancel_test.dart: cancel discards populated draft without writes
+00:52 +62 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/document_cancel_test.dart: cancel discards populated draft without writes
+00:52 +63 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/document_cancel_test.dart: cancel discards populated draft without writes
+00:54 +64 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/document_cancel_test.dart: close discards populated draft without writes
+00:55 +65 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_storage_test.dart: v3 migration preserves financial rows; locked source values and stable edit
+00:55 +66 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/document_cancel_test.dart: navigator discards populated draft without writes
+00:55 +67 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/document_cancel_test.dart: navigator discards populated draft without writes
+00:55 +68 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/document_cancel_test.dart: navigator discards populated draft without writes
+00:56 +69 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/document_cancel_test.dart: navigator discards populated draft without writes
+00:56 +70 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/document_cancel_test.dart: system discards populated draft without writes
+00:59 +71 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/document_cancel_test.dart: nested system Back closes picker first; picker cannot add accounts
+01:09 +72 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/parity_balance_style_test.dart: restored balances follow CSS sign and color (dark=false)
+01:10 +73 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/parity_balance_style_test.dart: restored balances follow CSS sign and color (dark=false)
+01:18 +74 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/parity_balance_style_test.dart: restored balances follow CSS sign and color (dark=false)
+01:20 +75 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/parity_balance_style_test.dart: restored balances follow CSS sign and color (dark=true)
+01:22 +76 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_return_estimate_view_test.dart: saved partial estimate from list is read only and back leaves list unchanged
+02:30 +77 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/simple_journal_workspace_test.dart: home routes to nonposting balanced simple journal drafts
+02:31 +78 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/simple_journal_workspace_test.dart: home routes to nonposting balanced simple journal drafts
+02:31 +79 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/simple_journal_workspace_test.dart: home routes to nonposting balanced simple journal drafts
+02:31 +80 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/simple_journal_workspace_test.dart: home routes to nonposting balanced simple journal drafts
+02:33 +81 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/workspace_navigation_test.dart: existing ERP modules open from the drawer and return by Back
+02:35 +82 -2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/workspace_navigation_test.dart: existing ERP modules open from the drawer and return by Back
+02:35 +82 -3: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/workspace_navigation_test.dart: existing ERP modules open from the drawer and return by Back
+02:35 +82 -3: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/dev_update_test.dart: verified downloads and rejected or interrupted transfers preserve SQLite on reopen [E]
+  Invalid argument(s): Failed to load dynamic library 'libsqlite3.so': libsqlite3.so: cannot open shared object file: No such file or directory
+  dart:ffi                                          new DynamicLibrary.open
+  package:sqlite3/src/ffi/load_library.dart 60:27   _defaultOpen
+  package:sqlite3/src/ffi/load_library.dart 172:12  OpenDynamicLibrary.openSqlite
+  package:sqlite3/src/ffi/api.dart 15:39            sqlite3
+  test/dev_update_test.dart 65:18                   main.<fn>
+  
+02:38 +83 -3: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/workspace_navigation_test.dart: existing ERP modules open from the drawer and return by Back
+02:38 +84 -3: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/workspace_navigation_test.dart: existing ERP modules open from the drawer and return by Back
+04:21 +85 -3: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/workspace_navigation_test.dart: existing ERP modules open from the drawer and return by Back
+04:23 +86 -3: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/workspace_navigation_test.dart: existing ERP modules open from the drawer and return by Back
+04:29 +87 -3: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/workspace_navigation_test.dart: existing ERP modules open from the drawer and return by Back
+04:31 +88 -3: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/workspace_navigation_test.dart: existing ERP modules open from the drawer and return by Back
+unhandled error during finalization of test:
+/home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/workspace_navigation_test.dart
+TestDeviceException(Shell subprocess crashed with SIGTERM (-15).)
+#0      FlutterTesterTestDevice.finished (package:flutter_tools/src/test/flutter_tester_device.dart:255:5)
+<asynchronous suspension>
+#1      FlutterTesterTestDevice.kill (package:flutter_tools/src/test/flutter_tester_device.dart:237:5)
+<asynchronous suspension>
+#2      FlutterPlatform._startTest.<anonymous closure> (package:flutter_tools/src/test/flutter_platform.dart:692:9)
+<asynchronous suspension>
+#3      FlutterPlatform._startTest.finalize (package:flutter_tools/src/test/flutter_platform.dart:593:11)
+<asynchronous suspension>
+#4      Future.wait.<anonymous closure> (dart:async/future.dart:528:21)
+<asynchronous suspension>
+#5      _DefaultShutdownHooks.runShutdownHooks (package:flutter_tools/src/base/process.dart:73:7)
+<asynchronous suspension>
+#6      exitWithHooks (package:flutter_tools/src/base/process.dart:655:3)
+<asynchronous suspension>
+#7      LocalSignals._handleSignal (package:flutter_tools/src/base/signals.dart:150:7)
+<asynchronous suspension>
+
+unhandled error during finalization of test:
+/home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/workspace_navigation_test.dart
+PathNotFoundException: Deletion failed, path = '/tmp/flutter_tools.NVBIDF/flutter_test_listener.WBFMNO' (OS Error: No such file or directory, errno = 2)
+#0      _Directory._deleteSync (dart:io/directory_impl.dart:226:7)
+#1      FileSystemEntity.deleteSync (dart:io/file_system_entity.dart:425:7)
+#2      ForwardingFileSystemEntity.deleteSync (package:file/src/forwarding/forwarding_file_system_entity.dart:70:16)
+#3      ErrorHandlingDirectory.deleteSync.<anonymous closure> (package:flutter_tools/src/base/error_handling_io.dart:449:22)
+#4      _runSync (package:flutter_tools/src/base/error_handling_io.dart:550:14)
+#5      ErrorHandlingDirectory.deleteSync (package:flutter_tools/src/base/error_handling_io.dart:448:12)
+#6      FlutterPlatform._createListenerDart.<anonymous closure> (package:flutter_tools/src/test/flutter_platform.dart:789:15)
+#7      FlutterPlatform._startTest.finalize (package:flutter_tools/src/test/flutter_platform.dart:593:26)
+<asynchronous suspension>
+#8      Future.wait.<anonymous closure> (dart:async/future.dart:528:21)
+<asynchronous suspension>
+#9      _DefaultShutdownHooks.runShutdownHooks (package:flutter_tools/src/base/process.dart:73:7)
+<asynchronous suspension>
+#10     exitWithHooks (package:flutter_tools/src/base/process.dart:655:3)
+<asynchronous suspension>
+#11     LocalSignals._handleSignal (package:flutter_tools/src/base/signals.dart:150:7)
+<asynchronous suspension>
+
+unhandled error during finalization of test:
+/home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_csv_export_view_test.dart
+TestDeviceException(Shell subprocess crashed with SIGTERM (-15).)
+#0      FlutterTesterTestDevice.finished (package:flutter_tools/src/test/flutter_tester_device.dart:255:5)
+<asynchronous suspension>
+#1      FlutterTesterTestDevice.kill (package:flutter_tools/src/test/flutter_tester_device.dart:237:5)
+<asynchronous suspension>
+#2      FlutterPlatform._startTest.<anonymous closure> (package:flutter_tools/src/test/flutter_platform.dart:692:9)
+<asynchronous suspension>
+#3      FlutterPlatform._startTest.finalize (package:flutter_tools/src/test/flutter_platform.dart:593:11)
+<asynchronous suspension>
+#4      Future.wait.<anonymous closure> (dart:async/future.dart:528:21)
+<asynchronous suspension>
+#5      _DefaultShutdownHooks.runShutdownHooks (package:flutter_tools/src/base/process.dart:73:7)
+<asynchronous suspension>
+#6      exitWithHooks (package:flutter_tools/src/base/process.dart:655:3)
+<asynchronous suspension>
+#7      LocalSignals._handleSignal (package:flutter_tools/src/base/signals.dart:150:7)
+<asynchronous suspension>
+
+unhandled error during finalization of test:
+/home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/sales_csv_export_view_test.dart
+PathNotFoundException: Deletion failed, path = '/tmp/flutter_tools.NVBIDF/flutter_test_listener.IUSKMH' (OS Error: No such file or directory, errno = 2)
+#0      _Directory._deleteSync (dart:io/directory_impl.dart:226:7)
+#1      FileSystemEntity.deleteSync (dart:io/file_system_entity.dart:425:7)
+#2      ForwardingFileSystemEntity.deleteSync (package:file/src/forwarding/forwarding_file_system_entity.dart:70:16)
+#3      ErrorHandlingDirectory.deleteSync.<anonymous closure> (package:flutter_tools/src/base/error_handling_io.dart:449:22)
+#4      _runSync (package:flutter_tools/src/base/error_handling_io.dart:550:14)
+#5      ErrorHandlingDirectory.deleteSync (package:flutter_tools/src/base/error_handling_io.dart:448:12)
+#6      FlutterPlatform._createListenerDart.<anonymous closure> (package:flutter_tools/src/test/flutter_platform.dart:789:15)
+#7      FlutterPlatform._startTest.finalize (package:flutter_tools/src/test/flutter_platform.dart:593:26)
+<asynchronous suspension>
+#8      Future.wait.<anonymous closure> (dart:async/future.dart:528:21)
+<asynchronous suspension>
+#9      _DefaultShutdownHooks.runShutdownHooks (package:flutter_tools/src/base/process.dart:73:7)
+<asynchronous suspension>
+#10     exitWithHooks (package:flutter_tools/src/base/process.dart:655:3)
+<asynchronous suspension>
+#11     LocalSignals._handleSignal (package:flutter_tools/src/base/signals.dart:150:7)
+<asynchronous suspension>
+

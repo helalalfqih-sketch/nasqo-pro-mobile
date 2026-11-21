@@ -1,0 +1,7 @@
+00:00 +0: loading /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/parity_balance_style_test.dart
+00:00 +0: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/parity_balance_style_test.dart: restored balances follow CSS sign and color (dark=false)
+00:00 +1: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/parity_balance_style_test.dart: restored balances follow CSS sign and color (dark=true)
+00:00 +2: loading /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/home_balance_panel_test.dart
+00:03 +2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/home_balance_panel_test.dart: home balance shows per-currency amounts and opens member detail
+00:05 +3: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/home_balance_panel_test.dart: restored group name and balance open only its own accounts
+00:06 +4: All tests passed!

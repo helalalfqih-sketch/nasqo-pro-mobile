@@ -1,0 +1,18 @@
+00:00 +0: loading /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/offline_posting_test.dart
+00:00 +0: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/offline_posting_test.dart: website JSON imports supported currency quotes without aliasing unknown codes
+00:00 +1: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/offline_posting_test.dart: catalog, imported accounts, message settings and purchases survive a cold reopen
+00:00 +2: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/offline_posting_test.dart: stock, vouchers and exchanges survive closing and reopening SQLite
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:01 +3: loading /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/dev_update_test.dart
+00:02 +3: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/dev_update_test.dart: manifest rejects untrusted download locations and invalid checksums
+00:02 +4: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/dev_update_test.dart: verified downloads and rejected or interrupted transfers preserve SQLite on reopen
+00:02 +5: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/dev_update_test.dart: checks on open, waits for consent, and checks again from the toolbar
+00:03 +6: /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/dev_update_test.dart: a download accepted from the startup prompt reports failures
+00:03 +7: All tests passed!

@@ -1,0 +1,2 @@
+Reference all currencies: SAR -1250.5 and USD +25 appear as the unlabeled nominal sum -1225.5.
+PASS two RTL themes; signed amount, independent currency and open intent; zero HTTP(S) requests and zero page errors (Chromium component).

@@ -1,0 +1,50 @@
+00:00 +0: loading /home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/parity_balance_style_test.dart
+00:00 +0: restored balances follow CSS sign and color (dark=false)
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following StateError was thrown running a test:
+Bad state: No element
+
+When the exception was thrown, this was the stack:
+#0      Iterable.single (dart:core/iterable.dart:676:25)
+#1      WidgetController.widget (package:flutter_test/src/controller.dart:804:30)
+#2      main.<anonymous closure> (file:///home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/parity_balance_style_test.dart:29:29)
+<asynchronous suspension>
+#3      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:15)
+<asynchronous suspension>
+#4      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+The test description was:
+  restored balances follow CSS sign and color (dark=false)
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:01 +0 -1: restored balances follow CSS sign and color (dark=false) [E]
+  Test failed. See exception logs above.
+  The test description was: restored balances follow CSS sign and color (dark=false)
+  
+00:01 +0 -1: restored balances follow CSS sign and color (dark=true)
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following StateError was thrown running a test:
+Bad state: No element
+
+When the exception was thrown, this was the stack:
+#0      Iterable.single (dart:core/iterable.dart:676:25)
+#1      WidgetController.widget (package:flutter_test/src/controller.dart:804:30)
+#2      main.<anonymous closure> (file:///home/chatgpt-admin/nasqo-parity-batch01/flutter_app/test/parity_balance_style_test.dart:29:29)
+<asynchronous suspension>
+#3      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:15)
+<asynchronous suspension>
+#4      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+The test description was:
+  restored balances follow CSS sign and color (dark=true)
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:01 +0 -2: restored balances follow CSS sign and color (dark=true) [E]
+  Test failed. See exception logs above.
+  The test description was: restored balances follow CSS sign and color (dark=true)
+  
+00:01 +0 -2: Some tests failed.
