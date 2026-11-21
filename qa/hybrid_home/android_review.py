@@ -20,7 +20,9 @@ from android_upgrade_smoke import installed_code
 OUT = Path(os.environ.get("HYBRID_EVIDENCE", "hybrid-evidence"))
 DB = f"/data/user/0/{PACKAGE}/databases/nasqo_pro_erp.db"
 FIXTURE = json.loads((ROOT / "qa/groups_lab/assets/fixture.json").read_text())
-CANDIDATE = json.loads((OUT / "candidate.json").read_text())
+DEBUG = sys.argv[1:2] == ["--debug"]
+CANDIDATE = ({"source": os.environ.get("GITHUB_SHA")} if DEBUG
+             else json.loads((OUT / "candidate.json").read_text()))
 RESULT = {"source": CANDIDATE["source"], "checks": {}, "paint_ms": [], "am_total_ms": []}
 def save(name, value):
     (OUT / name).write_text(json.dumps(value, ensure_ascii=False, indent=2)+"\n")
@@ -115,14 +117,13 @@ def prefs():
 def viewport():
     n=next((n for n in nodes() if n.get("class")=="android.webkit.WebView" and bounds(n)[3]-bounds(n)[1]>150),None)
     if n is not None: return bounds(n)
-    # MaterialApp hosts a standard 56dp toolbar; its actual position is anchored
-    # by the native application status bar. Determine the lower edge from nav.
-    tree=nodes()
-    tab=next((n for n in tree if "الرئيسية" in label(n) and bounds(n)[1]>650),None)
-    more=next((n for n in tree if "خيارات" in label(n) and bounds(n)[1]<145),None)
-    require(tab is not None and more is not None,"Could not locate WebView or Flutter chrome")
-    m=bounds(more); t=bounds(tab)
-    return [0,round((m[1]+m[3])/2+28),427,t[1]]
+    header = find("فتح القائمة")
+    nav = find("الشريط السفلي للشاشة الرئيسية")
+    left, top, right, bottom = bounds(header)
+    # Native status/navigation bars are outside the WebView. Anchor to the
+    # centers of the fixed 52dp React header and the 68dp navigation strip.
+    bar = bounds(nav)
+    return [0, round((top+bottom)/2-26), 427, bar[3]]
 def crop_compare(mode,box):
     full=shot("android-"+mode)
     actual=full.crop(box)
@@ -158,17 +159,26 @@ def run(baseline,candidate):
     adb("shell","settings","put","system","font_scale","1.0")
     adb("shell","cmd","connectivity","airplane-mode","enable");adb("shell","svc","wifi","disable");adb("shell","svc","data","disable")
     require(adb("shell","settings","get","global","airplane_mode_on").strip()==b"1","Airplane mode")
-    adb("install",baseline);require(installed_code()==10014,"baseline identity")
-    launch(False);find("الرئيسية",40);stop();seed()
+    OUT.mkdir(exist_ok=True, parents=True)
+    adb("install",candidate if DEBUG else baseline)
+    if not DEBUG: require(installed_code()==10014,"baseline identity")
+    launch(DEBUG);find("الرئيسية",40);stop();seed()
     baseline_books=books();save("baseline-table-digests.json",baseline_books)
-    adb("install","-r",candidate);require(installed_code()==CANDIDATE["versionCode"],"candidate identity")
-    passed("in_place_signed_upgrade", [10014,installed_code()])
+    if DEBUG:
+        passed("installed_debug_apk", installed_code())
+    else:
+        adb("install","-r",candidate);require(installed_code()==CANDIDATE["versionCode"],"candidate identity")
+        passed("in_place_signed_upgrade", [10014,installed_code()])
     launch();group=find("مجموعة الشمال")
     passed("offline_react_home",label(group))
     box=viewport(); geometry=crop_compare("light",box)
     stop();theme(True);launch();find("مجموعة الشمال")
     crop_compare("dark",viewport())
     stop();theme(False);launch();find("مجموعة الشمال")
+    tap(find("الإجراءات السريعة"));find("مسح باركود");shot("android-quick")
+    back();find("مجموعة الشمال")
+    tap(find("فتح القائمة"));find("الرسائل الفورية واتساب");back();find("مجموعة الشمال")
+    passed("quick_actions_drawer_back")
     # Test the real Android select popup; it returns the selection to Dart.
     taprect(box,geometry["select"]);tap(find("دولار"))
     wait(lambda:prefs().get("filters",{}).get("group-41")=="دولار","currency in SQLite")
@@ -177,7 +187,7 @@ def run(baseline,candidate):
     find("الرصيد الختامي: 25.00 دولار");shot("native-statement")
     back();find("عميل دولار تجريبي");back();find("مجموعة الشمال")
     require(prefs()["filters"]["group-41"]=="دولار","lost filter on return");passed("native_statement_back")
-    taprect(box,geometry["search"]);find("البحث السريع المحلي")
+    tap(find("بحث"));find("البحث السريع المحلي")
     ed=wait(lambda:next((n for n in nodes() if n.get("class")=="android.widget.EditText"),None),"native search field")
     tap(ed);adb("shell","input","text","SKU-101")
     find("SKU-101")

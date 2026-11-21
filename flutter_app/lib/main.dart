@@ -136,7 +136,7 @@ class NasqoMainShell extends StatefulWidget {
 class _NasqoMainShellState extends State<NasqoMainShell> {
   final _shellKey = GlobalKey<ScaffoldState>();
   final _homeScroll = ScrollController();
-  final _pilotKey = GlobalKey<HybridHomeState>();
+  final _updateKey = GlobalKey<DevUpdateActionState>();
   bool _usePilot = !kIsWeb && Platform.isAndroid;
   String? _activeModule;
 
@@ -192,7 +192,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         initialCurrency: widget.controller.defaultCurrency,
       );
 
-  void _openModulePage(String moduleId) {
+  Future<void> _openModulePage(String moduleId) async {
     if (moduleId == 'sms-settings') {
       showNasqoSmsSettingsDialog(context);
       return;
@@ -206,7 +206,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       return;
     }
     if (moduleId == 'measurement-new') {
-      showModalBottomSheet<void>(
+      await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
         builder: (_) => CustomerMeasurementFormSheet(
@@ -469,7 +469,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
 
     final previousModule = _activeModule;
     _activeModule = moduleId;
-    Navigator.of(context)
+    await Navigator.of(context)
         .push<void>(
       MaterialPageRoute(
         builder: (_) => Directionality(
@@ -516,8 +516,8 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
     if (moduleId != 'home') _openModulePage(moduleId);
   }
 
-  void _openInvoice() {
-    Navigator.of(context).push<void>(MaterialPageRoute(
+  Future<void> _openInvoice() async {
+    await Navigator.of(context).push<void>(MaterialPageRoute(
       builder: (_) => InvoiceWorkspace(controller: widget.controller),
     ));
   }
@@ -535,6 +535,34 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
 
   @override
   Widget build(BuildContext context) {
+    if (_usePilot) {
+      return Scaffold(
+        key: _shellKey,
+        body: SafeArea(
+          child: Column(children: [
+            DevUpdateAction(key: _updateKey, showButton: false),
+            Expanded(child: HybridHomeView(
+              controller: widget.controller,
+              showNative: () => setState(() => _usePilot = false),
+              openModule: (route) async {
+                switch (route) {
+                  case 'app-update':
+                    await _updateKey.currentState?.checkForUpdate();
+                  case 'home-mode':
+                    setState(() => _usePilot = false);
+                  case 'theme':
+                    widget.controller.toggleTheme();
+                  case 'invoice':
+                    await _openInvoice();
+                  default:
+                    await _openModulePage(route);
+                }
+              },
+            )),
+          ]),
+        ),
+      );
+    }
     final blue=Color(widget.controller.primaryTint);
     final navy=Color.lerp(blue,Colors.black,0.30)!;
     final unread=workspaceAlerts(widget.controller).where((a)=>!widget.controller.readAlerts.contains(a.id)).length;
@@ -598,7 +626,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
           ),
         ]),
         actions: [
-          const SizedBox(width: 40, child: DevUpdateAction()),
+          SizedBox(width: 40, child: DevUpdateAction(key: _updateKey)),
           SizedBox(width:34,child:IconButton(tooltip:'إعدادات واتساب',iconSize:19,padding:EdgeInsets.zero,
             onPressed:()=>_openModulePage('message-settings'),icon:const Icon(Icons.chat_outlined))),
           SizedBox(width: 34, child: IconButton(
@@ -650,9 +678,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       ),
       bottomNavigationBar: HomeNavigation(
         onHome: () {
-          if (_usePilot) {
-            _pilotKey.currentState?.scrollToTop();
-          } else if (_homeScroll.hasClients) {
+          if (_homeScroll.hasClients) {
             _homeScroll.animateTo(0, duration: const Duration(milliseconds: 240), curve: Curves.easeOut);
           }
         },
@@ -665,11 +691,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         companyName: widget.controller.companyName,
         onOpen: _openFromDrawer,
       ),
-      body: _usePilot ? HybridHomeView(
-        key: _pilotKey, controller: widget.controller,
-        showNative: () => setState(() => _usePilot = false),
-        openModule: (route) => route == 'invoice' ? _openInvoice() : _openModulePage(route),
-      ) : DashboardScreen(
+      body: DashboardScreen(
         scrollController: _homeScroll,
         controller: widget.controller,
         onOpenModule: _openModulePage,

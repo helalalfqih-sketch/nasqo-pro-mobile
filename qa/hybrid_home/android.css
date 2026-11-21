@@ -1,0 +1,8 @@
+@font-face { font-family: NasqoPilot; src: url("arabic.ttf"); }
+html, body { margin: 0; height: 100%; }
+.nasqo-app { font-family: "IBM Plex Sans Arabic", NasqoPilot, sans-serif; }
+.smart-tile.editing { touch-action: none; }
+.hybrid-shell { --flow-header-height: 52px; --flow-footer-height: 68px; }
+.smart-center-stage .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.smart-center-stage .metrics-section { margin: 0; }
+.smart-center-stage .home-metric-slot > button { width: 100%; }

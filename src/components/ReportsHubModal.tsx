@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRightIcon, Cross2Icon } from "@radix-ui/react-icons";
+import { ReportsMenu, ReportsPanel, type ReportDestination } from "./ReportsMenu";
 import { NasqoBrandLoader } from "./NasqoBrandLoader";
 import {
   computeCategoryTotals,
@@ -236,23 +236,12 @@ export function ReportsHubModal({
     fn();
   };
 
-  const menu: { label: string; tone: "orange" | "blue"; run: () => void }[][] = [
-    [
-      { label: "حركة الصندوق", tone: "orange", run: () => openExternal(onOpenCashboxes) },
-      { label: "تقرير الحسابات الختامية", tone: "blue", run: () => setReport("closing") },
-      { label: "تقرير اجمالي حسب التصنيف", tone: "orange", run: () => setReport("by-category") },
-      { label: "ميزان المراجعة", tone: "blue", run: () => openExternal(onOpenTrialBalance) },
-    ],
-    [
-      { label: "تقرير حركة المخزون والارباح", tone: "orange", run: () => openExternal(onOpenInventoryMovements) },
-      { label: "تقرير المخزون المتبقي وتاريخ الانتهاء", tone: "blue", run: () => setReport("stock-expiry") },
-      { label: "المخزون المتبقي", tone: "orange", run: () => setReport("stock-remaining") },
-      { label: "أرباح الفواتير", tone: "blue", run: () => setReport("invoice-profit") },
-      { label: "تقارير الخدمات", tone: "orange", run: () => setReport("services") },
-      { label: "تقارير ضريبية", tone: "blue", run: () => setReport("tax") },
-    ],
-  ];
-  const sectionTitles = ["التقارير المالية", "التقارير المخزنية"];
+  const chooseReport = (id: ReportDestination) => {
+    if (id === "cashboxes") return openExternal(onOpenCashboxes);
+    if (id === "trial-balance") return openExternal(onOpenTrialBalance);
+    if (id === "movement") return openExternal(onOpenInventoryMovements);
+    setReport(id);
+  };
 
   const usesCurrency = report === "closing" || report === "by-category" || report === "services" || report === "tax" || report === "invoice-profit";
   const usesWarehouse = report === "stock-remaining" || report === "stock-expiry" || report === "invoice-profit";
@@ -268,52 +257,11 @@ export function ReportsHubModal({
   );
 
   return (
-    <div className="center-modal-layer" data-testid="reports-hub-modal">
-      <button className="center-modal-backdrop" onClick={onClose} aria-label="إغلاق التقارير" />
-      <section
-        className="account-groups-modal reports-hub-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="reports-hub-title"
-      >
-        <header className="smart-modal-header">
-          <button type="button" className="smart-modal-close" onClick={onClose} aria-label="إغلاق">
-            <Cross2Icon />
-          </button>
-          <h2 id="reports-hub-title">{report ? REPORT_TITLES[report] : "التقارير"}</h2>
-          {report ? (
-            <button
-              type="button"
-              className="smart-modal-close"
-              onClick={() => setReport(null)}
-              aria-label="رجوع إلى قائمة التقارير"
-              data-testid="reports-back-btn"
-            >
-              <ArrowRightIcon />
-            </button>
-          ) : (
-            <span className="smart-modal-spacer" aria-hidden="true" />
-          )}
-        </header>
-
+    <ReportsPanel title={report ? REPORT_TITLES[report] : "التقارير"}
+      footer={report ? REPORT_TITLES[report] : "اختر تقريرًا"} onClose={onClose}
+      onBack={report ? () => setReport(null) : undefined}>
         {!report ? (
-          <div className="reports-hub-menu" data-testid="reports-hub-menu">
-            {menu.map((group, gi) => (
-              <div key={sectionTitles[gi]}>
-                <div className="reports-hub-section">{sectionTitles[gi]}</div>
-                {group.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    className={`reports-hub-btn ${item.tone}`}
-                    onClick={item.run}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
+          <ReportsMenu onSelect={chooseReport}/>
         ) : (
           <div className="reports-hub-detail">
             {usesCurrency || usesWarehouse || usesDates ? (
@@ -638,13 +586,6 @@ export function ReportsHubModal({
           </div>
         )}
 
-        <footer className="account-groups-footer">
-          <span>{report ? REPORT_TITLES[report] : "اختر تقريرًا"}</span>
-          <button type="button" className="ag-btn close" onClick={onClose}>
-            إغلاق
-          </button>
-        </footer>
-      </section>
-    </div>
+    </ReportsPanel>
   );
 }

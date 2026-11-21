@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 import '../models/erp_models.dart';
 import '../services/home_balance_groups.dart';
+import '../services/customer_measurement_repository.dart';
+import '../screens/home_navigation.dart' show workspaceAlerts;
 import '../state/erp_controller.dart';
 
 /// Values are native route names. The WebView can request these destinations;
@@ -32,6 +34,41 @@ const homeDestinations = <String, String>{
   'erp-hub': 'hub',
   'settings': 'settings',
   'qr-scanner': 'qr-scanner',
+};
+const homeNavigationRoutes = {
+  'app-update',
+  'home-mode',
+  'theme',
+  'local-backups',
+  'account-import',
+  'message-settings',
+  'notifications',
+  'account-new',
+  'chart-accounts',
+  'item-new',
+  'group-sales',
+  'group-purchases',
+  'group-clients',
+  'group-employees',
+  'group-transfers',
+  'group-shop',
+  'measurements',
+  'measurement-new',
+  'quotes',
+  'orders',
+  'finance',
+  'hr',
+  'crm',
+  'procurement',
+  'manufacturing',
+  'report-closing',
+  'report-category',
+  'report-expiry',
+  'report-stock',
+  'report-profit',
+  'report-services',
+  'report-movement',
+  'recorded-sales-tax',
 };
 const _categories = [
   AccountCategory.sales,
@@ -81,6 +118,12 @@ class HomePresentation {
   final filters = <String, String>{};
   Map<String, dynamic>? layout;
   int scroll = 0;
+  int measurementCount = 0;
+
+  Future<void> loadMeasurementCount() async {
+    measurementCount =
+        await CustomerMeasurementRepository(controller.database).count();
+  }
 
   bool get restored => controller.restoredGroups?.groups.isNotEmpty == true;
   AccountCategory? categoryFor(int id) =>
@@ -122,13 +165,17 @@ class HomePresentation {
       'ready' || 'paint' => _hasKeys(msg, {'action'}),
       'tile' =>
         _hasKeys(msg, {'action', 'id'}) && homeDestinations.containsKey(id),
+      'navigate' =>
+        _hasKeys(msg, {'action', 'id'}) && homeNavigationRoutes.contains(id),
       'group' =>
         _hasKeys(msg, {'action', 'id'}) && id is int && containsGroup(id),
       'currency' => _hasKeys(msg, {'action', 'id', 'currency'}) &&
           id is int &&
           containsGroup(id) &&
           _currency(msg['currency']),
-      'editing' => _hasKeys(msg, {'action', 'active'}) && msg['active'] is bool,
+      'editing' ||
+      'overlay' =>
+        _hasKeys(msg, {'action', 'active'}) && msg['active'] is bool,
       'scroll' => _hasKeys(msg, {'action', 'y'}) &&
           msg['y'] is int &&
           (msg['y'] as int) >= 0 &&
@@ -143,6 +190,7 @@ class HomePresentation {
   }
 
   Future<void> load() async {
+    await loadMeasurementCount();
     final db = await controller.database.database;
     final found = await db.query('erp_state',
         columns: ['payloadJson'],
@@ -194,6 +242,49 @@ class HomePresentation {
           'updatedAt': DateTime.now().toUtc().toIso8601String()
         },
         conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  // Same sign convention as React computeCategoryTotals: credit minus debit.
+  Map<String, double> _categoryMetrics() {
+    final totals = {for (final category in _categories) category.name: 0.0};
+    final currency = controller.defaultCurrency;
+    final byId = {
+      for (final account in controller.accounts) account.id: account
+    };
+    for (final account in byId.values) {
+      if (account.currency != currency || account.openingBalance <= 0) continue;
+      totals[account.category.name] = totals[account.category.name]! +
+          (account.openingDirection == EntryDirection.credit
+              ? account.openingBalance
+              : -account.openingBalance);
+    }
+    final archive = controller.restoredGroups;
+    for (final entry in controller.ledger) {
+      if (entry.deleted ||
+          entry.currency != currency ||
+          entry.kind == LedgerKind.quote ||
+          entry.kind == LedgerKind.order) {
+        continue;
+      }
+      final account = byId[entry.accountId];
+      final amount = entry.direction == EntryDirection.credit
+          ? entry.amount
+          : -entry.amount;
+      final settled = archive?.settledEntries.contains(entry.id) ?? false;
+      if (account != null &&
+          !settled &&
+          !(archive?.sides[entry.id] == null &&
+              account.isCashAccount &&
+              entry.payment == PaymentMethod.cash)) {
+        totals[account.category.name] = totals[account.category.name]! + amount;
+      }
+      final counterpart = byId[archive?.counterparts[entry.id]];
+      if (counterpart != null) {
+        totals[counterpart.category.name] =
+            totals[counterpart.category.name]! - amount;
+      }
+    }
+    return totals;
   }
 
   Map<String, dynamic> snapshot(bool dark) {
@@ -272,6 +363,11 @@ class HomePresentation {
         if (controller.homeRadius != 24) 'radius': controller.homeRadius,
       },
       'company': controller.companyName,
+      'metrics': _categoryMetrics(),
+      'measurementCount': measurementCount,
+      'unread': workspaceAlerts(controller)
+          .where((alert) => !controller.readAlerts.contains(alert.id))
+          .length,
       'defaultCurrency': controller.defaultCurrency.label,
       'currencies': [for (final c in CurrencyCode.values) c.label],
       'rows': rows,

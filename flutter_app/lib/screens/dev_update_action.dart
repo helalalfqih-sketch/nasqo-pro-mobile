@@ -5,13 +5,17 @@ import '../services/dev_update_service.dart';
 
 /// Both startup checks and manual checks share the same verification path.
 class DevUpdateAction extends StatefulWidget {
-  const DevUpdateAction({super.key, this.updates = const DevUpdateService()});
+  const DevUpdateAction(
+      {super.key,
+      this.updates = const DevUpdateService(),
+      this.showButton = true});
   final DevUpdateService updates;
+  final bool showButton;
   @override
-  State<DevUpdateAction> createState() => _DevUpdateActionState();
+  State<DevUpdateAction> createState() => DevUpdateActionState();
 }
 
-class _DevUpdateActionState extends State<DevUpdateAction> {
+class DevUpdateActionState extends State<DevUpdateAction> {
   bool busy = false;
   @override
   void initState() {
@@ -76,10 +80,14 @@ class _DevUpdateActionState extends State<DevUpdateAction> {
     }
   }
 
+  Future<void> checkForUpdate() => _check();
+
   @override
-  Widget build(BuildContext context) => IconButton(
-        tooltip: 'التحقق من تحديثات التطبيق',
-        icon: Icon(busy ? Icons.hourglass_top : Icons.system_update_alt),
-        onPressed: busy ? null : () => _check(),
-      );
+  Widget build(BuildContext context) => !widget.showButton
+      ? const SizedBox.shrink()
+      : IconButton(
+          tooltip: 'التحقق من تحديثات التطبيق',
+          icon: Icon(busy ? Icons.hourglass_top : Icons.system_update_alt),
+          onPressed: busy ? null : () => _check(),
+        );
 }

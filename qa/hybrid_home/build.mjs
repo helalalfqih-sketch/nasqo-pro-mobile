@@ -61,13 +61,33 @@ if(!reference) {
   body=body.replace(cell,'{row.amounts ? row.amounts.map(a => <span key={a.currency} className={"smart-col-bal "+(a.value < -0.005 ? "neg" : a.value > 0.005 ? "pos" : "zero")} style={{display:"block"}}><strong><bdi>{formatSignedSmartBalance(a.value)}</bdi> · {a.currency}</strong></span>) : <strong>'+amount+'</strong>}');
 }
 const icons=ast.program.body.find(n=>n.type==='ImportDeclaration' && n.source.value==='@radix-ui/react-icons');
-const extras=['PeopleIcon','QrScanIcon','GaugeIcon','TagPriceIcon'].map(n=>slice(decl(n))).join('\n');
+// Keep the JSX, labels, icons, motion settings and CSS from the reference.
+function replaceOnce(text, from, to) {
+  if (!text.includes(from) || text.indexOf(from) !== text.lastIndexOf(from)) {
+    throw Error('Changed React integration point: '+from);
+  }
+  return text.replace(from, () => to);
+}
+body = replaceOnce(body, '{tileEditMode ? (\n              <div className="smart-edit-bar"',
+  '{host.metrics}\n            {tileEditMode ? (\n              <div className="smart-edit-bar"');
+const extras=['PeopleIcon','QrScanIcon','GaugeIcon','TagPriceIcon','AppHeader'].map(n=>slice(decl(n))).join('\n');
+let navigation=slice(decl('DashboardBottomNav'));
+navigation=replaceOnce(navigation,'  const scrollHomeTop =', '  useEffect(() => ctx.quickState(quickOpen), [quickOpen]);\n  const scrollHomeTop =');
+navigation=replaceOnce(navigation,'.dashboard-scroll .mobile-scroll-content','.dashboard-scroll .mobile-scroll');
+
 const virtual=[
   "import React,{useState,useEffect,useRef,useCallback,useMemo} from 'react';",
+  "import {createPortal} from 'react-dom';",
+  "import {motion,AnimatePresence} from 'motion/react';",
+  "import {WhatsAppIcon} from './src/components/WhatsAppIcon';",
+  "import {useWorkspace,useKeyboard,useScreenPortal,triggerHaptic,simpleEntryScreen,erpModuleScreen} from './qa/hybrid_home/workspace';",
   slice(icons),"import {MobileScroll} from './src/mobile/MobileScroll';",
   "import {DEFAULT_HOME_TILE_LAYOUT,getVisibleOrderedHomeTiles,isDefaultHomeTileLayout,moveHomeTile,stepHomeTile,toggleHideHomeTile,togglePinHomeTile,toggleToneHomeTile} from './src/utils/dashboardPrefs';",
   "import {formatSignedSmartBalance"+(reference?",computeAccountGroupsSummary":"")+"} from './src/accounting';",
-  'const APP_ICON_URL="logo.png";',extras,body
+  'const APP_ICON_URL="logo.png";',extras,body,
+  ...['DashboardHeader','AppDrawer','DashboardAddMenu'].map(n=>'export '+slice(decl(n))),
+  'export '+navigation,
+  ...['CartIcon','ShopIcon'].map(n=>'export '+slice(decl(n))), 'export {PeopleIcon};'
 ].join('\n');
 const bundled=await build({entryPoints:[path.join(root,'qa/hybrid_home/host.tsx')],bundle:true,write:false,
   target:'chrome83',jsx:'automatic',minify:true,legalComments:'eof',metafile:true,
@@ -77,32 +97,21 @@ const bundled=await build({entryPoints:[path.join(root,'qa/hybrid_home/host.tsx'
     b.onLoad({filter:/.*/,namespace:'presentation'},()=>({contents:virtual,loader:'tsx',resolveDir:root}));
   }}]});
 const used=Object.entries(Object.values(bundled.metafile.outputs)[0].inputs).filter(([,v])=>v.bytesInOutput);
-if(used.some(([p])=>/firebase|\/src\/services\/|\/server\/|[\\/]motion[\\/]/.test(p))) throw Error('Unexpected service or runtime dependency');
-function stylesheet(file,keep) {
- const sheet=postcss.parse(fs.readFileSync(path.join(root,file),'utf8'));
- if(reference) return sheet.toString();
- const animations = new Set();
- sheet.walkRules(rule=>{
-   if(rule.parent?.type==='atrule' && /keyframes$/.test(rule.parent.name)) return;
-   const selected=rule.selectors.filter(s=>keep.test(s));
-   if(!selected.length) {rule.remove();return;}
-   rule.selectors=selected;
-   rule.walkDecls(/^(?:-webkit-)?animation(?:-name)?$/,decl=>{
-     for(const word of decl.value.match(/[\w-]+/g) ?? []) animations.add(word);
-   });
- });
- sheet.walkAtRules(rule=>{
-   if(!rule.nodes?.length || (/keyframes$/.test(rule.name) && !animations.has(rule.params))) rule.remove();
- });
- sheet.walkComments(c=>c.remove());
- return sheet.toString();
+if (used.some(([p]) => /firebase|(?:^|[/\\\\])(?:services|server)[/\\\\]/.test(p))) {
+  throw Error('Service dependency in the Android presentation bundle');
+}
+function stylesheet(file) {
+  const sheet = postcss.parse(fs.readFileSync(path.join(root,file),'utf8'));
+  // All app-owned screens use the same cascade. The APK contains its fonts.
+  sheet.walkAtRules('import',rule=>{ throw Error('External stylesheet: '+rule.params); });
+  if (!reference) sheet.walkComments(comment=>comment.remove());
+  return sheet.toString();
 }
 const fontWeights={Regular:400,Medium:500,SemiBold:600,Bold:700};
 const fonts=Object.entries(fontWeights).map(([name,weight])=>
   '@font-face{font-family:"IBM Plex Sans Arabic";font-style:normal;font-weight:'+weight+';src:url("fonts/IBMPlexSansArabic-'+name+'.ttf") format("truetype")}').join('\n');
-const css=fonts+'\n'+stylesheet('src/styles.css',/^(:root|\*|body|button|input|textarea)$|\.mobile-(page|scroll)/)+'\n'+
-  stylesheet('src/prototype.css',/^:root(?:\.dark)?$|^\.nasqo-app(?:$| \*| button$)|\.smart-|\.app-screen\b|\.dashboard-page\b|\.page-with-footer\b|\.mobile-scroll\b|\.workspace-sync-error\b|^\.toast\b|^\.app-brand-icon-img$/)+
-  '\n@font-face{font-family:NasqoPilot;src:url("arabic.ttf")}html,body{margin:0;height:100%}.nasqo-app{font-family:"IBM Plex Sans Arabic",NasqoPilot,sans-serif}.smart-tile.editing{touch-action:none}';
+const css=fonts+'\n'+stylesheet('src/styles.css')+'\n'+stylesheet('src/prototype.css')+'\n'+
+  fs.readFileSync(path.join(root,'qa/hybrid_home/android.css'),'utf8');
 const html='<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'self\'; style-src \'self\' \'unsafe-inline\'; font-src \'self\'; img-src \'self\'; connect-src \'none\'; frame-src \'none\'; base-uri \'none\'; form-action \'none\'"><link rel="stylesheet" href="home.css"></head><body><div id="home" class="nasqo-app"></div><script src="home.js"></script></body></html>\n';
 const logo=fs.readFileSync(path.join(root,'flutter_app/assets/nasqo_logo.png'));
 if(!logo.equals(fs.readFileSync(path.join(root,'public/assets/aistudio/NASQO_PRO_ERP_800_022d325f.png')))) throw Error('Android logo differs from the React brand mark');

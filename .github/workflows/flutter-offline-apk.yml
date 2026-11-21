@@ -12,6 +12,11 @@ on:
       - 'flutter_app/**'
   workflow_dispatch:
     inputs:
+      hybrid_review:
+        description: 'Exercise the packaged React screens in a disposable, offline Android WebView (debug APK)'
+        required: false
+        type: boolean
+        default: false
       signed_run:
         description: 'Optional successful signed workflow run on this revision for an offline upgrade test'
         required: false
@@ -135,13 +140,29 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - uses: actions/setup-node@v4
+        if: inputs.hybrid_review
+        with:
+          node-version: 24
+          cache: npm
+      - name: Prepare the React comparison for the debug APK
+        if: inputs.hybrid_review
+        run: |
+          npm ci --ignore-scripts
+          npm run check:runtime
+          node qa/hybrid_home/build.mjs
+          git diff --exit-code -- flutter_app/android/app/src/main/assets/hybrid_home
+          node qa/hybrid_home/build.mjs --reference /tmp/nasqo-hybrid-ref
+          python3 -m pip install Pillow
       - name: Exercise the APK in airplane mode
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: ${{ inputs.hybrid_review && 35 || 30 }}
+          target: ${{ inputs.hybrid_review && 'google_apis' || 'default' }}
+          disable-animations: true
           arch: x86_64
           profile: pixel_4
-          script: ${{ inputs.upgrade_baseline == '10013' && 'python3 qa/tools/direct_signed_upgrade.py baseline.apk candidate/app-release.apk' || inputs.signed_run && 'python3 flutter_app/test/android_upgrade_smoke.py baseline.apk candidate/app-release.apk' || 'python3 flutter_app/test/android_offline_smoke.py' }}
+          script: ${{ inputs.hybrid_review && 'CHROME_BIN=/usr/bin/google-chrome python3 qa/hybrid_home/android_review.py --debug offline-apk/app-debug.apk' || inputs.upgrade_baseline == '10013' && 'python3 qa/tools/direct_signed_upgrade.py baseline.apk candidate/app-release.apk' || inputs.signed_run && 'python3 flutter_app/test/android_upgrade_smoke.py baseline.apk candidate/app-release.apk' || 'python3 flutter_app/test/android_offline_smoke.py' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -149,3 +170,4 @@ jobs:
           path: |
             offline-check/*.png
             offline-check/*.json
+            hybrid-evidence/

@@ -13,7 +13,7 @@ class HybridHomeView extends StatefulWidget {
       required this.openModule,
       required this.showNative});
   final ErpController controller;
-  final ValueChanged<String> openModule;
+  final Future<void> Function(String) openModule;
   final VoidCallback showNative;
   @override
   State<HybridHomeView> createState() => HybridHomeState();
@@ -22,7 +22,8 @@ class HybridHomeView extends StatefulWidget {
 class HybridHomeState extends State<HybridHomeView> {
   late final view = HomePresentation(widget.controller);
   MethodChannel? _channel;
-  bool _ready = false, _editing = false, _failed = false;
+  bool _ready = false, _editing = false, _overlay = false, _failed = false;
+  bool _opening = false;
   late bool _dark;
   Timer? _startup;
   Future<void> _pending = Future.value();
@@ -70,6 +71,10 @@ class HybridHomeState extends State<HybridHomeView> {
           if (_editing != msg['active']) {
             setState(() => _editing = msg['active'] as bool);
           }
+        case 'overlay':
+          if (_overlay != msg['active']) {
+            setState(() => _overlay = msg['active'] as bool);
+          }
         case 'currency':
         case 'scroll':
         case 'layout':
@@ -80,8 +85,20 @@ class HybridHomeState extends State<HybridHomeView> {
             _error();
           });
         case 'tile':
-          if (ModalRoute.of(context)?.isCurrent == true) {
-            widget.openModule(homeDestinations[msg['id']]!);
+        case 'navigate':
+          if (_opening || ModalRoute.of(context)?.isCurrent != true) return;
+          _opening = true;
+          try {
+            final id = msg['id'] as String;
+            final route = msg['action'] == 'tile' ? homeDestinations[id]! : id;
+            await widget.openModule(route);
+            if (mounted &&
+                (route == 'measurements' || route == 'measurement-new')) {
+              await view.loadMeasurementCount();
+              _refresh();
+            }
+          } finally {
+            _opening = false;
           }
         case 'group':
           await _pending;
@@ -124,7 +141,6 @@ class HybridHomeState extends State<HybridHomeView> {
     }
   }
 
-  void scrollToTop() => _channel?.invokeMethod<void>('top');
   @override
   void dispose() {
     _startup?.cancel();
@@ -145,9 +161,11 @@ class HybridHomeState extends State<HybridHomeView> {
       ]));
     }
     return PopScope(
-        canPop: !_editing,
+        canPop: !_editing && !_overlay,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop && _editing) _channel?.invokeMethod<void>('endEdit');
+          if (!didPop && (_editing || _overlay)) {
+            _channel?.invokeMethod<void>('endEdit');
+          }
         },
         child: AndroidView(
             viewType: 'nasqo/offline-home',

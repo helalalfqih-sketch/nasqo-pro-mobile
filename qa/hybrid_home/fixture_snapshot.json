@@ -5,6 +5,16 @@
     "secondary": "#0891b2"
   },
   "company": "مختبر المطابقة",
+  "metrics": {
+    "sales": 0.0,
+    "purchases": -80.0,
+    "clients": 1250.5,
+    "employees": 0.0,
+    "transfers": 0.0,
+    "shop": 0.0
+  },
+  "measurementCount": 0,
+  "unread": 0,
   "defaultCurrency": "ريال",
   "currencies": [
     "ريال",
