@@ -7,6 +7,7 @@ import '../services/website_backup_file.dart';
 import 'nasqo_brand_mark.dart';
 
 import '../services/local_backup_files.dart';
+import '../services/legacy_backup_inspection.dart';
 
 class LocalBackupWorkspaceView extends StatefulWidget {
   const LocalBackupWorkspaceView(
@@ -99,9 +100,14 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
       if (buffer.length + chunk.length > limit) return 'الملف أكبر من الحد المدعوم.';
       buffer.add(chunk);
     }
+    final sourceBytes = buffer.takeBytes();
+    final legacy = await inspectLegacyBackup(sourceBytes);
+    if (legacy != null) {
+      return legacy.arabicSummary;
+    }
     final WebBackup backup;
     try {
-      final raw = await readWebsiteBackup(buffer.takeBytes(), limit);
+      final raw = await readWebsiteBackup(sourceBytes, limit);
       final root = jsonDecode(raw);
       if (root is Map && root['format'] == 'nasqo-local-qa-json-v1' && widget.importLocal != null) {
         final file = await widget.importLocal!(raw);
