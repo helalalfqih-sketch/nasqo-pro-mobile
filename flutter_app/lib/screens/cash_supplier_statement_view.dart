@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../hybrid/hybrid_document_view.dart';
 import '../models/erp_models.dart';
 import '../services/accounting_engine.dart';
 import '../state/erp_controller.dart';
@@ -31,11 +32,13 @@ class CashSupplierStatementView extends StatefulWidget {
     required this.controller,
     required this.account,
     required this.onOpenModule,
+    this.hybridDocuments = false,
   });
 
   final ErpController controller;
   final AccountRecord account;
   final ValueChanged<String> onOpenModule;
+  final bool hybridDocuments;
 
   @override
   State<CashSupplierStatementView> createState() =>
@@ -310,6 +313,7 @@ class _CashSupplierStatementViewState extends State<CashSupplierStatementView> {
                                 context,
                                 controller: widget.controller,
                                 entry: e,
+                                hybrid: widget.hybridDocuments,
                               ),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -666,7 +670,21 @@ Future<void> showLandscapeInvoicePreview(
   BuildContext context, {
   required ErpController controller,
   required LedgerEntryRecord entry,
+  bool hybrid = false,
 }) {
+  if (hybrid) {
+    return Navigator.of(context).push<void>(MaterialPageRoute(
+      builder: (_) => HybridDocumentView(
+        controller: controller,
+        accountId: entry.accountId,
+        entryId: entry.id,
+        nativePreview: (saved) => LandscapeInvoicePreviewDialog(
+          controller: controller,
+          entry: saved,
+        ),
+      ),
+    ));
+  }
   return showDialog<void>(
     context: context,
     builder: (_) => LandscapeInvoicePreviewDialog(

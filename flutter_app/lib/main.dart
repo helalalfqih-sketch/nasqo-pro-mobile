@@ -222,7 +222,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
     final category = AccountCategory.values.where((c) => moduleId == 'group-${c.name}').firstOrNull;
     final (title, Widget page) = switch (moduleId) {
       _ when category != null => (category.label, HomeAccountsView(
-        controller: widget.controller, category: category, onOpenModule: _openModulePage)),
+        controller: widget.controller, category: category, onOpenModule: _openModulePage, hybridDocuments: _usePilot)),
       'measurements' => (
           'التمييز والمقاسات',
           CustomerMeasurementsView(controller: widget.controller),
@@ -230,6 +230,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       'cash-statement' => (
           'كشف حساب المورد النقدي',
           CashSupplierStatementView(
+            hybridDocuments: _usePilot,
             controller: widget.controller,
             account: widget.controller.accounts.firstWhere(
               (a) => a.isCashAccount || a.category == AccountCategory.purchases,
@@ -376,7 +377,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         ),
       'account-statement' => (
           'كشف حساب',
-          HomeAccountsView(controller: widget.controller, category: null, onOpenModule: _openModulePage)
+          HomeAccountsView(controller: widget.controller, category: null, onOpenModule: _openModulePage, hybridDocuments: _usePilot)
         ),
       'warehouses' => (
           'المخازن',

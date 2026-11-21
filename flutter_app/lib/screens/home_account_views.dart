@@ -1,4 +1,3 @@
-import '../hybrid/hybrid_document_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -51,7 +50,8 @@ class HomeAccountsView extends StatefulWidget {
       {super.key,
       required this.controller,
       this.category = AccountCategory.clients,
-      this.cashOnly = false, this.onOpenModule, this.initialCurrency})
+      this.cashOnly = false, this.onOpenModule, this.initialCurrency,
+      this.hybridDocuments = false})
       : groupId = null;
 
   const HomeAccountsView.restoredGroup({
@@ -59,6 +59,7 @@ class HomeAccountsView extends StatefulWidget {
     required this.controller,
     required int this.groupId,
     required CurrencyCode this.initialCurrency,
+    this.hybridDocuments = false,
   }) : category = null, cashOnly = false, onOpenModule = null;
 
   final int? groupId;
@@ -66,6 +67,7 @@ class HomeAccountsView extends StatefulWidget {
   final ErpController controller;
   final AccountCategory? category;
   final bool cashOnly;
+  final bool hybridDocuments;
   final ValueChanged<String>? onOpenModule;
 
   @override
@@ -277,6 +279,7 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
                               controller: widget.controller,
                               account: account,
                               onOpenModule: widget.onOpenModule!,
+                              hybridDocuments: widget.hybridDocuments,
                             ),
                           ),
                         );
@@ -287,6 +290,7 @@ class _HomeAccountsViewState extends State<HomeAccountsView> {
                               controller: widget.controller,
                               accountId: account.id,
                               initialCurrency: currency,
+                              hybridDocuments: widget.hybridDocuments,
                             ),
                           ),
                         );
@@ -502,16 +506,12 @@ class _HomeAccountStatementViewState extends State<HomeAccountStatementView> {
                         subtitle: Text(
                             '${entry.details}\n${entry.direction == EntryDirection.debit ? "مدين" : "دائن"}: ${_money(entry.amount, currency)}\nالرصيد: ${_money(runningBalances[entry.id]!, currency)}'),
                         isThreeLine: true,
-                        onTap: () {
-                          if (widget.hybridDocuments) {
-                            Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) =>
-                              HybridDocumentView(controller: widget.controller, accountId: widget.accountId,
-                                entryId: entry.id, nativePreview: (saved) =>
-                                  LandscapeInvoicePreviewDialog(controller: widget.controller, entry: saved))));
-                          } else {
-                            showLandscapeInvoicePreview(context, controller: widget.controller, entry: entry);
-                          }
-                        },
+                        onTap: () => showLandscapeInvoicePreview(
+                          context,
+                          controller: widget.controller,
+                          entry: entry,
+                          hybrid: widget.hybridDocuments,
+                        ),
                       ),
                     const Text(
                         'للقراءة فقط. الموجب مدين والسالب دائن. لا تحويل للعملات ولا معالجة افتراضية للحسابات المقابلة.'),
