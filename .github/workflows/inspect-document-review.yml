@@ -1,0 +1,30 @@
+name: Inspect the document interaction on a disposable emulator
+on:
+  push:
+    branches: ['qa/collect-integrated-hybrid-44945527636']
+    paths: ['.github/workflows/inspect-document-review.yml']
+permissions:
+  actions: read
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Read only accessibility nodes and assertion from the synthetic test
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 44944565474 --repo "$GITHUB_REPOSITORY" -n offline-screen-checks --dir "$RUNNER_TEMP/qa"
+          python - <<'PY'
+          from pathlib import Path
+          import os,json,xml.etree.ElementTree as ET
+          path=next((Path(os.environ['RUNNER_TEMP'])/'qa').rglob('failed-ui.xml'))
+          print(json.loads((path.parent/'android.json').read_text()).get('failure'))
+          for n in ET.parse(path).getroot().iter('node'):
+              a=n.attrib
+              text=(a.get('text','')+' '+a.get('content-desc','')).strip()
+              if text:
+                  print(a.get('package'),a.get('class'),a.get('bounds'),text[:115])
+          PY
