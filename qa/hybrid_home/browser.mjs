@@ -288,6 +288,17 @@ try{
      assert.equal(await page.getByTestId('cash-invoice-quantity-total').innerText(),'3');
      assert.equal(await page.getByTestId('cash-invoice-grand-total').innerText(),'25.5');
      assert.equal(await page.getByTestId('home-bottom-nav').count(),0);
+     const header = await page.getByRole('button',{name:'رجوع',exact:true}).boundingBox();
+     const toolbar = page.getByRole('group',{name:'تكبير الفاتورة وتنزيل PDF'});
+     const controls = await toolbar.getByRole('button').all();
+     for (const button of controls) {
+       const bounds = await button.boundingBox();
+       assert.ok(bounds && bounds.width >= 24 && bounds.x >= 0 &&
+         bounds.x + bounds.width <= width + 1 && bounds.y >= header.y + header.height,
+         'Document action is clipped or overlaps the back button');
+     }
+     await page.getByTestId('cash-invoice-zoom-in').tap();
+     await page.getByText('مرّر لقراءة بقية المستند',{exact:false}).waitFor();
      await page.getByTestId('cash-invoice-actual-size').click();
      assert.equal(await page.getByTestId('cash-invoice-zoom-value').innerText(),'100%');
      await page.getByTestId('cash-invoice-reset').click();

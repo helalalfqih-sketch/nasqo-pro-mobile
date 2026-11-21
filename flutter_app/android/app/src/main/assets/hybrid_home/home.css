@@ -13269,10 +13269,26 @@ html, body { margin: 0; height: 100%; }
 .metrics-section .metric-pin { position:absolute; inset-inline-start:7px; top:7px; }
 .metrics-section .smart-edit-bar { margin-top:8px; }
 
-.hybrid-document {height: 100%; display: flex; flex-direction: column;}
+.hybrid-document {--flow-header-height: 58px; height: 100%; display: flex; flex-direction: column;}
 .hybrid-document > .flow-fixed-header {position: relative; flex: 0 0 auto;}
-.hybrid-document > .flow-scenes {position: relative; flex: 1; min-height: 0;}
+.hybrid-document > .flow-scenes {position: relative; top: 0; flex: 1; min-height: 0;}
 .hybrid-document .cash-invoice-preview {height: 100%;}
+
+@media screen {
+  .hybrid-document .cash-invoice-preview {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+  .hybrid-document .cash-invoice-controls {
+    position: static;
+    height: auto;
+    min-height: 44px;
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+  .hybrid-document .cash-invoice-reader-hint {position: static;}
+  .hybrid-document .cash-invoice-scroll {position: relative; inset: auto; min-height: 0;}
+}
 
 @media print {
   .hybrid-document .flow-fixed-header, .hybrid-document .cash-invoice-controls,
