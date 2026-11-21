@@ -285,6 +285,25 @@ def rendered_print_page():
     return next((n for n in nodes() if n.get("package")=="com.android.printspooler" and
                      re.search(r"Page 1 of [1-9]|صفحة 1 من",label(n),re.I)),None)
 
+def live_document_geometry(width):
+    # The runner guards the whole scenario to a disposable, rooted debug emulator.
+    # Forward only the WebView belonging to this APK, and remove the forward after reading.
+    pid = adb("shell", "pidof", "-s", PACKAGE).decode().strip()
+    require(pid.isdecimal(), "Missing QA app process")
+    port = adb("forward", "tcp:0", "localabstract:webview_devtools_remote_" + pid).decode().strip()
+    require(port.isdecimal(), "Invalid local WebView debug port")
+    try:
+        raw = subprocess.check_output(
+            ["node", str(ROOT / "qa/hybrid_home/webview-document.mjs"), port], timeout=12)
+    finally:
+        adb("forward", "--remove", "tcp:" + port)
+    require(raw, "Expected the visible SQLite document in the running APK")
+    geometry = json.loads(raw)
+    require(geometry["width"] == width and geometry["density"] == 1 and geometry["rtl"],
+            "WebView and emulator geometries disagree")
+    return geometry
+
+
 def verify_document_touch_layout(open_document):
     labels = (
         "تكبير الفاتورة", "تصغير الفاتورة", "ملاءمة العرض", "100%",
@@ -302,60 +321,73 @@ def verify_document_touch_layout(open_document):
                 return any("9041" in label(n) or "الرصيد الختامي" in label(n) or "كشف حساب" in label(n) for n in tree)
             wait(statement_resized, f"Native statement laid out at {width}px")
             open_document()
-            try:
-                find("معاينة المستند", 12)
-            except AssertionError:
-                tree = nodes()
-                if not any(n.get("class") == "android.webkit.WebView" for n in tree) or any(label(n) for n in tree):
-                    raise
-                # UIAutomator starts a fresh accessibility client for every dump.
-                # Request keyboard focus on the attached WebView after a resize;
-                # every subsequent measurement and action still uses real AX nodes.
-                shot(f"android-document-{width}-empty-accessibility-tree")
-                RESULT.setdefault("accessibility_focus_retries", []).append(width)
-                adb("shell", "input", "keyevent", "KEYCODE_TAB")
-                find("معاينة المستند", 25)
+            def document_text(text):
+                try:
+                    return find(text, 10)
+                except AssertionError:
+                    geometry = live_document_geometry(width)
+                    require(text in geometry["text"], "Missing visible WebView text: " + text)
+            document_text("معاينة المستند")
             box = viewport()
             require(box[2] - box[0] == width, f"Unexpected document width: {box}")
             require(adb("shell", "settings", "get", "system", "font_scale").strip() == b"1.3",
                     "Android did not retain the enlarged system font")
-            back_button = exact_button("رجوع")
-            bl, bt, br, bb = bounds(back_button)
-            require(br - bl >= 48 and bb - bt >= 48, "Undersized Back button")
-            back_bottom = bounds(back_button)[3]
-            controls = {name: bounds(exact_button(name)) for name in labels}
+            def button_rects(names):
+                tree = nodes()
+                native = {label(n): bounds(n) for n in tree if n.get("class") == "android.widget.Button"}
+                if all(name in native for name in names):
+                    return {name: native[name] for name in names}
+                geometry = live_document_geometry(width)
+                rects = {}
+                for name in names:
+                    hit = geometry["controls"][name]
+                    require(hit["receivesTouch"], "Obstructed live WebView button: " + name)
+                    l, t, r, b = hit["rect"]
+                    rects[name] = [l + box[0], t + box[1], r + box[0], b + box[1]]
+                RESULT.setdefault("webview_geometry_fallback", []).append(width)
+                return rects
+
+            def press(name):
+                l, t, r, b = button_rects([name])[name]
+                tapxy((l+r)/2, (t+b)/2)
+
+            measured = button_rects((*labels, "رجوع"))
+            back_rect = measured.pop("رجوع")
+            bl, bt, br, back_bottom = back_rect
+            require(br - bl >= 48 and back_bottom - bt >= 48, "Undersized Back button")
+            controls = measured
             for name, (left, top, right, bottom) in controls.items():
                 require(right - left >= 48 and bottom - top >= 48 and
                         box[0] <= left < right <= box[2] and back_bottom <= top < bottom <= box[3],
                         f"Clipped or undersized document action: {name}, {controls[name]}")
             shot(f"android-document-{width}-font-130")
-            tap(exact_button("تكبير الفاتورة"))
-            find("مرّر لقراءة بقية المستند")
-            tap(exact_button("تصغير الفاتورة"))
-            find("يمكن طباعة المستند أو حفظه")
-            tap(exact_button("100%"))
-            find("مرّر لقراءة بقية المستند")
+            press("تكبير الفاتورة")
+            document_text("مرّر لقراءة بقية المستند")
+            press("تصغير الفاتورة")
+            document_text("يمكن طباعة المستند أو حفظه")
+            press("100%")
+            document_text("مرّر لقراءة بقية المستند")
             # Crop the stable document area so changes in status chrome cannot
             # satisfy the swipe check.
-            content_top = bounds(exact_button("تحريك الفاتورة إلى اليمين"))[3] + 16
-            region = (16, content_top, width - 16, min(content_top + 160, box[3]))
+            content_top = button_rects(["تحريك الفاتورة إلى اليمين"])["تحريك الفاتورة إلى اليمين"][3] + 16
+            region = (16, round(content_top), width - 16, round(min(content_top + 160, box[3])))
             before = shot(f"android-document-{width}-zoomed").crop(region)
             swipe(45, content_top + 80, width - 45, content_top + 80)
             time.sleep(.6)
             after = shot(f"android-document-{width}-panned").crop(region)
             require(ImageChops.difference(before, after).getbbox(),
                     f"Horizontal swipe did not move the document at width {width}")
-            tap(exact_button("ملاءمة العرض"))
-            find("يمكن طباعة المستند أو حفظه")
+            press("ملاءمة العرض")
+            document_text("يمكن طباعة المستند أو حفظه")
             for action in ("طباعة الفاتورة", "حفظ المستند PDF عبر Android"):
-                tap(exact_button(action))
+                press(action)
                 wait(rendered_print_page, f"Rendered Android page for {action} at {width}px", 35)
                 back()
-                find("معاينة المستند")
-            tap(exact_button("رجوع"))
+                document_text("معاينة المستند")
+            press("رجوع")
             find("الرصيد الختامي: 25.00 دولار")
             layouts.append({"width": width, "font_scale": 1.3, "controls": controls,
-                            "back_bounds": bounds(back_button), "native_print_and_pdf_preview": True,
+                            "back_bounds": back_rect, "native_print_and_pdf_preview": True,
                             "swipe_changed_document": True, "returned_to_statement": True})
             passed(f"rtl_document_touch_{width}", layouts[-1])
     finally:
