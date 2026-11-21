@@ -16,6 +16,7 @@ def adb(*args):
 
 
 def launch():
+    adb("shell", "wm", "dismiss-keyguard")
     adb("shell", "am", "start", "-W", "-n", PACKAGE + "/.MainActivity")
 
 
@@ -34,6 +35,11 @@ def wait_for(predicate, label):
         except (ET.ParseError, subprocess.CalledProcessError):
             pass
         time.sleep(.4)
+    capture("missing-control")
+    tree = screen()
+    print(ET.tostring(tree, encoding="unicode"), flush=True)
+    diagnostics = adb("logcat", "-d", "-t", "800", "flutter:I", "AndroidRuntime:E", "*:S")
+    print(diagnostics.decode(errors="replace"), flush=True)
     raise AssertionError("Missing Android control: " + label)
 
 
@@ -52,13 +58,21 @@ def capture(name):
 
 
 def lookup():
-    tap(control("الإجراءات السريعة"))
+    # Android can expose Flutter tooltips separately from contentDescription.
+    # Derive the middle quick-action button from its two visible tab neighbours.
+    services = control("الخدمات")
+    reports = control("التقارير")
+    def center(node):
+        left, top, right, bottom = map(int, re.findall(r"\d+", node.get("bounds")))
+        return (left + right) // 2, (top + bottom) // 2
+    sx, sy = center(services)
+    rx, ry = center(reports)
+    adb("shell", "input", "tap", str((sx + rx) // 2), str((sy + ry) // 2))
     tap(control("مسح باركود"))
     field = wait_for(lambda n: n.get("class") == "android.widget.EditText", "manual code")
     tap(field)
     adb("shell", "input", "text", "SKU-101")
-    adb("shell", "input", "keyevent", "4")
-    tap(control("بحث"))
+    adb("shell", "input", "keyevent", "KEYCODE_ENTER")
     return control("توريد للمخزون")
 
 
@@ -84,7 +98,7 @@ if __name__ == "__main__":
     assert adb("shell", "settings", "get", "global", "airplane_mode_on").strip() == b"1"
     adb("install", "-r", "offline-apk/app-debug.apk")
     launch()
-    control("الإجراءات السريعة")
+    control("الرئيسية")
     capture("home")
     adb("shell", "am", "force-stop", PACKAGE)
     before = stock_quantity()
@@ -92,11 +106,11 @@ if __name__ == "__main__":
     supply = lookup()
     capture("inventory-lookup")
     tap(supply)
-    control("الإجراءات السريعة")
+    control("الرئيسية")
     adb("shell", "am", "force-stop", PACKAGE)
     assert stock_quantity() == before + 1
     launch()
-    control("الإجراءات السريعة")
+    control("الرئيسية")
     tap(control("التقارير"))
     control("المخزون المتبقي")
     capture("reports")

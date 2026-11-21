@@ -73,6 +73,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         if: '!inputs.signed_run'
         with:
@@ -87,7 +89,10 @@ jobs:
           set -euo pipefail
           [[ "$RUN_ID" =~ ^[0-9]+$ ]]
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > "$RUNNER_TEMP/run.json"
-          jq -e --arg head "$GITHUB_SHA" '.head_sha == $head and .conclusion == "success" and .path == ".github/workflows/flutter-dev-release.yml"' "$RUNNER_TEMP/run.json"
+          jq -e --arg branch "$GITHUB_REF_NAME" '.head_branch == $branch and .conclusion == "success" and .path == ".github/workflows/flutter-dev-release.yml"' "$RUNNER_TEMP/run.json"
+          candidate="$(jq -r '.head_sha' "$RUNNER_TEMP/run.json")"
+          git merge-base --is-ancestor "$candidate" HEAD
+          git diff --exit-code "$candidate" HEAD -- flutter_app ':(exclude)flutter_app/test/**' .github/workflows/flutter-dev-release.yml
       - name: Fetch the signed candidate
         if: inputs.signed_run
         uses: actions/download-artifact@v4

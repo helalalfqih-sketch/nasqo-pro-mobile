@@ -37,7 +37,7 @@ def upgrade(baseline, candidate):
     supply = lookup()
     opening = stock()
     tap(supply)
-    control("الإجراءات السريعة")
+    control("الرئيسية")
     adb("shell", "am", "force-stop", PACKAGE)
     launch()
     lookup()
