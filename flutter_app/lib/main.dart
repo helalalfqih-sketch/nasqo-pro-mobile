@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'hybrid/hybrid_home_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/dashboard_screen.dart';
@@ -133,6 +136,8 @@ class NasqoMainShell extends StatefulWidget {
 class _NasqoMainShellState extends State<NasqoMainShell> {
   final _shellKey = GlobalKey<ScaffoldState>();
   final _homeScroll = ScrollController();
+  final _pilotKey = GlobalKey<HybridHomeState>();
+  bool _usePilot = !kIsWeb && Platform.isAndroid;
   String? _activeModule;
 
   @override
@@ -557,20 +562,28 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         title: Row(children: [
           PopupMenuButton<String>(
             tooltip: 'خيارات',
-            onSelected: (action) => action == 'local-backups'
-                ? _openModulePage('local-backups')
-                : widget.controller.toggleTheme(),
-            itemBuilder: (_) => const [
-              PopupMenuItem<String>(
+            onSelected: (action) {
+              if (action == 'home-mode') {
+                setState(() => _usePilot = !_usePilot);
+              } else if (action == 'local-backups') {
+                _openModulePage('local-backups');
+              } else {
+                widget.controller.toggleTheme();
+              }
+            },
+            itemBuilder: (_) => [
+              if (!kIsWeb && Platform.isAndroid)
+                PopupMenuItem(value: 'home-mode', child: Text(_usePilot ? 'الرئيسية الأصلية' : 'الرئيسية الهجينة')),
+              const PopupMenuItem<String>(
                 value: 'local-backups',
                 child: Text('النسخ المحلية واختبار الاستعادة'),
               ),
-              PopupMenuItem<String>(
+              const PopupMenuItem<String>(
                 enabled: false,
                 child: Text('تفريغ القاعدة · غير متاح'),
               ),
-              PopupMenuDivider(),
-              PopupMenuItem(value: 'theme', child: Text('تبديل المظهر')),
+              const PopupMenuDivider(),
+              const PopupMenuItem(value: 'theme', child: Text('تبديل المظهر')),
             ],
             child: const Icon(Icons.more_vert, size: 20),
           ),
@@ -637,7 +650,9 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
       ),
       bottomNavigationBar: HomeNavigation(
         onHome: () {
-          if (_homeScroll.hasClients) {
+          if (_usePilot) {
+            _pilotKey.currentState?.scrollToTop();
+          } else if (_homeScroll.hasClients) {
             _homeScroll.animateTo(0, duration: const Duration(milliseconds: 240), curve: Curves.easeOut);
           }
         },
@@ -650,7 +665,11 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
         companyName: widget.controller.companyName,
         onOpen: _openFromDrawer,
       ),
-      body: DashboardScreen(
+      body: _usePilot ? HybridHomeView(
+        key: _pilotKey, controller: widget.controller,
+        showNative: () => setState(() => _usePilot = false),
+        openModule: (route) => route == 'invoice' ? _openInvoice() : _openModulePage(route),
+      ) : DashboardScreen(
         scrollController: _homeScroll,
         controller: widget.controller,
         onOpenModule: _openModulePage,

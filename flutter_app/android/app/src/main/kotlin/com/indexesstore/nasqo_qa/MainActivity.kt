@@ -20,6 +20,9 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        flutterEngine.platformViewsController.registry.registerViewFactory(
+            "nasqo/offline-home", HybridHomeFactory(flutterEngine.dartExecutor.binaryMessenger)
+        )
         invoicePrinter = InvoicePdfPrintBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         devUpdateBridge = DevUpdateBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         csvChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)

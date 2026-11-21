@@ -50,8 +50,8 @@ class HomeAccountsView extends StatefulWidget {
       {super.key,
       required this.controller,
       this.category = AccountCategory.clients,
-      this.cashOnly = false, this.onOpenModule})
-      : groupId = null, initialCurrency = null;
+      this.cashOnly = false, this.onOpenModule, this.initialCurrency})
+      : groupId = null;
 
   const HomeAccountsView.restoredGroup({
     super.key,

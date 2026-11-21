@@ -1,0 +1,33 @@
+{
+  "dark": false,
+  "company": "مختبر المطابقة",
+  "defaultCurrency": "ريال",
+  "currencies": [
+    "ريال",
+    "دولار",
+    "يورو",
+    "عملة 2"
+  ],
+  "rows": [
+    {
+      "id": 41,
+      "legacyId": 1,
+      "name": "مجموعة الشمال",
+      "accountCount": 2,
+      "category": "clients",
+      "currency": "ريال",
+      "netDebitMinusCredit": -1250.5
+    },
+    {
+      "id": 52,
+      "legacyId": 2,
+      "name": "مجموعة الجنوب",
+      "accountCount": 1,
+      "category": "purchases",
+      "currency": "ريال",
+      "netDebitMinusCredit": 80.0
+    }
+  ],
+  "layout": null,
+  "scroll": 0
+}
