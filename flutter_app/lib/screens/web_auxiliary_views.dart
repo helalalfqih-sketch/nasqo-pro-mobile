@@ -545,6 +545,32 @@ class SupplierPerformanceMetric {
   final int? onTimeScore;
 }
 
+bool _isSupplierPurchaseInvoice(
+  LedgerEntryRecord e,
+  String supplierId,
+  CurrencyCode currency,
+) {
+  if (e.deleted ||
+      e.accountId != supplierId ||
+      e.currency != currency ||
+      e.kind != LedgerKind.invoice ||
+      !e.amount.isFinite ||
+      e.amount <= 0) {
+    return false;
+  }
+  final label = e.typeLabel.trim();
+  if (label.contains('مبيعات') ||
+      label.contains('بيع') ||
+      label.contains('مردود') ||
+      label.contains('مرتجع')) {
+    return false;
+  }
+  return e.direction == EntryDirection.credit ||
+      label.contains('مشتريات') ||
+      label.contains('شراء') ||
+      e.id.startsWith('purchase_');
+}
+
 List<SupplierPerformanceMetric> computeSupplierMetrics(
   List<AccountRecord> accounts,
   List<LedgerEntryRecord> ledger,
@@ -561,35 +587,55 @@ List<SupplierPerformanceMetric> computeSupplierMetrics(
   final metrics = <SupplierPerformanceMetric>[];
 
   for (final s in suppliers) {
-    final entries = ledger
-        .where((e) =>
-            !e.deleted &&
-            e.accountId == s.id &&
-            e.currency == currency &&
-            e.kind != LedgerKind.quote &&
-            e.kind != LedgerKind.order)
+    final purchaseInvoices = ledger
+        .where((e) => _isSupplierPurchaseInvoice(e, s.id, currency))
         .toList();
-    final total = entries.fold<double>(0, (sum, e) => sum + e.amount);
-    final count = entries.length;
+    final total = purchaseInvoices.fold<double>(0, (sum, e) => sum + e.amount);
+    final count = purchaseInvoices.length;
 
     final deliveryDays = <double>[];
     var onTimeCount = 0;
     var evaluatedOnTime = 0;
 
-    for (final po in purchaseOrders) {
-      if (po.supplierAccountId != s.id ||
-          po.currency != currency ||
-          po.status != PurchaseOrderStatus.received) {
-        continue;
-      }
+    final supplierReceivedPos = purchaseOrders
+        .where((po) =>
+            po.supplierAccountId == s.id &&
+            po.currency == currency &&
+            po.status == PurchaseOrderStatus.received)
+        .toList();
+
+    for (final po in supplierReceivedPos) {
       final orderDt = DateTime.tryParse(po.orderDate);
       final expectedDt = DateTime.tryParse(po.expectedDate);
-      final linked = ledger
-          .where((e) =>
-              !e.deleted &&
-              ((po.postedLedgerEntryId != null && e.id == po.postedLedgerEntryId) ||
-                  (po.poNumber.isNotEmpty && e.documentNumber == po.poNumber)))
-          .firstOrNull;
+      final explicitId = po.postedLedgerEntryId?.trim() ?? '';
+      final docNum = po.poNumber.trim();
+      LedgerEntryRecord? linked;
+
+      if (explicitId.isNotEmpty) {
+        final idMatches = purchaseInvoices.where((e) => e.id == explicitId).toList();
+        if (idMatches.length == 1) {
+          final candidate = idMatches.single;
+          final docConsistent = docNum.isEmpty ||
+              candidate.documentNumber.trim().isEmpty ||
+              candidate.documentNumber.trim() == docNum;
+          if (docConsistent) {
+            linked = candidate;
+          }
+        }
+      } else if (docNum.isNotEmpty) {
+        final sameDocPos = supplierReceivedPos
+            .where((other) =>
+                (other.postedLedgerEntryId?.trim() ?? '').isEmpty &&
+                other.poNumber.trim() == docNum)
+            .length;
+        final docMatches = purchaseInvoices
+            .where((e) => e.documentNumber.trim() == docNum)
+            .toList();
+        if (sameDocPos == 1 && docMatches.length == 1) {
+          linked = docMatches.single;
+        }
+      }
+
       final receivedDt = linked != null ? DateTime.tryParse(linked.entryDate) : null;
       if (orderDt != null && receivedDt != null && !receivedDt.isBefore(orderDt)) {
         deliveryDays.add(receivedDt.difference(orderDt).inDays.toDouble());
@@ -602,9 +648,7 @@ List<SupplierPerformanceMetric> computeSupplierMetrics(
       }
     }
 
-    if (count == 0 && s.openingBalance <= 0 && deliveryDays.isEmpty) continue;
-    final effectiveTotal = total > 0 ? total : s.openingBalance;
-    final effectiveCount = count > 0 ? count : 1;
+    if (count == 0) continue;
     final avgDelivery = deliveryDays.isEmpty
         ? null
         : deliveryDays.reduce((a, b) => a + b) / deliveryDays.length;
@@ -615,9 +659,9 @@ List<SupplierPerformanceMetric> computeSupplierMetrics(
     metrics.add(SupplierPerformanceMetric(
       accountId: s.id,
       name: s.name,
-      orderCount: effectiveCount,
-      totalSpend: effectiveTotal,
-      avgOrderCost: effectiveTotal / effectiveCount,
+      orderCount: count,
+      totalSpend: total,
+      avgOrderCost: total / count,
       avgDeliveryDays: avgDelivery,
       onTimeScore: score,
     ));

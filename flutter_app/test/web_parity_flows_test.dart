@@ -154,20 +154,66 @@ void main() {
     }
   });
 
-  test('computeSupplierMetrics uses dated deliveries, marks missing unavailable, and is order-invariant', () {
+  test('computeSupplierMetrics uses dated deliveries, prioritizes explicit receipt id over duplicate doc numbers, and excludes opening balances and vouchers', () {
     const s1 = AccountRecord(
       id: 'sup_1',
       name: 'المورد الأول',
       category: AccountCategory.purchases,
+      openingBalance: 5000,
       codeNumber: 201,
     );
     const s2 = AccountRecord(
       id: 'sup_2',
       name: 'المورد الثاني',
       category: AccountCategory.purchases,
+      openingBalance: 3000,
       codeNumber: 202,
     );
+    const sOpeningOnly = AccountRecord(
+      id: 'sup_opening_only',
+      name: 'مورد رصيد افتتاحي فقط',
+      category: AccountCategory.purchases,
+      openingBalance: 12000,
+      openingDirection: EntryDirection.credit,
+      codeNumber: 203,
+    );
+    const sAmbiguous = AccountRecord(
+      id: 'sup_ambiguous',
+      name: 'مورد مستند مكرر بدون معرف',
+      category: AccountCategory.purchases,
+      codeNumber: 204,
+    );
+
     const ledger = [
+      // Another supplier's entry with the exact same documentNumber 'PO-1' and earlier date
+      LedgerEntryRecord(
+        id: 'led_other_supplier_same_doc',
+        accountId: 'sup_2',
+        accountName: 'المورد الثاني',
+        kind: LedgerKind.voucher,
+        typeLabel: 'سند صرف',
+        payment: PaymentMethod.cash,
+        direction: EntryDirection.debit,
+        amount: 250,
+        documentNumber: 'PO-1',
+        entryNumber: 1,
+        entryDate: '2026-11-01',
+      ),
+      // Another purchase invoice on sup_1 with the SAME documentNumber 'PO-1' but different id
+      LedgerEntryRecord(
+        id: 'led_po_1_duplicate_doc',
+        accountId: 'sup_1',
+        accountName: 'المورد الأول',
+        kind: LedgerKind.invoice,
+        typeLabel: 'ف.مشتريات آجل',
+        payment: PaymentMethod.credit,
+        direction: EntryDirection.credit,
+        amount: 500,
+        documentNumber: 'PO-1',
+        entryNumber: 2,
+        entryDate: '2026-11-20',
+      ),
+      // The explicit linked receipt entry for po_1
       LedgerEntryRecord(
         id: 'led_po_1',
         accountId: 'sup_1',
@@ -178,7 +224,7 @@ void main() {
         direction: EntryDirection.credit,
         amount: 1000,
         documentNumber: 'PO-1',
-        entryNumber: 1,
+        entryNumber: 3,
         entryDate: '2026-11-05',
       ),
       LedgerEntryRecord(
@@ -191,9 +237,10 @@ void main() {
         direction: EntryDirection.credit,
         amount: 2000,
         documentNumber: 'PO-2',
-        entryNumber: 2,
+        entryNumber: 4,
         entryDate: '2026-11-12',
       ),
+      // Supplier 2: 1 SAR purchase invoice + 1 SAR payment voucher (above) + 1 USD purchase invoice
       LedgerEntryRecord(
         id: 'led_direct_s2',
         accountId: 'sup_2',
@@ -204,10 +251,52 @@ void main() {
         direction: EntryDirection.credit,
         amount: 600,
         documentNumber: 'PUR-9',
-        entryNumber: 3,
+        entryNumber: 5,
         entryDate: '2026-11-15',
       ),
+      LedgerEntryRecord(
+        id: 'led_direct_s2_usd',
+        accountId: 'sup_2',
+        accountName: 'المورد الثاني',
+        kind: LedgerKind.invoice,
+        typeLabel: 'ف.مشتريات آجل',
+        payment: PaymentMethod.credit,
+        direction: EntryDirection.credit,
+        amount: 900,
+        currency: CurrencyCode.usd,
+        documentNumber: 'PUR-USD-1',
+        entryNumber: 6,
+        entryDate: '2026-11-15',
+      ),
+      // Supplier 4 (ambiguous): two purchase invoices sharing 'PO-DUP' and PO has no postedLedgerEntryId
+      LedgerEntryRecord(
+        id: 'led_amb_1',
+        accountId: 'sup_ambiguous',
+        accountName: 'مورد مستند مكرر بدون معرف',
+        kind: LedgerKind.invoice,
+        typeLabel: 'ف.مشتريات آجل',
+        payment: PaymentMethod.credit,
+        direction: EntryDirection.credit,
+        amount: 400,
+        documentNumber: 'PO-DUP',
+        entryNumber: 7,
+        entryDate: '2026-11-03',
+      ),
+      LedgerEntryRecord(
+        id: 'led_amb_2',
+        accountId: 'sup_ambiguous',
+        accountName: 'مورد مستند مكرر بدون معرف',
+        kind: LedgerKind.invoice,
+        typeLabel: 'ف.مشتريات آجل',
+        payment: PaymentMethod.credit,
+        direction: EntryDirection.credit,
+        amount: 400,
+        documentNumber: 'PO-DUP',
+        entryNumber: 8,
+        entryDate: '2026-11-09',
+      ),
     ];
+
     const purchaseOrders = [
       ErpPurchaseOrder(
         id: 'po_1',
@@ -235,37 +324,79 @@ void main() {
         postedLedgerEntryId: 'led_po_2',
         lines: [],
       ),
+      ErpPurchaseOrder(
+        id: 'po_amb',
+        poNumber: 'PO-DUP',
+        supplierAccountId: 'sup_ambiguous',
+        supplierName: 'مورد مستند مكرر بدون معرف',
+        warehouseId: 'wh_1',
+        warehouseName: 'المخزن الرئيسي',
+        orderDate: '2026-11-01',
+        expectedDate: '2026-11-05',
+        status: PurchaseOrderStatus.received,
+        lines: [],
+      ),
     ];
 
     final forward = computeSupplierMetrics(
-      [s1, s2],
+      [s1, s2, sOpeningOnly, sAmbiguous],
       ledger,
       CurrencyCode.sar,
       purchaseOrders: purchaseOrders,
     );
     final reversed = computeSupplierMetrics(
-      [s2, s1],
-      ledger,
+      [sAmbiguous, sOpeningOnly, s2, s1],
+      ledger.reversed.toList(),
       CurrencyCode.sar,
-      purchaseOrders: purchaseOrders,
+      purchaseOrders: purchaseOrders.reversed.toList(),
     );
 
+    // Supplier with opening balance only and no purchase invoices must be excluded.
+    expect(forward.where((m) => m.accountId == 'sup_opening_only'), isEmpty);
+    expect(reversed.where((m) => m.accountId == 'sup_opening_only'), isEmpty);
+
+    // Supplier 1: explicit postedLedgerEntryId wins over duplicate doc numbers in any ledger order.
     final m1Forward = forward.singleWhere((m) => m.accountId == 'sup_1');
     final m1Reversed = reversed.singleWhere((m) => m.accountId == 'sup_1');
     expect(m1Forward.avgDeliveryDays, 5.0); // (4 days + 6 days) / 2
     expect(m1Forward.onTimeScore, 50); // PO-1 on time (5<=6), PO-2 late (12>10)
+    expect(m1Forward.orderCount, 3); // 3 purchase invoices (500 + 1000 + 2000), openingBalance excluded
+    expect(m1Forward.totalSpend, 3500);
     expect(m1Reversed.avgDeliveryDays, m1Forward.avgDeliveryDays);
     expect(m1Reversed.onTimeScore, m1Forward.onTimeScore);
     expect(m1Reversed.totalSpend, m1Forward.totalSpend);
+    expect(m1Reversed.orderCount, m1Forward.orderCount);
 
-    // Supplier 2 has no dated purchase orders: delivery metrics must be null (unavailable).
+    // Supplier 2: 1 SAR purchase invoice (600) + 1 SAR payment voucher (250) + 1 USD purchase invoice (900) + 3000 opening.
+    // Only the 1 SAR purchase invoice (600) is counted!
     final m2Forward = forward.singleWhere((m) => m.accountId == 'sup_2');
     final m2Reversed = reversed.singleWhere((m) => m.accountId == 'sup_2');
+    expect(m2Forward.orderCount, 1);
+    expect(m2Forward.totalSpend, 600);
+    expect(m2Forward.avgOrderCost, 600);
     expect(m2Forward.avgDeliveryDays, isNull);
     expect(m2Forward.onTimeScore, isNull);
-    expect(m2Reversed.avgDeliveryDays, isNull);
-    expect(m2Reversed.onTimeScore, isNull);
-    expect(m2Forward.totalSpend, 600);
+    expect(m2Reversed.orderCount, 1);
+    expect(m2Reversed.totalSpend, 600);
+
+    // USD check for Supplier 2
+    final usdMetrics = computeSupplierMetrics(
+      [s1, s2, sOpeningOnly],
+      ledger,
+      CurrencyCode.usd,
+      purchaseOrders: purchaseOrders,
+    );
+    expect(usdMetrics.single.accountId, 'sup_2');
+    expect(usdMetrics.single.orderCount, 1);
+    expect(usdMetrics.single.totalSpend, 900);
+
+    // Supplier 4 (ambiguous duplicate documentNumber without explicit postedLedgerEntryId) -> unavailable (null)
+    final mAmbForward = forward.singleWhere((m) => m.accountId == 'sup_ambiguous');
+    final mAmbReversed = reversed.singleWhere((m) => m.accountId == 'sup_ambiguous');
+    expect(mAmbForward.avgDeliveryDays, isNull);
+    expect(mAmbForward.onTimeScore, isNull);
+    expect(mAmbReversed.avgDeliveryDays, isNull);
+    expect(mAmbReversed.onTimeScore, isNull);
   });
 
   testWidgets('local entry supports smart expense category and account swap with balance strips',
