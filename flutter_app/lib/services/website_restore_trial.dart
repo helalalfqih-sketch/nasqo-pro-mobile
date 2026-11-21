@@ -18,22 +18,24 @@ Map<String, dynamic> websitePreferences(WebBackup backup) {
 }
 
 Future<void> writeWebsiteSnapshot(
-        LocalDatabase database, WebBackup backup, bool dark) =>
-    database.saveSnapshot(
-        accounts: backup.accounts,
-        ledger: backup.ledger,
-        warehouses: backup.warehouses,
-        inventory: backup.inventory,
-        saleLines: backup.lines,
-        companyName: backup.company,
-        isDarkMode: dark,
-        nextEntryNumber: backup.lastNumber,
-        restoredWebExport: backup.original,
-        erpData: {
-          ...backup.modules.toJson(),
-          'messagePreferences': websitePreferences(backup),
-          'currencyDetails': backup.currencyDetails
-        });
+    LocalDatabase database, WebBackup backup, bool dark) async {
+  _validateWebsiteRelations(backup);
+  await database.saveSnapshot(
+      accounts: backup.accounts,
+      ledger: backup.ledger,
+      warehouses: backup.warehouses,
+      inventory: backup.inventory,
+      saleLines: backup.lines,
+      companyName: backup.company,
+      isDarkMode: dark,
+      nextEntryNumber: backup.lastNumber,
+      restoredWebExport: backup.original,
+      erpData: {
+        ...backup.modules.toJson(),
+        'messagePreferences': websitePreferences(backup),
+        'currencyDetails': backup.currencyDetails
+      });
+}
 
 /// Compare rows by their stable logical keys, including every posted amount and
 /// quantity, before producing per-document results. Avoid SQL floating sums.
@@ -149,6 +151,80 @@ Map<String, Object?> _financialReport(
     'invoiceAmounts': invoices,
     'stockByItemAndWarehouse': quantities
   };
+}
+
+void _validateWebsiteRelations(WebBackup backup) {
+  final data = jsonDecode(backup.original) as Map<String, dynamic>;
+  final groups = backup.groupData.groups.map((g) => g.id).toSet();
+  if (groups.length != backup.groupData.groups.length ||
+      backup.groupData.membership.values.any((id) => !groups.contains(id))) {
+    throw const FormatException('مجموعة حسابات مكررة أو مفقودة.');
+  }
+  final stores = backup.warehouses.map((i) => i.id).toSet(),
+      items = backup.inventory.map((i) => i.id).toSet();
+  final cash = {
+    for (final a in backup.accounts)
+      if (a.isCashAccount) a.id: a.currency
+  };
+  for (final box in data['cashboxes'] ?? []) {
+    final currency = cash[box['accountId']], code = box['currencyCode'];
+    if (currency == null ||
+        !{currency.name, currency.name.toUpperCase(), currency.label}
+            .contains(code)) {
+      throw const FormatException(
+          'تعذّر مطابقة الصندوق مع حساب نقدي وعملة محددة.');
+    }
+  }
+  if ((data['priceOffers'] as List?)?.isNotEmpty == true) {
+    throw const FormatException(
+        'تتضمن النسخة عروض أسعار لم تُطابَق مع مستندات الهاتف.');
+  }
+  final transferHeaders = data['stockTransfers'] as List? ?? [];
+  if (transferHeaders.map((h) => h['id']).toSet().length !=
+      transferHeaders.length) {
+    throw const FormatException('معرّف تحويل مخزني مكرر.');
+  }
+  for (final movement in backup.groupData.transfers) {
+    if (!stores.contains(movement.source) ||
+        !stores.contains(movement.destination) ||
+        movement.source == movement.destination ||
+        !items.contains(movement.item) ||
+        !movement.quantity.isFinite ||
+        movement.quantity <= 0 ||
+        movement.unit < 1) {
+      throw const FormatException(
+          'تعذّر مطابقة مستودعات التحويل أو الصنف أو الكمية.');
+    }
+  }
+  for (final entry in data['ledger'] as List) {
+    final date = entry['entryDate'];
+    final parsed = date is String ? DateTime.tryParse(date) : null;
+    if (parsed == null ||
+        parsed.toIso8601String().split('T').first != date ||
+        entry['exchangeRate'] <= 0) {
+      throw const FormatException('تاريخ الحركة أو سعر صرفها غير صالح.');
+    }
+    bool set(Object? v) => v != null && v != '' && v != 0;
+    if (set(entry['warehouseId']) && !stores.contains(entry['warehouseId'])) {
+      throw const FormatException('مخزن الحركة مفقود.');
+    }
+    for (final key in ['taxAmount', 'discount', 'bonus', 'cashboxId']) {
+      if (set(entry[key]))
+        throw FormatException(
+            'لم تتم مطابقة الحقل المالي $key في الحركة ${entry["id"]}.');
+    }
+    for (final line in entry['lines'] ?? []) {
+      if ((line['lineKind'] != 'free' &&
+              !items.contains(line['inventoryItemId'])) ||
+          (set(line['warehouseId']) && !stores.contains(line['warehouseId']))) {
+        throw const FormatException(
+            'بند فاتورة يشير إلى صنف أو مخزن غير معرّف.');
+      }
+      if (set(line['discount']) || set(line['bonus']))
+        throw const FormatException(
+            'تحتاج خصومات أو إضافات بنود الفاتورة إلى مطابقة.');
+    }
+  }
 }
 
 Future<Map<String, Object?>> testWebsiteRestore(WebBackup backup) async {

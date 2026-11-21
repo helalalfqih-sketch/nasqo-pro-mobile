@@ -103,10 +103,25 @@ Future<String> readWebsiteBackup(Uint8List input, int limit) async {
         ];
       }
 
+      for (final table in ['price_offers', 'price_offer_lines']) {
+        if (tables.contains(table) &&
+            (await db.query(table,
+                    columns: ['workspace_id'],
+                    where: 'workspace_id = ?',
+                    whereArgs: [ws['id']],
+                    limit: 1))
+                .isNotEmpty) {
+          throw const FormatException(
+              'تحتاج عروض الأسعار في النسخة إلى مطابقة.');
+        }
+      }
       final ledger = await rows('ledger_entries');
+      final entryIds = ledger.map((r) => r['id']).toSet();
       final lines = <Object?, List<Map<String, dynamic>>>{};
       if (tables.contains('invoice_lines')) {
         for (final line in await rows('invoice_lines')) {
+          if (!entryIds.contains(line['entryId']))
+            throw const FormatException('بند فاتورة بلا مستند.');
           (lines[line['entryId']] ??= []).add(line);
         }
       }
@@ -144,6 +159,7 @@ Future<String> readWebsiteBackup(Uint8List input, int limit) async {
         'warehouses': await rows('warehouses'),
         'ledger': ledger,
         'inventory': await rows('inventory_items'),
+        if (tables.contains('cashboxes')) 'cashboxes': await rows('cashboxes'),
         if (tables.contains('currencies'))
           'currencies': await rows('currencies'),
         if (tables.contains('stock_transfers'))

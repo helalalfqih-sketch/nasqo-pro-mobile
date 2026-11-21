@@ -143,6 +143,9 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
         final original = buffer.takeBytes();
         _report['sha256'] = sha256.convert(original).toString();
         final bytes = await unpackWebsiteBackup(original, limit);
+        final sqlite = bytes.length >= 16 &&
+            String.fromCharCodes(bytes.take(16)) == 'SQLite format 3\x00';
+        _report['format'] = sqlite ? 'SQLite' : 'JSON';
         _inspection = await inspectLegacyBackup(bytes);
         if (_inspection != null) {
           _report['inspection'] = _inspection!.toJson();
@@ -165,6 +168,10 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
         final raw = await readWebsiteBackup(
             _selectedBytes!, LocalBackupFiles.maxBackupBytes);
         final root = jsonDecode(raw);
+        if (root is Map) {
+          _report['dataFormat'] = root['format'];
+          _report['version'] = root['version'];
+        }
         if (root is Map &&
             root['format'] == 'nasqo-local-qa-json-v1' &&
             widget.importLocal != null) {
@@ -313,6 +320,10 @@ class _LocalBackupWorkspaceViewState extends State<LocalBackupWorkspaceView> {
                                 Text(_fileName!,
                                     textDirection: TextDirection.ltr),
                                 Text('حجم الملف: ${_report["bytes"]} بايت'),
+                                if (_report['format'] != null)
+                                  Text('نوع النسخة: ${_report["format"]}'),
+                                if (_report['version'] != null)
+                                  Text('إصدار البيانات: ${_report["version"]}'),
                                 if (_report['sha256'] != null)
                                   SelectableText(_report['sha256'] as String,
                                       textDirection: TextDirection.ltr),

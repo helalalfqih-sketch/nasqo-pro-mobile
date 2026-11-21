@@ -111,6 +111,40 @@ void main() {
     final broken = bytes.sublist(0, 96);
     await expectLater(readWebsiteBackup(broken, 1 << 20), throwsA(anything));
   });
+  test(
+      'website nested transfer lines match flat export and reject missing items',
+      () async {
+    final bytes = await fixture(dir);
+    final root = jsonDecode(await readWebsiteBackup(bytes, 1 << 20));
+    root['warehouses']
+        .add({...root['warehouses'][0], 'id': 'other', 'isDefault': false});
+    root.remove('stockTransferLines');
+    root['stockTransfers'] = [
+      {
+        'id': 17,
+        'fromWarehouseId': 'sp_wh_4',
+        'toWarehouseId': 'other',
+        'transferDate': '2024-02-29',
+        'lines': [
+          {'inventoryItemId': 'sp_inv_22', 'quantity': 2, 'unitNum': 1}
+        ]
+      }
+    ];
+    final backup = WebBackup.parse(jsonEncode(root));
+    expect(backup.groupData.transfers.single.quantity, 2);
+    expect((await testWebsiteRestore(backup))['coldReopen'], isTrue);
+    root['stockTransfers'][0]['lines'][0]['inventoryItemId'] = 'missing';
+    await expectLater(testWebsiteRestore(WebBackup.parse(jsonEncode(root))),
+        throwsFormatException);
+  });
+  test('unmapped financial fields cannot pass the website recovery trial',
+      () async {
+    final root =
+        jsonDecode(await readWebsiteBackup(await fixture(dir), 1 << 20));
+    root['ledger'][0]['taxAmount'] = 17;
+    await expectLater(testWebsiteRestore(WebBackup.parse(jsonEncode(root))),
+        throwsFormatException);
+  });
   for (final entry in {
     'missing product': 'UPDATE bill_details SET prod_id=77',
     'invalid date': 'UPDATE input_move SET year=2023',
