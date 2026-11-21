@@ -190,11 +190,11 @@ jobs:
           node qa/hybrid_home/build.mjs --reference /tmp/nasqo-hybrid-ref
           CHROME_BIN=/usr/bin/google-chrome node qa/hybrid_home/reports-regression.mjs hybrid-evidence/fixed-web-reports
           CHROME_BIN=/usr/bin/google-chrome node qa/hybrid_home/browser.mjs hybrid-evidence/browser-check 427 900
-          CHROME_BIN=/usr/bin/google-chrome node qa/hybrid_home/document-layout.mjs hybrid-evidence/document-layout
-          python3 -m pip install Pillow
           if ! command -v pdftotext >/dev/null; then
             sudo apt-get update -qq && sudo apt-get install -y poppler-utils
           fi
+          CHROME_BIN=/usr/bin/google-chrome node qa/hybrid_home/document-layout.mjs hybrid-evidence/document-layout
+          python3 -m pip install Pillow
       - name: Check React accounting, appearance and web packaging
         if: github.ref_name == 'integration/hybrid-seven-20261121'
         run: |
