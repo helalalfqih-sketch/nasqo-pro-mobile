@@ -79,6 +79,12 @@ void main() {
         home:Directionality(textDirection:TextDirection.rtl,child:Scaffold(body:RepaintBoundary(key:key,
           child:GroupBalancesPanel(controller:c))))));
       await tester.pumpAndSettle();
+      final table = tester.getSize(find.byKey(key));
+      expect(table.width, 427);
+      expect(table.height, closeTo(151, 1));
+      final currencyControl = tester.getSize(find.byType(DropdownButton<String>).first);
+      expect(currencyControl.width, closeTo(63, 1));
+      expect(currencyControl.height, greaterThanOrEqualTo(48));
       final debit=tester.widget<Text>(find.text('80'));
       expect(debit.style!.color,dark?const Color(0xff60a5fa):const Color(0xff0b5ca8));
       final credit=tester.widget<Text>(find.text('1,250.5-'));

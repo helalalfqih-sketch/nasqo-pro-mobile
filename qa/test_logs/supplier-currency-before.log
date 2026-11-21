@@ -1,0 +1,28 @@
+00:00 +0: loading /home/chatgpt-admin/nasqo-parity-table-review/flutter_app/test/supplier_currency_filter_test.dart
+00:00 +0: supplier currency filter includes both sides of live period entries
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "QA-direct": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///home/chatgpt-admin/nasqo-parity-table-review/flutter_app/test/supplier_currency_filter_test.dart:78:7)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///home/chatgpt-admin/nasqo-parity-table-review/flutter_app/test/supplier_currency_filter_test.dart line 78
+The test description was:
+  supplier currency filter includes both sides of live period entries
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:02 +0 -1: supplier currency filter includes both sides of live period entries [E]
+  Test failed. See exception logs above.
+  The test description was: supplier currency filter includes both sides of live period entries
+  
+00:02 +0 -1: Some tests failed.
