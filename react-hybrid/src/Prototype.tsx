@@ -245,7 +245,8 @@ import { GlobalNasqoBrandLoader, NasqoBrandLoader } from "./components/NasqoBran
 import { runWithBrandLoader } from "./utils/brandLoaderBus";
 import { hybridBridge } from "./hybrid/bridge";
 import { useHybridPresentation } from "./hybrid/presentationAdapter";
-import type { HybridUiPreferences } from "./hybrid/contracts";
+import { createIdempotencyKey, type HybridUiPreferences, type HybridWorkspaceSnapshot } from "./hybrid/contracts";
+import { applyHybridSnapshot } from "./hybrid/serviceAdapter";
 
 type IconComponent = ComponentType<{ className?: string }>;
 type SheetKind = "filters" | "export" | "notifications" | null;
@@ -2815,6 +2816,20 @@ export function AuthenticatedWorkspace({
           onOpenInventoryReport={() => {
             setOverlay(null);
             flowRef.current?.push(inventoryReportScreen());
+          }}
+          onReceiveStock={async (itemId, quantity) => {
+            const result = await hybridBridge.invoke<"receiveInventoryStock", {
+              snapshot?: HybridWorkspaceSnapshot;
+            }>("receiveInventoryStock", {
+              workspaceId: user.uid, itemId, quantity,
+            }, {
+              idempotencyKey: createIdempotencyKey("receiveInventoryStock", itemId),
+              dedupeKey: "qr-restock:" + itemId,
+            });
+            if (!result?.snapshot) {
+              throw new Error("لم تؤكد خدمة SQLite توريد الصنف.");
+            }
+            applyHybridSnapshot(result.snapshot);
           }}
             />
           </Suspense>

@@ -56,6 +56,7 @@ export const HYBRID_ALLOWED_COMMANDS = [
   "permanentlyDeleteLedger",
   "saveWarehouse",
   "createInventoryItem",
+  "receiveInventoryStock",
   "updateInventoryItem",
   "deleteInventoryItem",
   "importInventoryItems",
@@ -91,6 +92,7 @@ export const FINANCIAL_MUTATION_COMMANDS: ReadonlySet<HybridCommandAction> = new
   "deleteCurrency",
   "saveWarehouse",
   "createInventoryItem",
+  "receiveInventoryStock",
   "updateInventoryItem",
   "deleteInventoryItem",
   "importInventoryItems",
@@ -267,6 +269,7 @@ export interface HybridCommandPayloadMap {
   permanentlyDeleteLedger: { workspaceId: string; entryId: string };
   saveWarehouse: { workspaceId: string; payload: Partial<WarehouseRecord> & { name: string }; warehouseId?: string };
   createInventoryItem: { workspaceId: string; payload: Partial<InventoryItemRecord> & { name: string } };
+  receiveInventoryStock: { workspaceId: string; itemId: string; quantity: number };
   updateInventoryItem: { workspaceId: string; itemId: string; updates: Partial<InventoryItemRecord> };
   deleteInventoryItem: { workspaceId: string; itemId: string };
   importInventoryItems: {

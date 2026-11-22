@@ -155,6 +155,18 @@ class ReactWorkspace {
       case 'createInventoryItem':
         recordType = 'item';
         _permit(ErpPermissionModule.items, ErpCrudAction.add);
+      case 'receiveInventoryStock':
+        recordType = 'item';
+        _permit(ErpPermissionModule.items, ErpCrudAction.edit);
+        final itemId = payload['itemId'];
+        if (itemId is! String ||
+            !controller.inventory.any((i) => i.id == itemId)) {
+          throw const FormatException('الصنف المطلوب غير موجود.');
+        }
+        final quantity = _num(data, 'quantity');
+        if (!quantity.isFinite || quantity <= 0) {
+          throw const FormatException('أدخل كمية توريد موجبة وصحيحة.');
+        }
       case 'createLedgerEntry':
         recordType = 'entry';
         final permission = switch (data['kind']) {
@@ -210,6 +222,11 @@ class ReactWorkspace {
               warehouseId: _warehouse(data).id,
               avgCost: _num(data, 'avgCost'),
               threshold: _num(data, 'minThreshold', 0),
+              bridgeReceipt: receipt);
+        case 'receiveInventoryStock':
+          await controller.receiveStock(
+              existingId: payload['itemId'] as String,
+              quantity: _num(data, 'quantity'),
               bridgeReceipt: receipt);
         case 'createLedgerEntry':
           await _post(data, receipt);

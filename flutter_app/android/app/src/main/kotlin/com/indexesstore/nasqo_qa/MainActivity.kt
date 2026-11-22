@@ -3,6 +3,11 @@ package com.indexesstore.nasqo_qa
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.webkit.PermissionRequest
+import android.webkit.ValueCallback
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -17,6 +22,66 @@ class MainActivity : FlutterActivity() {
     private var csvChannel: MethodChannel? = null
     private var invoicePrinter: InvoicePdfPrintBridge? = null
     private var devUpdateBridge: DevUpdateBridge? = null
+    private var pendingQrCamera: PermissionRequest? = null
+    private var pendingQrImage: ValueCallback<Array<Uri>>? = null
+
+    internal fun requestReactQrCamera(request: PermissionRequest) {
+        if (isFinishing || isDestroyed) {
+            request.deny()
+            return
+        }
+        if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            request.grant(arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE))
+            return
+        }
+        if (pendingQrCamera != null) {
+            request.deny()
+            return
+        }
+        pendingQrCamera = request
+        requestPermissions(arrayOf(Manifest.permission.CAMERA), QR_CAMERA_PERMISSION)
+    }
+
+    internal fun cancelReactQrCamera(request: PermissionRequest) {
+        if (pendingQrCamera === request) pendingQrCamera = null
+    }
+
+    internal fun openReactQrImagePicker(callback: ValueCallback<Array<Uri>>) {
+        if (pendingQrImage != null) {
+            callback.onReceiveValue(null)
+            return
+        }
+        pendingQrImage = callback
+        val chooser = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            @Suppress("DEPRECATION")
+            startActivityForResult(chooser, QR_IMAGE_PICKER)
+        } catch (_: Exception) {
+            pendingQrImage = null
+            callback.onReceiveValue(null)
+        }
+    }
+
+    @Deprecated("Android permissions compatibility callback")
+    override fun onRequestPermissionsResult(
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != QR_CAMERA_PERMISSION) return
+        val request = pendingQrCamera ?: return
+        pendingQrCamera = null
+        if (grantResults.isNotEmpty() &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED &&
+            checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            request.grant(arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE))
+        } else {
+            request.deny()
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -72,6 +137,16 @@ class MainActivity : FlutterActivity() {
     @Deprecated("Activity result bridge for FlutterActivity")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == QR_IMAGE_PICKER) {
+            val callback = pendingQrImage
+            pendingQrImage = null
+            val uri = data?.data
+            callback?.onReceiveValue(
+                if (resultCode == Activity.RESULT_OK && uri?.scheme == "content") arrayOf(uri)
+                else null
+            )
+            return
+        }
         if (requestCode != CREATE_CSV || writing) return
         val request = pending ?: return
         if (resultCode == Activity.RESULT_CANCELED) {
@@ -111,6 +186,10 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        pendingQrCamera?.deny()
+        pendingQrCamera = null
+        pendingQrImage?.onReceiveValue(null)
+        pendingQrImage = null
         devUpdateBridge?.dispose()
         devUpdateBridge = null
         invoicePrinter?.dispose()
@@ -127,6 +206,8 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val CHANNEL = "com.indexesstore.nasqo_qa/csv_export"
         private const val CREATE_CSV = 28714
+        private const val QR_CAMERA_PERMISSION = 28716
+        private const val QR_IMAGE_PICKER = 28717
         private const val CSV_LIMIT = 8 * 1024 * 1024
         private val BACKUP_NAME = Regex("^nasqo-[0-9]{13,18}-[0-9a-f]{24}\\.json$")
         private val FILE_NAME = Regex("^[A-Za-z0-9][A-Za-z0-9_-]{0,95}\\.csv$")
