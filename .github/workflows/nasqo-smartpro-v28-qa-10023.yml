@@ -179,7 +179,7 @@ jobs:
         if: always()
         with:
           name: qa-10023-smartpro-v28-archive-evidence
-          path: qa-native-import-evidence/
+          path: qa-smartpro-evidence/
           retention-days: 14
 
   signed-upgrade-db:
