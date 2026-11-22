@@ -56,21 +56,34 @@ class ReactNativeBackupBridge {
 
   static List<Map<String, Object?>> _unsupportedRows(
       Map<String, dynamic> document) {
-    const unsupported = <String>{
-      'priceOffers',
-      'stockTransfers',
-      'stockTransferLines',
-      'cashboxes',
-      'attachments',
-      'bankTransactions',
-      'files',
-      'auditEvents',
+    // Reject any populated collection not mapped to native SQLite rather
+    // than silently discarding records after a seemingly successful import.
+    const mapped = <String>{
+      'accountGroups', 'accounts', 'currencies', 'ledger', 'inventory',
+      'warehouses',
     };
-    return [
-      for (final key in unsupported)
-        if (_countList(document, key) > 0)
-          {'section': key, 'count': _countList(document, key)},
-    ]..sort((a, b) =>
+    final skipped = <Map<String, Object?>>[
+      for (final entry in document.entries)
+        if (entry.value is List &&
+            !mapped.contains(entry.key) &&
+            (entry.value as List).isNotEmpty)
+          {'section': entry.key, 'count': (entry.value as List).length},
+    ];
+    final currencies = document['currencies'];
+    if (currencies is List) {
+      final invalid = currencies.where((row) {
+        if (row is! Map) return true;
+        final value = (row['code'] ?? row['name'])?.toString();
+        return !CurrencyCode.values.any(
+          (c) => c.label == value ||
+              c.name.toUpperCase() == value?.toUpperCase(),
+        );
+      }).length;
+      if (invalid > 0) {
+        skipped.add({'section': 'unsupportedCurrencies', 'count': invalid});
+      }
+    }
+    return skipped..sort((a, b) =>
         (a['section'] as String).compareTo(b['section'] as String));
   }
 
