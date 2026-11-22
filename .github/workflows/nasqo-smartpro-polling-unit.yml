@@ -1,0 +1,35 @@
+name: QA SmartPro v28 asynchronous preview timeout safety (no APK or deployment)
+on:
+  push:
+    branches:
+      - qa/smartpro-v28-poll-timeout-hardening-20261123
+    paths:
+      - .github/workflows/nasqo-smartpro-polling-unit.yml
+      - react-hybrid/src/hybrid/backupInspectionPolling.ts
+      - react-hybrid/src/components/FullSqliteImportModal.tsx
+      - react-hybrid/tests/backupInspectionPolling.test.ts
+permissions:
+  contents: read
+jobs:
+  react-polling-static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit
+      - name: Build offline React and run existing hybrid tests
+        run: npm run build:hybrid
+      - name: Verify transient timeout recovery and fail-closed native status
+        run: node --import tsx --test react-hybrid/tests/backupInspectionPolling.test.ts
+      - name: Confirm no live DB, APK or production deployment is involved
+        run: |
+          set -euo pipefail
+          git diff --name-only HEAD~4 HEAD | tee /tmp/qa-changed-paths.txt
+          ! grep -E '^flutter_app/(android|lib|assets)/' /tmp/qa-changed-paths.txt
