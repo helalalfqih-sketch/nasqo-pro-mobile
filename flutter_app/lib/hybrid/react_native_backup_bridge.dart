@@ -168,10 +168,9 @@ class ReactNativeBackupBridge {
 
   Future<Map<String, Object?>> createLocalBackup(
       Map<String, Object?> payload) async {
-    if (payload['target'] == 'cloud') {
-      throw StateError('استيراد الملف يعمل دون إنترنت؛ رفع Google Drive يتطلب ربط الخدمة السحابية.');
-    }
-    if (payload['target'] != 'local') {
+    // Drive upload is still owned by React's existing authenticated workflow.
+    // Creating its local safety copy here must not falsely claim cloud upload.
+    if (payload['target'] != 'local' && payload['target'] != 'cloud') {
       throw const FormatException('وجهة النسخة غير مدعومة.');
     }
     final backup = await controller.createLocalBackup();
@@ -181,6 +180,8 @@ class ReactNativeBackupBridge {
       'format': 'nasqo-local-qa-json-v1',
       'verified': true,
       'storedOnDevice': true,
+      'cloudUploaded': false,
+      'cloudUploadManagedByReact': payload['target'] == 'cloud',
     };
   }
 
