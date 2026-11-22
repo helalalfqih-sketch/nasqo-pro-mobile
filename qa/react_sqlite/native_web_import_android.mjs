@@ -177,9 +177,7 @@ try {
   assert.equal(before.accounts.length, 0);
   assert.equal(before.ledger.length, 0);
   stage = "settings";
-  await until(() => view.evaluate(
-    "(() => {const buttons=[...document.querySelectorAll('#root button')];const node=buttons.find(x=>x.textContent?.trim()==='الإعدادات' && x.offsetWidth);if(!node)return false;node.click();return true})()"),
-    "React Settings navigation failed", 20000);
+  await click(view, "[data-testid=home-nav-profile]");
   await click(view,"[data-testid=settings-tab-database]");
   await click(view,"[data-testid=settings-restore-backup-btn]");
   await click(view,"[data-testid=native-web-backup-pick]");
