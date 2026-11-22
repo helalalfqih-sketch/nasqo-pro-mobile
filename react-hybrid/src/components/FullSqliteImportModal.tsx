@@ -18,6 +18,10 @@ import type {
   WorkspaceSettings,
 } from "../types";
 import { runWithBrandLoader } from "../utils/brandLoaderBus";
+import { useHybridPresentation } from "../hybrid/presentationAdapter";
+import { hybridBridge } from "../hybrid/bridge";
+import { createIdempotencyKey, type NativeWebImportPreview, type HybridWorkspaceSnapshot } from "../hybrid/contracts";
+import { applyHybridSnapshot, refreshWorkspaceFromServer } from "../hybrid/serviceAdapter";
 
 type Props = {
   open: boolean;
@@ -65,6 +69,9 @@ export function FullSqliteImportModal({
   const [notice, setNotice] = useState("");
   const [upload, setUpload] = useState<InspectedUpload | null>(null);
   const [replaceExistingSql, setReplaceExistingSql] = useState(true);
+  const hybrid = useHybridPresentation();
+  const [nativePreview, setNativePreview] = useState<NativeWebImportPreview | null>(null);
+  const [nativeConfirm, setNativeConfirm] = useState(false);
 
   const [tablesMeta, setTablesMeta] = useState<UnifiedTableMeta[]>([]);
   const [summary, setSummary] = useState<ArchiveSummaryPayload | null>(null);
@@ -76,6 +83,7 @@ export function FullSqliteImportModal({
   const [tableTotal, setTableTotal] = useState(0);
 
   const refreshMetadata = useCallback(async () => {
+    if (hybrid.isHybrid) return; // Web-only table inspector; Android uses native SQLite.
     try {
       const [meta, sum] = await Promise.all([
         listUnifiedSqliteTables(workspaceId),
@@ -86,7 +94,7 @@ export function FullSqliteImportModal({
     } catch (err) {
       setError(err instanceof Error ? err.message : "تعذر قراءة بيانات النظام.");
     }
-  }, [workspaceId]);
+  }, [workspaceId, hybrid.isHybrid]);
 
   useEffect(() => {
     if (!open) {
@@ -116,6 +124,67 @@ export function FullSqliteImportModal({
   }, [open, tab, workspaceId, selectedTable, tableSearch, tableOffset]);
 
   if (!open) return null;
+
+  // Same existing React import modal; Android uses the system file picker
+  // and receives only an opaque token + preflight counts, never SQLite bytes.
+  const chooseNativeBackup = async () => {
+    setError("");
+    setNotice("");
+    setNativePreview(null);
+    setNativeConfirm(false);
+    setBusy(true);
+    try {
+      const selected = await hybrid.pickFile({
+        purpose: "restore-backup",
+        accept: [".json", ".sqlite", ".sqlite3", ".db", ".backup", ".gz"],
+      });
+      if (!selected || selected.cancelled) return;
+      if (!selected.preview) throw Error("لم تصل معاينة النسخة المختبرة من SQLite.");
+      setNativePreview(selected.preview);
+      setNotice(selected.preview.canRestore
+        ? "اكتمل فحص الملف والاستعادة التجريبية المعزولة؛ راجع الأعداد قبل الموافقة."
+        : "الملف يحتوي بيانات غير مدعومة أو لم يجتز اختبار الاستعادة؛ لن تُمس بيانات الهاتف.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "تعذر فحص النسخة في Android.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmNativeRestore = async () => {
+    const preview = nativePreview;
+    if (!preview?.canRestore || !nativeConfirm || busy) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await hybridBridge.invoke<"restoreWorkspace", {
+        verified?: boolean;
+        rollbackBackupId?: string;
+        snapshot?: HybridWorkspaceSnapshot;
+      }>("restoreWorkspace", {
+        workspaceId,
+        previewToken: preview.previewToken,
+        sourceSha256: preview.sourceSha256,
+        confirmation: "REPLACE_AFTER_VERIFIED_PREVIEW",
+      }, {
+        idempotencyKey: createIdempotencyKey("restoreWorkspace", preview.sourceSha256.slice(0, 12)),
+        timeoutMs: 120000,
+      });
+      if (!result.verified) throw Error("لم تؤكد خدمة SQLite نجاح الاستعادة.");
+      if (result.snapshot) applyHybridSnapshot(result.snapshot);
+      await refreshWorkspaceFromServer(workspaceId);
+      setNativeConfirm(false);
+      setNativePreview(null);
+      const message = "اكتملت الاستعادة والتحقق من قاعدة SQLite؛ نسخة التراجع: " + (result.rollbackBackupId ?? "محفوظة");
+      setNotice(message);
+      onNotify(message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "فشلت الاستعادة. لم يُعلن نجاح.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -228,8 +297,12 @@ export function FullSqliteImportModal({
     setBusy(true);
     try {
       await downloadUnifiedSqliteFile(workspaceId);
-      setNotice("تم حفظ النسخة الاحتياطية الكاملة بنجاح");
-      onNotify("تم حفظ النسخة الاحتياطية الكاملة بنجاح");
+      setNotice(hybrid.isHybrid
+        ? "تم إنشاء نسخة محلية محمية والتحقق منها داخل التطبيق."
+        : "تم حفظ النسخة الاحتياطية الكاملة بنجاح");
+      onNotify(hybrid.isHybrid
+        ? "تم إنشاء نسخة محلية محمية والتحقق منها داخل التطبيق."
+        : "تم حفظ النسخة الاحتياطية الكاملة بنجاح");
     } catch (err) {
       setError(err instanceof Error ? err.message : "تعذر حفظ النسخة الاحتياطية.");
     } finally {
@@ -337,21 +410,37 @@ export function FullSqliteImportModal({
               </div>
 
               <div style={{ border: "2px dashed #cbd5e1", borderRadius: 14, padding: 14, textAlign: "center", background: upload ? "#f0fdf4" : "#f8fafc", marginBottom: 12 }}>
-                <input
-                  type="file"
-                  id="legacy-center-sqlite-input"
-                  accept=".sqlite,.db,.back,.sql"
-                  onChange={handleFileChange}
-                  style={{ display: "none" }}
-                />
-                <label
-                  htmlFor="legacy-center-sqlite-input"
-                  style={{ display: "inline-block", background: "#0284c7", color: "#fff", padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-                >
-                  اختر ملف النسخة الاحتياطية
-                </label>
+                {hybrid.isHybrid ? (
+                  <button
+                    type="button"
+                    data-testid="native-web-backup-pick"
+                    disabled={busy}
+                    onClick={() => void chooseNativeBackup()}
+                    style={{ display: "inline-block", background: "#0284c7", color: "#fff", padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", border: "none" }}
+                  >
+                    اختر ملف النسخة الاحتياطية
+                  </button>
+                ) : (
+                  <>
+                    <input
+                      type="file"
+                      id="legacy-center-sqlite-input"
+                      accept=".sqlite,.db,.back,.sql"
+                      onChange={handleFileChange}
+                      style={{ display: "none" }}
+                    />
+                    <label
+                      htmlFor="legacy-center-sqlite-input"
+                      style={{ display: "inline-block", background: "#0284c7", color: "#fff", padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                    >
+                      اختر ملف النسخة الاحتياطية
+                    </label>
+                  </>
+                )}
                 <div style={{ marginTop: 8, fontSize: 12, color: "#475569" }}>
-                  {upload
+                  {nativePreview
+                    ? nativePreview.fileName + " • " + nativePreview.format + " • " + (nativePreview.sizeBytes / 1048576).toFixed(2) + " MiB"
+                    : upload
                     ? upload.kind === "sql"
                       ? `${upload.fileName} • ${(upload.byteLength / (1024 * 1024)).toFixed(2)} MiB`
                       : `${upload.fileName} • ${upload.tablesCount} قسم • ${upload.totalRows.toLocaleString("en-US")} سجل`
@@ -365,8 +454,60 @@ export function FullSqliteImportModal({
                 ) : null}
               </div>
 
+              {nativePreview ? (
+                <section data-testid="native-web-backup-preview" style={{ border: "1px solid #cbd5e1", borderRadius: 10, padding: 12, marginBottom: 12 }}>
+                  <strong>معاينة النسخة قبل استبدال بيانات الهاتف</strong>
+                  <div style={{ fontSize: 12, marginTop: 6 }}>
+                    الصيغة: {nativePreview.format} v{String(nativePreview.version)} •
+                    سلامة SQLite المعزولة: {nativePreview.trialIntegrity} •
+                    السجلات المطابقة: {nativePreview.trialMatchedRecords}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(125px, 1fr))", gap: 8, marginTop: 10 }}>
+                    {([
+                      ["accounts", "الحسابات"], ["groups", "المجموعات"], ["currencies", "العملات"],
+                      ["invoices", "الفواتير"], ["vouchers", "السندات"], ["movements", "القيود"],
+                      ["warehouses", "المخازن"], ["items", "الأصناف"], ["invoiceLines", "بنود الفواتير"],
+                    ] as const).map(([key, label]) => (
+                      <div key={key} style={{ padding: 7, background: "#f8fafc", borderRadius: 8 }}>
+                        <div style={{ fontSize: 11 }}>{label}</div>
+                        <strong>{nativePreview.counts[key].toLocaleString("en-US")}</strong>
+                      </div>
+                    ))}
+                  </div>
+                  {nativePreview.unsupported.length ? (
+                    <p data-testid="native-unsupported-records" style={{ color: "#991b1b", fontSize: 12 }}>
+                      سجلات غير مدعومة (محظورة من الاستيراد):
+                      {nativePreview.unsupported.map(x => " " + x.section + ": " + x.count).join(" •")}
+                    </p>
+                  ) : null}
+                  {nativePreview.trialError ? <p style={{ color: "#991b1b", fontSize: 12 }}>{nativePreview.trialError}</p> : null}
+                  {nativePreview.canRestore ? (
+                    <>
+                      {!nativeConfirm ? (
+                        <button type="button" data-testid="native-web-backup-review-consent" disabled={busy}
+                          onClick={() => setNativeConfirm(true)}
+                          style={{ marginTop: 10, padding: 10, borderRadius: 8, color: "#fff", background: "#b45309", border: 0 }}>
+                          مراجعة استبدال البيانات بعد إنشاء نسخة تراجع
+                        </button>
+                      ) : (
+                        <div style={{ marginTop: 10 }}>
+                          <p style={{ fontSize: 12, color: "#991b1b" }}>ستُستبدل بيانات SQLite الحالية بالملف الذي اجتاز الاختبار. ستُحفظ نسخة تراجع محلية أولًا. هل تؤكد؟</p>
+                          <button type="button" data-testid="native-web-backup-confirm" disabled={busy}
+                            onClick={() => void confirmNativeRestore()}
+                            style={{ padding: 10, background: "#b45309", color: "#fff", border: 0, borderRadius: 8 }}>
+                            أوافق على الاستبدال بعد الحفظ والتحقق
+                          </button>
+                          <button type="button" disabled={busy} onClick={() => setNativeConfirm(false)}
+                            style={{ marginRight: 10, padding: 10 }}>إلغاء</button>
+                        </div>
+                      )}
+                    </>
+                  ) : <p>الاستعادة غير مسموحة لهذا الملف قبل تصحيح المشاكل المذكورة.</p>}
+                </section>
+              ) : null}
+
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {upload ? (
+                {!hybrid.isHybrid && upload ? (
                   <>
                     <button
                       type="button"

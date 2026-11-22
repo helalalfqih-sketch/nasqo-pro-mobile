@@ -1,0 +1,145 @@
+name: QA 10022 immutable signed APK end-to-end verification
+on:
+  push:
+    branches:
+      - qa/native-web-import-10022-20261122
+    paths:
+      - .github/workflows/nasqo-web-import-qa-10022-verify.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  react-forms-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NASQO_RELEASE_QA_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-qa-signed-native-web-import-10022
+          run-id: 45053045847
+          github-token: ${{ github.token }}
+          path: candidate
+      - name: Verify immutable signed 10022 APK SHA256
+        run: |
+          set -euo pipefail
+          apk="$(find candidate -name app-release.apk -type f | head -1)"
+          test -s "$apk"
+          echo "c4873efe039a7bec5fb5ce66926374d9e8194b269da22335b906400b2bf28e73  $apk" | sha256sum -c -
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: React one-WebView and account invoice voucher inventory persistence offline
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: bash qa/react_sqlite/run_release_forms.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-10022-react-forms-immutable-evidence
+          path: qa-release-evidence/
+          retention-days: 14
+
+  native-web-json-file:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NASQO_RELEASE_QA_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-qa-signed-native-web-import-10022
+          run-id: 45053045847
+          github-token: ${{ github.token }}
+          path: candidate
+      - name: Verify immutable signed 10022 APK SHA256
+        run: |
+          set -euo pipefail
+          apk="$(find candidate -name app-release.apk -type f | head -1)"
+          test -s "$apk"
+          echo "c4873efe039a7bec5fb5ce66926374d9e8194b269da22335b906400b2bf28e73  $apk" | sha256sum -c -
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: System document picker, React preview and explicit SQLite import offline
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: bash qa/react_sqlite/run_native_web_import.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-10022-native-json-file-immutable-evidence
+          path: qa-native-import-evidence/
+          retention-days: 14
+
+  signed-upgrade-sqlite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-qa-signed-native-web-import-10022
+          run-id: 45053045847
+          github-token: ${{ github.token }}
+          path: candidate
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-react-only-qa-release-10021
+          run-id: 45047112343
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Check both signed APK SHAs
+        run: |
+          set -euo pipefail
+          candidate="$(find candidate -name app-release.apk -type f | head -1)"
+          baseline="$(find baseline -name app-release.apk -type f | head -1)"
+          test -s "$candidate" && test -s "$baseline"
+          echo "c4873efe039a7bec5fb5ce66926374d9e8194b269da22335b906400b2bf28e73  $candidate" | sha256sum -c -
+          echo "419b7146666c2108ec9c3f024871c6b101aeda96bdbe86aa47dc691f342686f9  $baseline" | sha256sum -c -
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: 10021 to 10022 signed in-place update and intact SQLite after airplane-mode restart
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: bash qa/react_sqlite/run_signed_upgrade_10022.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-10022-immutable-upgrade-evidence
+          path: qa-release-evidence/
+          retention-days: 14

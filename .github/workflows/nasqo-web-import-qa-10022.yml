@@ -1,0 +1,217 @@
+name: QA 10022 native web backup to SQLite signed release
+on:
+  push:
+    branches:
+      - qa/native-web-import-10022-20261122
+    paths:
+      - .github/workflows/nasqo-web-import-qa-10022.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  signed-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify React-only QA ancestry
+        run: |
+          set -euo pipefail
+          test -f flutter_app/lib/hybrid/react_native_backup_bridge.dart
+          test -f react-hybrid/src/components/FullSqliteImportModal.tsx
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.0'
+          channel: stable
+          cache: true
+      - name: Build unchanged React UI with native file import services
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit
+          npm run check:runtime
+          npm run build:hybrid
+          test -s flutter_app/assets/react/hybrid-manifest.json
+      - name: Static analysis, JSON/SQLite import, backup and Flutter regressions
+        working-directory: flutter_app
+        run: |
+          set -euo pipefail
+          flutter config --jdk-dir="$JAVA_HOME"
+          flutter pub get
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+          bash ../qa/tools/test-linux.sh
+      - name: Restore existing QA keystore securely
+        env:
+          KEYSTORE_BASE64: ${{ secrets.NASQO_DEV_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.NASQO_DEV_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.NASQO_DEV_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NASQO_DEV_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          for key in KEYSTORE_BASE64 STORE_PASSWORD KEY_PASSWORD KEY_ALIAS; do
+            [[ -n "${!key}" ]] || { echo "Missing QA signing secret: $key"; exit 1; }
+          done
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/nasqo-qa.jks"
+          chmod 600 "$RUNNER_TEMP/nasqo-qa.jks"
+          echo "NASQO_DEV_KEYSTORE_PATH=$RUNNER_TEMP/nasqo-qa.jks" >> "$GITHUB_ENV"
+          echo "NASQO_DEV_KEYSTORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "NASQO_DEV_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          echo "NASQO_DEV_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+      - name: Compile signed QA Release 10022
+        working-directory: flutter_app
+        run: |
+          set -euo pipefail
+          flutter build apk --release --android-skip-build-dependency-validation \
+            --build-name=1.0.18 --build-number=10022 \
+            --dart-define=NASQO_QA_REACT_PRIMARY=true \
+            --dart-define=NASQO_QA_REACT_ALLOW_WRITES=true
+      - name: Verify QA certificate package version and APK SHA256
+        run: |
+          set -euo pipefail
+          apk=flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          test -s "$apk"
+          signer="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          aapt="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
+          "$signer" verify --verbose --print-certs "$apk" | tee "$RUNNER_TEMP/apk-verify.txt"
+          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/apk-verify.txt"
+          grep -Fi 'certificate SHA-256 digest:' "$RUNNER_TEMP/apk-verify.txt" |
+            grep -Fqi '0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79'
+          "$aapt" dump badging "$apk" | head -1 |
+            grep -F "name='com.indexesstore.nasqo_qa' versionCode='10022' versionName='1.0.18'"
+          sha256sum "$apk" > release-apk.sha256
+          stat -c '%s' "$apk" > release-apk.bytes
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nasqo-qa-signed-native-web-import-10022
+          path: |
+            flutter_app/build/app/outputs/flutter-apk/app-release.apk
+            release-apk.sha256
+            release-apk.bytes
+          if-no-files-found: error
+          retention-days: 14
+
+  android-release-forms:
+    needs: signed-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NASQO_RELEASE_QA_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-qa-signed-native-web-import-10022
+          path: candidate
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Run React offline financial forms, native SQLite and single WebView
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: bash qa/react_sqlite/run_release_forms.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-10022-react-release-evidence
+          path: qa-release-evidence/
+          retention-days: 14
+
+  android-native-web-import:
+    needs: signed-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NASQO_RELEASE_QA_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-qa-signed-native-web-import-10022
+          path: candidate
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Native Android SAF Web JSON picker, confirmation, SQLite readback offline
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: bash qa/react_sqlite/run_native_web_import.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-10022-native-web-file-import-evidence
+          path: qa-native-import-evidence/
+          retention-days: 14
+
+  signed-upgrade-db:
+    needs: signed-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-qa-signed-native-web-import-10022
+          path: candidate
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-react-only-qa-release-10021
+          run-id: 45047112343
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Verify previous signed 10021 SHA256
+        run: |
+          set -euo pipefail
+          baseline="$(find baseline -name app-release.apk -type f | head -1)"
+          echo "419b7146666c2108ec9c3f024871c6b101aeda96bdbe86aa47dc691f342686f9  $baseline" | sha256sum -c -
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Verify signed 10021 to 10022 upgrade and SQLite integrity offline
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: bash qa/react_sqlite/run_signed_upgrade_10022.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-10022-signed-sqlite-upgrade-evidence
+          path: qa-release-evidence/
+          retention-days: 14
