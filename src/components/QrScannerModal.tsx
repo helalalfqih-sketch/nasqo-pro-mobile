@@ -34,6 +34,8 @@ interface QrScannerModalProps {
     itemId: string,
     item: Omit<InventoryItemRecord, "id" | "ownerId">,
   ) => Promise<void>;
+  /** Android: receive a positive stock delta through native SQLite, not an unsupported generic item update. */
+  onReceiveStock?: (itemId: string, quantity: number) => Promise<void>;
 }
 
 type BarcodeDetectorLike = {
@@ -50,6 +52,7 @@ export function QrScannerModal({
   onOpenInventoryReport,
   onCreateItem,
   onUpdateItem,
+  onReceiveStock,
 }: QrScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -57,6 +60,7 @@ export function QrScannerModal({
   const streamRef = useRef<MediaStream | null>(null);
 
   const [cameraActive, setCameraActive] = useState(false);
+  const [startingCamera, setStartingCamera] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [manualCode, setManualCode] = useState("");
   const [scannedRaw, setScannedRaw] = useState("");
@@ -84,6 +88,18 @@ export function QrScannerModal({
     }
     setCameraActive(false);
   }, []);
+
+  // The <video> is conditionally mounted only after cameraActive becomes
+  // true. Attach the already-authorized stream after React renders it.
+  useEffect(() => {
+    if (!open || !cameraActive || !streamRef.current || !videoRef.current) return;
+    const video = videoRef.current;
+    video.srcObject = streamRef.current;
+    void video.play().catch(() => {
+      setCameraError("تعذر عرض الكاميرا؛ تحقق من الإذن ثم أعد المحاولة.");
+      stopCamera();
+    });
+  }, [open, cameraActive, stopCamera]);
 
   const applyScannedValue = useCallback(
     (raw: string) => {
@@ -174,25 +190,29 @@ export function QrScannerModal({
   }, [applyScannedValue, cameraActive, open]);
 
   const startCamera = async () => {
+    if (startingCamera || cameraActive) return;
     setCameraError("");
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setCameraError("المتصفح لا يدعم الوصول إلى الكاميرا — يمكنك رفع صورة QR أو إدخال الكود يدويًا.");
       return;
     }
+    setStartingCamera(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } },
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
       setCameraActive(true);
-    } catch {
-      setCameraError("تعذر تشغيل الكاميرا أو تم رفض الإذن — استخدم رفع صورة QR أو الإدخال اليدوي.");
+    } catch (error) {
+      const denied = error instanceof DOMException &&
+        (error.name === "NotAllowedError" || error.name === "PermissionDeniedError");
+      setCameraError(denied
+        ? "تم رفض إذن الكاميرا. فعّل الإذن للتطبيق من إعدادات Android ثم أعد المحاولة."
+        : "تعذر تشغيل الكاميرا. يمكنك استخدام صورة QR أو الإدخال اليدوي.");
       stopCamera();
+    } finally {
+      setStartingCamera(false);
     }
   };
 
@@ -248,18 +268,26 @@ export function QrScannerModal({
   );
 
   const handleQuickRestock = async () => {
-    if (!matchedItem) return;
-    const addQty = Math.max(1, parseArabicNumber(restockDelta));
+    if (!matchedItem || saving) return;
+    const addQty = parseArabicNumber(restockDelta);
+    if (!Number.isFinite(addQty) || addQty <= 0) {
+      onNotify("أدخل كمية توريد موجبة وصحيحة.");
+      return;
+    }
     setSaving(true);
     try {
-      const updated = {
-        ...matchedItem,
-        quantity: matchedItem.quantity + addQty,
-      };
-      if (onUpdateItem) {
-        await onUpdateItem(matchedItem.id, updated);
+      if (onReceiveStock) {
+        await onReceiveStock(matchedItem.id, addQty);
       } else {
-        await updateInventoryItem(uid, matchedItem.id, updated);
+        const updated = {
+          ...matchedItem,
+          quantity: matchedItem.quantity + addQty,
+        };
+        if (onUpdateItem) {
+          await onUpdateItem(matchedItem.id, updated);
+        } else {
+          await updateInventoryItem(uid, matchedItem.id, updated);
+        }
       }
       triggerHaptic("success");
       onNotify(`تمت إضافة ${formatAmount(addQty)} ${matchedItem.unit} إلى "${matchedItem.name}"`);
@@ -346,10 +374,11 @@ export function QrScannerModal({
                   type="button"
                   className="exec-action-primary"
                   onClick={startCamera}
+                  disabled={startingCamera}
                   data-testid="qr-start-camera-btn"
                 >
                   <CameraIcon />
-                  <span>تشغيل الكاميرا للمسح</span>
+                  <span>{startingCamera ? "جارٍ طلب إذن الكاميرا..." : "تشغيل الكاميرا للمسح"}</span>
                 </button>
                 <button
                   type="button"
