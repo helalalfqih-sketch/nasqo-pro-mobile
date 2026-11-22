@@ -12,7 +12,7 @@
   "cspEnforced": true,
   "mockHostStripped": true,
   "totalFiles": 60,
-  "totalBytes": 4006701,
+  "totalBytes": 4006157,
   "files": [
     {
       "path": "assets/cairo-arabic-600-normal-B3EOalmC.woff",
@@ -105,39 +105,39 @@
       "sha256": "f4eef15673aa7e16240bb62402de452c3804337201ebf544cf2f9316c5656ff8"
     },
     {
-      "path": "assets/chunk-ErpCrmPosScreen-TuVe6fwS.js",
+      "path": "assets/chunk-ErpCrmPosScreen-C1jdt4p4.js",
       "bytes": 28947,
-      "sha256": "44a6137d0864927bf3f6ed64e038d6a071e71d184eed3e11de6e4fe9c2e2cdd9"
+      "sha256": "8a3e69d74b660df2375f63d72f3f4f3fa3d039dbab9f0e951fc4d0e8d7783e4f"
     },
     {
-      "path": "assets/chunk-ErpFinanceScreen-D-2g0q1v.js",
+      "path": "assets/chunk-ErpFinanceScreen-D7Z27nMY.js",
       "bytes": 26945,
-      "sha256": "2106ead265476165995206154820cada8973e46916d31c5b3f0a0a290d2b3e38"
+      "sha256": "be93e000b6950b49c41e7dd8a34c65482f29522446400dd37bdaa0335b7accfd"
     },
     {
-      "path": "assets/chunk-ErpHrScreen-CiHw0hvL.js",
+      "path": "assets/chunk-ErpHrScreen-Cgg5YaGP.js",
       "bytes": 8746,
-      "sha256": "88aeb46c05d396a998d3b1f8f27f3c37f9b0c25c7e220952290f3349d495ac36"
+      "sha256": "64b30d6d6587e96007229813bb0568a0bc34b1dd45017063a09cee65491bde0f"
     },
     {
-      "path": "assets/chunk-ErpHubScreen-Dh29YR5d.js",
+      "path": "assets/chunk-ErpHubScreen-BE0JWxqb.js",
       "bytes": 7978,
-      "sha256": "631b2e38c0855223e21b6ead5d127b1d90136c42d066d29875a3f423c5c9b013"
+      "sha256": "3062113a638dc1f5f5272c384cf8220bbc7f1a94529ac6edaef130a5aa269ab5"
     },
     {
-      "path": "assets/chunk-ErpManufacturingScreen-DxpVVwoH.js",
+      "path": "assets/chunk-ErpManufacturingScreen-D_EFsiXY.js",
       "bytes": 8367,
-      "sha256": "40ff97fe50dd95255678cfb045067b75be3f8b07a7cd5a61ddb1697be362c366"
+      "sha256": "1ec0985cff6a7af5a90b3bd8cb79d36f84f650afa6ef38e562c79806ea991b70"
     },
     {
-      "path": "assets/chunk-ErpProcurementScreen-loi5fa0d.js",
+      "path": "assets/chunk-ErpProcurementScreen-C6jIitr6.js",
       "bytes": 7838,
-      "sha256": "2e77a337dbc133dafa19106589974e332212a8a11e55413b1cc83b4912b3b780"
+      "sha256": "c1a823cd0f7e37bff1a868f7caf06f5eec9ce726e43ebf055202e47e714af06e"
     },
     {
-      "path": "assets/chunk-FullSqliteImportModal-DNeLPy7x.js",
+      "path": "assets/chunk-FullSqliteImportModal-DynTpcxh.js",
       "bytes": 14553,
-      "sha256": "bd970758f3f470b59f300034dd2e5e1186962012c9c5666466df12b3b3600b9c"
+      "sha256": "df6b64c40d604e192bf8a559b60115daf229d8b6b6c5a27a0659a56090f64fe3"
     },
     {
       "path": "assets/chunk-html2canvas-DL_87MDo.js",
@@ -145,9 +145,9 @@
       "sha256": "50e7a84b6f503a52a1b73de8e83d10ff6730840112b60640daf6171430fcc9a8"
     },
     {
-      "path": "assets/chunk-index.es-BplNdz9t.js",
+      "path": "assets/chunk-index.es-QfYSZ-f1.js",
       "bytes": 151514,
-      "sha256": "3124e9b4feb2e60da55bb6f702d85ce6b859f18d9b9394aad39d46782bc72e35"
+      "sha256": "27cf1ce79fcaf488b0ad9ea03ac0c531bf474f645b2b88878de3806b4138188f"
     },
     {
       "path": "assets/chunk-liveSafety-DMCFaBr2.js",
@@ -160,9 +160,9 @@
       "sha256": "921ac83a891f9a98b36a542556701dc1fa0d63e6eb9fdcaafd908e4bf9c909cd"
     },
     {
-      "path": "assets/chunk-QrScannerModal-DuEgHLxD.js",
+      "path": "assets/chunk-QrScannerModal-CfZ-DKNL.js",
       "bytes": 139540,
-      "sha256": "b2f9eabe28785d5f079de4d00c5df402cf9ef84cf84ee5ad10cf8d58488b7ece"
+      "sha256": "b10acea5a6ceb5fd413b5d17c04d712f72c2bb8ca31ba3dee4c578db91cc8fa8"
     },
     {
       "path": "assets/chunk-rolldown-runtime-CNC7AqOf.js",
@@ -170,9 +170,9 @@
       "sha256": "d4a36920c7bab6ec97d0bdc5d1233622f28fe010198ca32bcdd80c8cb6b64aae"
     },
     {
-      "path": "assets/chunk-smartProOfflineAdapter-0NpWYAcU.js",
+      "path": "assets/chunk-smartProOfflineAdapter-DZ6-aTSc.js",
       "bytes": 5808,
-      "sha256": "23d107e698cd50fad9b130947ecf606dda4fc2b8646f0f03eabd5ce83238e23a"
+      "sha256": "b3b8ca91be27336734ebc2e7ad546cf309c354b967d302a45e3fe68f155c680c"
     },
     {
       "path": "assets/ibm-plex-sans-arabic-arabic-400-normal-CyU-ddYS.woff2",
@@ -300,9 +300,9 @@
       "sha256": "022d325fa84df3f97d5573ea1d13cef1f128c610a4994a721da4f2d0c556ac90"
     },
     {
-      "path": "assets/nasqo-hybrid-D5IVYHW2.js",
-      "bytes": 1721464,
-      "sha256": "22292bea13cd039c9e85ae5433f73cf9d54268076dc971d7bd93ded4f5b2ed52"
+      "path": "assets/nasqo-hybrid-DVFg4SoW.js",
+      "bytes": 1720920,
+      "sha256": "5a45703b03c6a126b795141e3599ae067d3e8aae12f3501603b3c1d34b7c5976"
     },
     {
       "path": "assets/style-Chkpssa5.css",
@@ -312,7 +312,7 @@
     {
       "path": "index.html",
       "bytes": 882,
-      "sha256": "ba4482cd1953096637979ae580e8f0502d4912cd69b2e82445e2bda51e664272"
+      "sha256": "b994a8557a53a23ce2b941a52af596e0e2470fe3f5ef2d0c9b454f308c456d5c"
     }
   ]
 }

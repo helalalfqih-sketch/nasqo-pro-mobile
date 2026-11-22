@@ -35,7 +35,7 @@ function nasqoHybridIsolationPlugin(): Plugin {
       if (clean === TARGET_FIREBASE.replace(/\.ts$/, "")) {
         return SERVICE_ADAPTER;
       }
-      if (clean === TARGET_MOBILE_DIR || clean === path.join(TARGET_MOBILE_DIR, "index")) {
+      if ([TARGET_MOBILE_DIR, path.join(TARGET_MOBILE_DIR, "index"), path.join(TARGET_MOBILE_DIR, "Keyboard")].includes(clean)) {
         return MOBILE_ADAPTER;
       }
       if (clean === TARGET_DRIVE.replace(/\.ts$/, "")) {

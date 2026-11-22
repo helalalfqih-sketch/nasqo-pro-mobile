@@ -10253,7 +10253,7 @@ function AccountCreateModal({
         initialAccount?.id,
       );
       triggerHaptic("success");
-      ctx.showToast(initialAccount ? "تم تحديث بيانات الحساب" : "تم إنشاء الحساب وحفظه في السحابة");
+      ctx.showToast(initialAccount ? "تم تحديث بيانات الحساب" : "تم إنشاء الحساب وحفظه");
       onClose();
     } finally {
       setSaving(false);

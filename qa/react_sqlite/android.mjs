@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { exerciseForms } from './forms.mjs';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
@@ -152,10 +153,22 @@ try {
   result.sqliteAfterReplay=JSON.parse(execFileSync('python3',['qa/react_sqlite/read_device_db.py',acc.id,item.id,inv[0].entry.id,v.entry.id],{encoding:'utf8'}));
   assert.deepEqual(result.sqliteAfterReplay,firstDb);
   result.steps.push('Offline process restart, readback, repeated and conflicting postings; database identical');
+  view=await attach();
+  const ids=await exerciseForms(view,until,()=>request('getSnapshot',{workspaceId}));
+  stop();
+  result.formsDatabase=JSON.parse(execFileSync('python3',['qa/react_sqlite/read_device_db.py',...ids,'forms'],{encoding:'utf8'}));
+  view=await attach();
+  const final=await request('getSnapshot',{workspaceId});
+  assert.equal(final.accounts.length,2); assert.equal(final.ledger.length,4);
+  assert.equal(final.inventory.find(i=>i.id===ids[1]).quantity,13);
+  assert(final.ledger.some(e=>e.id===ids[2]) && final.ledger.some(e=>e.id===ids[3]));
+  result.steps.push('Submitted the four real React forms, force-stopped the APK and verified their native rows from a new Android process');
+  stop();
   result.passed=true;
 } catch(e) {
   result.passed=false;result.error=String(e.stack||e);
   try { save('failure-android.png',adb('exec-out','screencap','-p')); } catch {}
+  if (view) try { save('failure-ui.txt',await view.evaluate('document.body.innerText.slice(-10000)')); view.close(); } catch {}
   throw e;
 } finally {
   save('device.json',JSON.stringify(result,null,2));
