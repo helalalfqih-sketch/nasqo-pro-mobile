@@ -20,6 +20,7 @@ import type {
 import { runWithBrandLoader } from "../utils/brandLoaderBus";
 import { useHybridPresentation } from "../hybrid/presentationAdapter";
 import { hybridBridge } from "../hybrid/bridge";
+import { awaitBackupInspection } from "../hybrid/backupInspectionPolling";
 import { createIdempotencyKey, type NativeWebImportPreview, type HybridPickFileResult, type HybridWorkspaceSnapshot, type SmartProArchiveInfo } from "../hybrid/contracts";
 import { applyHybridSnapshot, refreshWorkspaceFromServer } from "../hybrid/serviceAdapter";
 
@@ -182,31 +183,19 @@ export function FullSqliteImportModal({
         auditing: "جارٍ فحص جداول SQLite والعلاقات التاريخية…",
         verifying: "جارٍ اختبار الاستعادة في قاعدة معزولة…",
       };
-      let selected: HybridPickFileResult | null = null;
       let lastPhase = "";
-      const deadline = Date.now() + 7 * 60_000;
-      while (Date.now() < deadline) {
-        await new Promise<void>(resolve => window.setTimeout(resolve, 850));
-        const status = await hybridBridge.invoke<"getBackupInspectionStatus", {
-          phase: string; result?: HybridPickFileResult | null; error?: string;
-        }>(
-          "getBackupInspectionStatus",
-          { jobId: started.jobId },
-          { timeoutMs: 15000 },
-        );
-        if (status.phase === "failed") {
-          throw new Error(status.error || "فشل فحص النسخة المحلية؛ لم تتغير قاعدة الهاتف.");
-        }
-        if (status.phase === "complete") {
-          selected = status.result ?? null;
-          break;
-        }
-        if (status.phase !== lastPhase) {
-          lastPhase = status.phase;
-          setNotice(stageText[status.phase] || "جارٍ فحص النسخة على الجهاز…");
-        }
-      }
-      if (!selected) throw new Error("لم يكتمل فحص النسخة ضمن الحد الآمن؛ لم تتغير قاعدة الهاتف.");
+      const selected = await awaitBackupInspection(started.jobId, {
+        onPhase: (phase) => {
+          if (phase !== lastPhase) {
+            lastPhase = phase;
+            setNotice(
+              phase === "waiting"
+                ? "فحص SQLite مستمر في Android؛ أُعيد التحقق من المهمة نفسها دون إعادة اختيار الملف…"
+                : stageText[phase] || "جارٍ فحص النسخة على الجهاز…",
+            );
+          }
+        },
+      });
       if (selected.cancelled) return;
       if (!selected.preview) throw Error("لم تصل معاينة النسخة المختبرة من SQLite.");
       setNativePreview(selected.preview);
