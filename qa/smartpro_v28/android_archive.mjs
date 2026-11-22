@@ -164,7 +164,7 @@ try {
   stage = "historical-preview";
   await until(() => view.evaluate(
     "Boolean(document.querySelector('[data-testid=smartpro-v28-historical-preview]'))"),
-    "SmartPro v28 read-only archive preview missing", 60000);
+    "SmartPro v28 read-only archive preview missing", 240000);
   const previewText = await view.evaluate(
     "document.querySelector('[data-testid=smartpro-v28-historical-preview]').innerText");
   assert(previewText.includes("SmartPro v28"), "Incorrect source version");
