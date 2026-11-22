@@ -1,0 +1,56 @@
+name: QA 10023 immutable archive diagnosis
+on:
+  push:
+    branches:
+      - qa/smartpro-v28-10023-diagnose
+    paths:
+      - .github/workflows/nasqo-10023-archive-diagnose.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnose-signed-smartpro-10023:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-signed-smartpro-v28-qa-10023
+          run-id: 45059791896
+          github-token: ${{ github.token }}
+          path: candidate
+      - name: Verify exact original signed QA APK
+        run: |
+          set -euo pipefail
+          apk="$(find candidate -name app-release.apk -type f | head -1)"
+          test -s "$apk"
+          echo "a27c677295761a86e0fded787844da40bf3b9f10860947fe81d0f4dfa345481c  $apk" | sha256sum -c -
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Diagnose Android native SmartPro archive with existing 10023 APK
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: bash qa/smartpro_v28/run_android_archive.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-10023-smartpro-diagnostics
+          path: |
+            qa-smartpro-evidence/*.json
+            qa-smartpro-evidence/*.png
+            qa-smartpro-evidence/*.txt
+          retention-days: 7
