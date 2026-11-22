@@ -5,15 +5,20 @@ import '../models/erp_models.dart';
 import '../services/posting_receipt.dart';
 import '../state/erp_controller.dart';
 import 'hybrid_protocol.dart';
+import 'react_backup_commands.dart';
 
 typedef Json = Map<String, Object?>;
 
 /// Adapts the packaged React protocol to the same native operations as the
 /// Flutter forms. Every successful financial reply follows the SQLite commit.
 class ReactWorkspace {
-  ReactWorkspace(this.controller, {required this.allowWrites});
+  ReactWorkspace(this.controller, {required this.allowWrites,
+      Future<bool> Function(Map<String, Object?>)? confirmRestore})
+      : _backups = ReactBackupCommands(controller, confirmRestore: confirmRestore);
   final ErpController controller;
   final bool allowWrites;
+  final ReactBackupCommands _backups;
+  void dispose() => _backups.dispose();
   static const workspaceId = 'local-erp-workspace';
   Future<void> _pending = Future.value();
 
@@ -68,6 +73,24 @@ class ReactWorkspace {
     switch (request.action) {
       case 'getSnapshot':
         return snapshot();
+      case 'pickFile':
+        if (!allowWrites) throw const HybridBridgeException('UNAUTHORIZED_ACTION',
+            'استيراد الملف يتطلب صلاحية QA المحلية.');
+        return _backups.pickFile();
+      case 'backupWorkspace':
+        if (!allowWrites) throw const HybridBridgeException('UNAUTHORIZED_ACTION',
+            'النسخ الاحتياطي يتطلب صلاحية QA المحلية.');
+        return _backups.backupWorkspace();
+      case 'restoreWorkspace':
+        if (!allowWrites) throw const HybridBridgeException('UNAUTHORIZED_ACTION',
+            'استعادة الملف تتطلب صلاحية QA المحلية.');
+        final result = await _backups.restoreWorkspace(
+            (payload['previewToken'] ?? data['previewToken'] ?? '').toString(),
+            request.idempotencyKey!);
+        return {
+          ...result,
+          if (result['restored'] == true) 'snapshot': await snapshot(),
+        };
       case 'getInvoiceDetail':
         final entry = controller.ledger
             .where((e) => e.id == payload['entryId'])
@@ -516,7 +539,7 @@ class ReactWorkspace {
         'offlineReady': true,
         'printingSupported': false,
         'pdfExportSupported': false,
-        'filePickerSupported': false,
+        'filePickerSupported': true,
         'googleDriveConfigured': false,
         'whatsappShareSupported': false,
         'readOnlyFinancial': !allowWrites
