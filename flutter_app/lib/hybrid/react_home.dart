@@ -24,7 +24,8 @@ class ReactHome extends StatefulWidget {
 
 class _ReactHomeState extends State<ReactHome> {
   late final _workspace =
-      ReactWorkspace(widget.controller, allowWrites: reactHomeAllowWrites);
+      ReactWorkspace(widget.controller, allowWrites: reactHomeAllowWrites,
+          confirmRestore: _confirmWebsiteRestore);
   MethodChannel? _channel;
   bool _failed = false;
   Future<void> _attach(int id) async {
@@ -34,6 +35,22 @@ class _ReactHomeState extends State<ReactHome> {
       if (call.method == 'reactRequest' && call.arguments is String) {
         final raw = call.arguments as String;
         final response = await _workspace.handle(raw);
+        // Reload the same React tree from the newly committed native SQLite.
+        if (mounted) {
+          final reply = jsonDecode(response);
+          if (reply is Map && reply['ok'] == true &&
+              reply['action'] == 'restoreWorkspace' &&
+              reply['data'] is Map &&
+              (reply['data'] as Map)['restored'] == true) {
+            await channel.invokeMethod<void>('present', jsonEncode({
+              'protocolVersion': '1.0.0',
+              'kind': 'event',
+              'event': 'snapshotUpdated',
+              'payload': (reply['data'] as Map)['snapshot'],
+              'timestampMs': DateTime.now().millisecondsSinceEpoch,
+            }));
+          }
+        }
         // React owns all screen navigation. Only a deliberate Back at the
         // React route-stack root may offer the separate legacy QA fallback.
         if (mounted) {
@@ -61,6 +78,32 @@ class _ReactHomeState extends State<ReactHome> {
     } on PlatformException {
       if (mounted) setState(() => _failed = true);
     }
+  }
+
+  Future<bool> _confirmWebsiteRestore(Map<String, Object?> preview) async {
+    if (!mounted || preview['restorable'] != true) return false;
+    final counts = preview['counts'] as Map? ?? const {};
+    final approved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('تأكيد استعادة بيانات الويب'),
+        content: Text(
+          'الملف: ${preview['fileName']}\n'
+          'الحسابات: ${counts['accounts'] ?? 0} • المجموعات: ${counts['groups'] ?? 0}\n'
+          'العملات: ${counts['currencies'] ?? 0} • الفواتير: ${counts['invoices'] ?? 0}\n'
+          'السندات: ${counts['vouchers'] ?? 0} • المخازن: ${counts['warehouses'] ?? 0}\n'
+          'الأصناف: ${counts['items'] ?? 0}\n\n'
+          'سيُحفظ ملف رجوع مستقل أولًا، ولن يبدأ الاستبدال إلا بعد التأكيد.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('أوافق على الاستعادة')),
+        ],
+      ),
+    );
+    return approved == true;
   }
 
   Future<void> _backInsideReact() async {
@@ -103,6 +146,7 @@ class _ReactHomeState extends State<ReactHome> {
   @override
   void dispose() {
     _channel?.setMethodCallHandler(null);
+    _workspace.dispose();
     super.dispose();
   }
 
