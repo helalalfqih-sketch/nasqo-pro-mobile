@@ -212,4 +212,51 @@ void main() {
     expect(controller.accounts, isEmpty);
     expect(controller.ledger, isEmpty);
   });
+  test('QR native stock receipt increments once, replays safely and survives SQLite reopen',
+      () async {
+    if (controller.warehouses.isEmpty) {
+      await controller.saveWarehouse(name: 'QA مخزن', details: '',
+          isDefault: true);
+    }
+    final warehouseId = controller.warehouses.first.id;
+    await controller.receiveStock(
+        quantity: 7, name: 'صنف QR تجريبي', sku: 'QA-QR-1',
+        unit: 'حبة', warehouseId: warehouseId, avgCost: 10);
+    final itemId = controller.inventory.single.id;
+    final app = ReactWorkspace(controller, allowWrites: true);
+    var sequence = 0;
+    Future<Map> command(num quantity, String key) async {
+      final raw = await app.handle(jsonEncode({
+        'protocolVersion': '1.0.0', 'kind': 'request',
+        'action': 'receiveInventoryStock',
+        'requestId': 'qa_qr_${++sequence}',
+        'timestampMs': DateTime.now().millisecondsSinceEpoch,
+        'payload': {
+          'workspaceId': 'local-erp-workspace',
+          'itemId': itemId,
+          'quantity': quantity
+        },
+        'idempotencyKey': key,
+      }));
+      return jsonDecode(raw) as Map;
+    }
+
+    final first = await command(3, 'qa-qr-stock-unique-001');
+    expect(first['ok'], true, reason: first.toString());
+    expect((first['data'] as Map)['postingReceipt']['replayed'], false);
+    expect(controller.inventory.single.quantity, 10);
+    expect(controller.ledger, isEmpty);
+    final repeated = await command(3, 'qa-qr-stock-unique-001');
+    expect(repeated['ok'], true, reason: repeated.toString());
+    expect((repeated['data'] as Map)['postingReceipt']['replayed'], true);
+    expect(controller.inventory.single.quantity, 10);
+    final invalid = await command(-2, 'qa-qr-stock-unique-002');
+    expect(invalid['ok'], false);
+    expect(controller.inventory.single.quantity, 10);
+    await local.close();
+    final reopened = await local.loadSnapshot();
+    expect(reopened.inventory.single.quantity, 10);
+    expect(reopened.ledger, isEmpty);
+  });
+
 }
