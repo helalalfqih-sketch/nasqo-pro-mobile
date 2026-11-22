@@ -120,7 +120,9 @@ class SmartProHistoricalArchive {
       for (final name in names) {
         final columns = await db.rawQuery('PRAGMA table_info(${_ident(name)})');
         final count = await _count(db, 'SELECT COUNT(*) FROM ${_ident(name)}');
-        totalRows += count;
+        // sqlite_sequence is preserved as an original system table, but is
+        // not counted as a business document in the displayed total.
+        if (!name.startsWith('sqlite_')) totalRows += count;
         counts[name] = count;
         tables.add({
           'name': name,
