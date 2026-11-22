@@ -1,0 +1,197 @@
+name: QA 10021 React-only signed Release + SQLite upgrade
+on:
+  push:
+    branches:
+      - qa/react-only-release-10021-0583100
+    paths:
+      - '.github/workflows/nasqo-react-only-qa-10021.yml'
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  signed-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify isolated QA source ancestry
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 058310087cf8624568cd1665480d1f9acf5e1449 HEAD
+          test "$(git diff --name-only 058310087cf8624568cd1665480d1f9acf5e1449 HEAD -- flutter_app/lib flutter_app/android | grep -v -E '^(flutter_app/lib/hybrid/(react_home|react_workspace)[.]dart|flutter_app/android/app/src/main/kotlin/com/indexesstore/nasqo_qa/HybridHomeView[.]kt)$' | wc -l)" = 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.0'
+          channel: stable
+          cache: true
+      - name: Build offline React source and verify runtime
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit
+          npm run check:runtime
+          npm run build:hybrid
+          test -s flutter_app/assets/react/hybrid-manifest.json
+      - name: Flutter static analysis and React-authoritative SQLite tests
+        working-directory: flutter_app
+        run: |
+          set -euo pipefail
+          flutter config --jdk-dir="$JAVA_HOME"
+          flutter pub get
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+          bash ../qa/tools/test-linux.sh \
+            --dart-define=NASQO_QA_REACT_PRIMARY=true \
+            --dart-define=NASQO_QA_REACT_ALLOW_WRITES=true
+      - name: Restore original QA certificate
+        env:
+          KEYSTORE_BASE64: ${{ secrets.NASQO_DEV_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.NASQO_DEV_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.NASQO_DEV_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NASQO_DEV_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE_BASE64 STORE_PASSWORD KEY_PASSWORD KEY_ALIAS; do
+            [[ -n "${!name}" ]] || { echo "Missing QA signing secret: $name"; exit 1; }
+          done
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/nasqo-qa.jks"
+          chmod 600 "$RUNNER_TEMP/nasqo-qa.jks"
+          echo "NASQO_DEV_KEYSTORE_PATH=$RUNNER_TEMP/nasqo-qa.jks" >> "$GITHUB_ENV"
+          echo "NASQO_DEV_KEYSTORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "NASQO_DEV_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          echo "NASQO_DEV_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+      - name: Compile signed non-debuggable React-first Release 10021
+        working-directory: flutter_app
+        run: |
+          set -euo pipefail
+          flutter build apk --release --android-skip-build-dependency-validation \
+            --build-name=1.0.18 --build-number=10021 \
+            --dart-define=NASQO_QA_REACT_PRIMARY=true \
+            --dart-define=NASQO_QA_REACT_ALLOW_WRITES=true
+      - name: Verify identity, QA signing certificate, version and digest
+        run: |
+          set -euo pipefail
+          apk=flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          test -s "$apk"
+          signer="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          aapt="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
+          "$signer" verify --verbose --print-certs "$apk" > "$RUNNER_TEMP/verify.txt"
+          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/verify.txt"
+          grep -Fi 'certificate SHA-256 digest:' "$RUNNER_TEMP/verify.txt" | grep -Fqi '0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79'
+          "$aapt" dump badging "$apk" | head -1 | grep -F "name='com.indexesstore.nasqo_qa' versionCode='10021' versionName='1.0.18'"
+          sha256sum "$apk" > release-apk.sha256
+          stat -c '%s' "$apk" > release-apk.bytes
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nasqo-react-only-qa-release-10021
+          path: |
+            flutter_app/build/app/outputs/flutter-apk/app-release.apk
+            release-apk.sha256
+            release-apk.bytes
+          if-no-files-found: error
+          retention-days: 14
+
+  android-release-react-forms:
+    needs: signed-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NASQO_RELEASE_QA_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-react-only-qa-release-10021
+          path: candidate
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Run release financial forms and React-only navigation offline
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            adb root
+            adb wait-for-device
+            apk="$(find candidate -name 'app-release.apk' -type f | head -1)"
+            test -n "$apk"
+            node qa/react_sqlite/android.mjs "$apk" qa-release-evidence
+            adb shell am start -W -n com.indexesstore.nasqo_qa/.MainActivity
+            sleep 5
+            python3 qa/react_sqlite/assert_one_ui.py qa-release-evidence
+            node qa/react_sqlite/web_reference.mjs qa-release-evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-10021-react-forms-ui-evidence
+          path: qa-release-evidence/
+          retention-days: 14
+
+  signed-upgrade-sqlite:
+    needs: signed-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-react-only-qa-release-10021
+          path: candidate
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-integration-qa-signed-10020
+          run-id: 45043789068
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Verify immutable baseline 10020 SHA-256
+        run: |
+          set -euo pipefail
+          baseline="$(find baseline -name app-release.apk -type f | head -1)"
+          test -n "$baseline"
+          echo "f50d94dd6bf699f33b19b253de0c39640ee520b11ab20c498ee082e0bbcc6c86  $baseline" | sha256sum -c -
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Verify signed in-place 10020 to 10021 upgrade without losing SQLite
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            baseline="$(find baseline -name 'app-release.apk' -type f | head -1)"
+            candidate="$(find candidate -name 'app-release.apk' -type f | head -1)"
+            python3 qa/react_sqlite/release_upgrade.py "$baseline" "$candidate"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-10021-sqlite-upgrade-evidence
+          path: qa-release-evidence/
+          retention-days: 14
