@@ -46,24 +46,54 @@ function tapNode(node) {
   return true;
 }
 
+// One tap is not proof that Android SAF returned a document URI. A provider
+// may show a disabled file (unknown MIME type) or require a second confirmation.
+// Wait for the system picker to actually dismiss before checking React.
 async function selectThroughAndroidPicker() {
   let selectedDownloads = false;
   let openedRoots = false;
+  let sawPicker = false;
+  let lastTap = 0;
+  let fileTaps = 0;
   await until(async () => {
+    const focus = shell("dumpsys", "window").split("\n")
+      .filter(line => /mCurrentFocus=/.test(line)).join(" ");
+    const pickerFocused = /documentsui|documentui|filepicker/i.test(focus);
+    const appFocused = focus.includes(app) && !pickerFocused;
+    if (pickerFocused) sawPicker = true;
+    if (sawPicker && appFocused) {
+      console.log("SMARTPRO_PICKER_CLOSED_AFTER_FILE_TAPS", fileTaps);
+      return true;
+    }
+
     const nodes = webXmlNodes();
+    if (nodes.some(n => /^(Downloads|التنزيلات)$/i.test(n.text))) sawPicker = true;
+    const confirm = nodes.find(n =>
+      /^(Open|Select|Use this file|فتح|اختيار|تحديد)$/i.test(n.text.trim()));
+    if (confirm && Date.now() - lastTap > 1600 && tapNode(confirm)) {
+      lastTap = Date.now();
+      return false;
+    }
     const target = nodes.find(n => (n.text + " " + n.desc).includes(fileName));
-    if (target && tapNode(target)) return true;
+    if (target && Date.now() - lastTap > 2500 && tapNode(target)) {
+      fileTaps += 1;
+      lastTap = Date.now();
+      console.log("SMARTPRO_PICKER_FILE_TAP", fileTaps);
+      return false;
+    }
     const roots = nodes.find(n =>
       /^(Show roots|عرض الجذور|Navigate up|Open navigation drawer)$/i.test(n.desc));
     if (roots && !openedRoots) {
-      openedRoots = tapNode(roots); return false;
+      openedRoots = tapNode(roots);
+      return false;
     }
-    const downloads = nodes.find(n => /^(Downloads|Download|التنزيلات|تنزيلات)$/i.test(n.text));
+    const downloads = nodes.find(n =>
+      /^(Downloads|Download|التنزيلات|تنزيلات)$/i.test(n.text));
     if (downloads && !selectedDownloads) {
-      selectedDownloads = tapNode(downloads); return false;
+      selectedDownloads = tapNode(downloads);
     }
     return false;
-  }, "Android system picker did not select the local backup file", 85000);
+  }, "Android SAF picker did not return a selected .back file to NASQO", 85000);
 }
 
 async function attach() {
