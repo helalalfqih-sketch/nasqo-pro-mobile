@@ -109,3 +109,7 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - Fixed phone chrome should not animate with pushed screens. Screen content can animate; the status bar, camera cutout, and preview chrome should stay put.
 - Keep the keyboard below the home indicator/safe area layer in z-index, and above ordinary app UI while visible.
 - Keep the home indicator as the topmost safe-area layer in the z-index above everything else in the prototype.
+
+## Android QA presentation
+
+The QA Android app opens the packaged React workspace by default in Release. React owns navigation, dialogs, forms and Android Back within the workspace. Dart owns permissions, accounting and the existing SQLite database. Legacy recovery is an explicit, session-only action in settings.

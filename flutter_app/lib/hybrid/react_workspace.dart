@@ -5,13 +5,19 @@ import '../models/erp_models.dart';
 import '../services/posting_receipt.dart';
 import '../state/erp_controller.dart';
 import 'hybrid_protocol.dart';
+import 'react_reports.dart';
 
 typedef Json = Map<String, Object?>;
 
 /// Adapts the packaged React protocol to the same native operations as the
 /// Flutter forms. Every successful financial reply follows the SQLite commit.
 class ReactWorkspace {
-  ReactWorkspace(this.controller, {required this.allowWrites});
+  ReactWorkspace(
+    this.controller, {
+    required this.allowWrites,
+    this.onLegacyRecovery,
+  });
+  final void Function()? onLegacyRecovery;
   final ErpController controller;
   final bool allowWrites;
   static const workspaceId = 'local-erp-workspace';
@@ -31,32 +37,49 @@ class ReactWorkspace {
       if (body is Map && body['requestId'] is String) id = body['requestId'];
       final request = HybridRequestEnvelope.parse(body);
       action = request.action;
+      if (action == 'getSnapshot' && !controller.dbReady) {
+        await controller.initDatabase();
+      }
       if (!controller.dbReady) {
         throw const HybridBridgeException(
-            'SERVICE_UNAVAILABLE', 'قاعدة البيانات المحلية غير جاهزة.');
+          'SERVICE_UNAVAILABLE',
+          'قاعدة البيانات المحلية غير جاهزة.',
+        );
       }
       final owner = request.payload['workspaceId'];
       if (owner != null && owner != workspaceId) {
         throw const HybridBridgeException(
-            'UNAUTHORIZED_ACTION', 'مساحة عمل غير صالحة.');
+          'UNAUTHORIZED_ACTION',
+          'مساحة عمل غير صالحة.',
+        );
       }
       final result = await _dispatch(request);
       return HybridResponseEnvelope.success(
-              requestId: id, action: action, data: result)
-          .toJsonString();
+        requestId: id,
+        action: action,
+        data: result,
+      ).toJsonString();
     } catch (error) {
       final issue = switch (error) {
         HybridBridgeException e => e,
-        SaleValidationException e =>
-          HybridBridgeException('VALIDATION_ERROR', e.message),
-        FormatException e =>
-          HybridBridgeException('VALIDATION_ERROR', e.message),
-        _ => const HybridBridgeException('SERVICE_UNAVAILABLE',
-            'تعذر إتمام العملية المحلية. راجع السجل قبل إعادة الحفظ.'),
+        SaleValidationException e => HybridBridgeException(
+            'VALIDATION_ERROR',
+            e.message,
+          ),
+        FormatException e => HybridBridgeException(
+            'VALIDATION_ERROR',
+            e.message,
+          ),
+        _ => const HybridBridgeException(
+            'SERVICE_UNAVAILABLE',
+            'تعذر إتمام العملية المحلية. راجع السجل قبل إعادة الحفظ.',
+          ),
       };
       return HybridResponseEnvelope.failure(
-              requestId: id, action: action, error: issue)
-          .toJsonString();
+        requestId: id,
+        action: action,
+        error: issue,
+      ).toJsonString();
     }
   }
 
@@ -66,8 +89,35 @@ class ReactWorkspace {
         ? Json.from(payload['payload'] as Map)
         : payload;
     switch (request.action) {
+      case 'saveWorkspaceSettings':
+        if (!allowWrites ||
+            !controller.hasActionPermission(ErpActionPermission.settings)) {
+          throw const HybridBridgeException(
+              'UNAUTHORIZED_ACTION', 'صلاحية تعديل الإعدادات غير متاحة.');
+        }
+        final settings = Json.from(payload['updates'] as Map);
+        await controller.saveWorkspaceSettings(
+            name: _string(settings, 'companyName', controller.companyName),
+            currency: _currency(settings['defaultCurrency']),
+            provider: _string(
+                settings, 'whatsappProvider', controller.messageProvider),
+            phone: _string(settings, 'whatsappPhone', controller.messagePhone),
+            instant: settings['whatsappInstantEnabled'] as bool? ??
+                controller.instantMessages);
+        return {'snapshot': await snapshot()};
       case 'getSnapshot':
         return snapshot();
+      case 'getInventoryMovementsReport':
+      case 'getCashboxesReport':
+        final options =
+            Map<String, Object?>.from(payload['options'] as Map? ?? {});
+        final code = options['currency'];
+        final currency = code == null || code == '' || code == 'الكل'
+            ? null
+            : _currency(code);
+        return request.action == 'getCashboxesReport'
+            ? reactCashboxReport(controller, options, currency)
+            : reactInventoryReport(controller, options, currency);
       case 'getInvoiceDetail':
         final entry = controller.ledger
             .where((e) => e.id == payload['entryId'])
@@ -84,47 +134,68 @@ class ReactWorkspace {
           'minPrice': sorted.firstOrNull ?? 0,
           'maxPrice': sorted.lastOrNull ?? 0,
           'lastPrice': prices.lastOrNull ?? 0,
-          'txCount': prices.length
+          'txCount': prices.length,
         };
       case 'saveUiPreferences':
-        final prefs =
-            await _savePreferences(Json.from(payload['preferences'] as Map));
+        final prefs = await _savePreferences(
+          Json.from(payload['preferences'] as Map),
+        );
         return {'preferences': prefs};
       case 'changeCurrency':
         final currency = _currency(payload['currency']).label;
         await _savePreferences({'activeCurrency': currency});
         return {'currency': currency, 'snapshot': await snapshot()};
+      case 'openLegacyRecovery':
+        if (onLegacyRecovery == null)
+          throw const FormatException('الواجهة الاحتياطية غير متاحة.');
+        onLegacyRecovery!();
+        return {'handled': true};
+      case 'openInvoice':
+      case 'openVoucher':
+      case 'openAccountStatement':
       case 'goBack':
       case 'navigate':
       case 'showMessage':
         return {'handled': true};
     }
-    if (!allowWrites ||
-        !kHybridFinancialMutationCommands.contains(request.action)) {
+    if (!kHybridFinancialMutationCommands.contains(request.action)) {
+      throw HybridBridgeException(
+        'SERVICE_UNAVAILABLE',
+        'الخدمة المحلية غير متاحة: ${request.action}',
+      );
+    }
+    if (!allowWrites) {
       throw const HybridBridgeException(
-          'UNAUTHORIZED_ACTION', 'هذه العملية متاحة من واجهة Flutter الأصلية.');
+        'UNAUTHORIZED_ACTION',
+        'الكتابة المالية معطلة في هذا الإصدار.',
+      );
     }
     final key = request.idempotencyKey!;
     if (key.length > 256) throw const FormatException('مفتاح الحفظ طويل جدًا.');
     final fingerprint = computeCanonicalRequestHash(request.action, payload);
-    final receipt =
-        BridgeReceipt(sha256.convert(utf8.encode(key)).toString(), fingerprint);
+    final receipt = BridgeReceipt(
+      sha256.convert(utf8.encode(key)).toString(),
+      fingerprint,
+    );
     String recordType;
     switch (request.action) {
       case 'saveAccount':
         recordType = 'account';
         _permit(
-            ErpPermissionModule.accounts,
-            payload['accountId'] == null
-                ? ErpCrudAction.add
-                : ErpCrudAction.edit);
+          ErpPermissionModule.accounts,
+          payload['accountId'] == null ? ErpCrudAction.add : ErpCrudAction.edit,
+        );
       case 'saveWarehouse':
         recordType = 'warehouse';
         _permit(
-            ErpPermissionModule.warehouses,
-            payload['warehouseId'] == null
-                ? ErpCrudAction.add
-                : ErpCrudAction.edit);
+          ErpPermissionModule.warehouses,
+          payload['warehouseId'] == null
+              ? ErpCrudAction.add
+              : ErpCrudAction.edit,
+        );
+      case 'updateInventoryItem':
+        recordType = 'item';
+        _permit(ErpPermissionModule.items, ErpCrudAction.edit);
       case 'createInventoryItem':
         recordType = 'item';
         _permit(ErpPermissionModule.items, ErpCrudAction.add);
@@ -140,50 +211,81 @@ class ReactWorkspace {
         };
         if (!controller.hasActionPermission(permission)) {
           throw const HybridBridgeException(
-              'UNAUTHORIZED_ACTION', 'صلاحية الترحيل غير متاحة.');
+            'UNAUTHORIZED_ACTION',
+            'صلاحية الترحيل غير متاحة.',
+          );
         }
       default:
-        throw const HybridBridgeException('SERVICE_UNAVAILABLE',
-            'استخدم واجهة Flutter الأصلية لهذه العملية.');
+        throw HybridBridgeException(
+          'SERVICE_UNAVAILABLE',
+          'هذه العملية غير مدعومة في قاعدة البيانات المحلية: ${request.action}',
+        );
     }
     String? entityId = await controller.database.bridgeResult(receipt);
     final replayed = entityId != null;
     if (!replayed) {
       switch (request.action) {
         case 'saveAccount':
-          await controller.saveAccountRows([
-            (
-              name: _string(data, 'name'),
-              phone: _string(data, 'phone'),
-              opening: _num(data, 'openingBalance')
-            )
-          ],
-              category: AccountCategory.values
-                  .byName(_string(data, 'category', 'purchases')),
-              currency: _currency(data['currency']),
-              direction: _direction(data['openingDirection'] ?? 'credit'),
-              note: _string(data, 'note'),
-              creditLimit: _num(data, 'creditLimit'),
-              cash: data['isCashAccount'] == true,
-              editId: payload['accountId'] as String?,
-              bridgeReceipt: receipt);
+          await controller.saveAccountRows(
+            [
+              (
+                name: _string(data, 'name'),
+                phone: _string(data, 'phone'),
+                opening: _num(data, 'openingBalance'),
+              ),
+            ],
+            category: AccountCategory.values.byName(
+              _string(data, 'category', 'purchases'),
+            ),
+            currency: _currency(data['currency']),
+            direction: _direction(data['openingDirection'] ?? 'credit'),
+            note: _string(data, 'note'),
+            creditLimit: _num(data, 'creditLimit'),
+            cash: data['isCashAccount'] == true,
+            editId: payload['accountId'] as String?,
+            bridgeReceipt: receipt,
+          );
         case 'saveWarehouse':
           await controller.saveWarehouse(
-              id: payload['warehouseId'] as String?,
-              name: _string(data, 'name'),
-              details: _string(data, 'details'),
-              isDefault: data['isDefault'] == true,
-              bridgeReceipt: receipt);
+            id: payload['warehouseId'] as String?,
+            name: _string(data, 'name'),
+            details: _string(data, 'details'),
+            isDefault: data['isDefault'] == true,
+            bridgeReceipt: receipt,
+          );
+        case 'updateInventoryItem':
+          final changes = Json.from(payload['updates'] as Map);
+          final item = controller.inventory
+              .where((i) => i.id == payload['itemId'])
+              .firstOrNull;
+          if (item == null) throw const FormatException('الصنف غير موجود.');
+          if (changes['warehouseId'] != null &&
+              changes['warehouseId'] != item.warehouseId) {
+            throw const FormatException(
+              'استخدم تحويل المخزون لتغيير المستودع.',
+            );
+          }
+          await controller.updateCatalogItem(
+            item.id,
+            name: _string(changes, 'name', item.name),
+            sku: _string(changes, 'sku', item.sku),
+            unit: _string(changes, 'unit', item.unit),
+            quantity: _num(changes, 'quantity', item.quantity),
+            avgCost: _num(changes, 'avgCost', item.avgCost),
+            threshold: _num(changes, 'minThreshold', item.minThreshold),
+            bridgeReceipt: receipt,
+          );
         case 'createInventoryItem':
           await controller.receiveStock(
-              quantity: _num(data, 'quantity'),
-              name: _string(data, 'name'),
-              sku: _string(data, 'sku'),
-              unit: _string(data, 'unit', 'حبة'),
-              warehouseId: _warehouse(data).id,
-              avgCost: _num(data, 'avgCost'),
-              threshold: _num(data, 'minThreshold', 0),
-              bridgeReceipt: receipt);
+            quantity: _num(data, 'quantity'),
+            name: _string(data, 'name'),
+            sku: _string(data, 'sku'),
+            unit: _string(data, 'unit', 'حبة'),
+            warehouseId: _warehouse(data).id,
+            avgCost: _num(data, 'avgCost'),
+            threshold: _num(data, 'minThreshold', 0),
+            bridgeReceipt: receipt,
+          );
         case 'createLedgerEntry':
           await _post(data, receipt);
       }
@@ -194,7 +296,7 @@ class ReactWorkspace {
       'entry': 'ledger',
       'item': 'inventory',
       'warehouse': 'warehouses',
-      'account': 'accounts'
+      'account': 'accounts',
     }[recordType]!;
     final record = (snap[keyInSnapshot] as List)
         .whereType<Map>()
@@ -206,15 +308,18 @@ class ReactWorkspace {
     return {
       recordType: record,
       'snapshot': snap,
-      'postingReceipt': {'replayed': replayed, 'idempotencyKey': key}
+      'postingReceipt': {'replayed': replayed, 'idempotencyKey': key},
     };
   }
 
   Future<Json> _savePreferences(Json prefs) async {
     final db = await controller.database.database;
     return db.transaction((txn) async {
-      final rows = await txn.query('erp_state',
-          where: 'stateKey = ?', whereArgs: ['react_ui_preferences']);
+      final rows = await txn.query(
+        'erp_state',
+        where: 'stateKey = ?',
+        whereArgs: ['react_ui_preferences'],
+      );
       final saved = rows.isEmpty
           ? <String, dynamic>{}
           : jsonDecode(rows.single['payloadJson'] as String)
@@ -225,7 +330,7 @@ class ReactWorkspace {
           {
             'stateKey': 'react_ui_preferences',
             'payloadJson': jsonEncode(saved),
-            'updatedAt': DateTime.now().toUtc().toIso8601String()
+            'updatedAt': DateTime.now().toUtc().toIso8601String(),
           },
           conflictAlgorithm: ConflictAlgorithm.replace);
       return saved;
@@ -235,7 +340,9 @@ class ReactWorkspace {
   void _permit(ErpPermissionModule module, ErpCrudAction action) {
     if (!controller.hasModulePermission(module, action)) {
       throw const HybridBridgeException(
-          'UNAUTHORIZED_ACTION', 'لا تتوفر صلاحية هذه العملية.');
+        'UNAUTHORIZED_ACTION',
+        'لا تتوفر صلاحية هذه العملية.',
+      );
     }
   }
 
@@ -253,11 +360,14 @@ class ReactWorkspace {
 
   CurrencyCode _currency(Object? raw) => raw == null
       ? controller.defaultCurrency
-      : CurrencyCode.values.firstWhere((e) => e.name == raw || e.label == raw,
-          orElse: () => throw const FormatException('عملة غير مدعومة.'));
-  EntryDirection _direction(Object? raw) =>
-      EntryDirection.values.firstWhere((e) => e.name == raw,
-          orElse: () => throw const FormatException('اتجاه القيد غير صالح.'));
+      : CurrencyCode.values.firstWhere(
+          (e) => e.name == raw || e.label == raw,
+          orElse: () => throw const FormatException('عملة غير مدعومة.'),
+        );
+  EntryDirection _direction(Object? raw) => EntryDirection.values.firstWhere(
+        (e) => e.name == raw,
+        orElse: () => throw const FormatException('اتجاه القيد غير صالح.'),
+      );
   WarehouseRecord _warehouse(Json d) {
     final id = _string(d, 'warehouseId');
     final w = controller.warehouses
@@ -280,9 +390,11 @@ class ReactWorkspace {
     String? cashbox;
     if (d['cashboxId'] != null && d['cashboxId'] != 0 && d['cashboxId'] != '') {
       final box = boxes
-          .where((b) =>
-              b.codeNumber.toString() == d['cashboxId'].toString() ||
-              b.id == d['cashboxId'])
+          .where(
+            (b) =>
+                b.codeNumber.toString() == d['cashboxId'].toString() ||
+                b.id == d['cashboxId'],
+          )
           .firstOrNull;
       if (box == null) throw const FormatException('الصندوق النقدي غير موجود.');
       cashbox = box.id;
@@ -294,9 +406,11 @@ class ReactWorkspace {
       for (final raw in rawLines) {
         final line = Json.from(raw as Map);
         final item = controller.inventory
-            .where((e) =>
-                e.id == line['inventoryItemId'] &&
-                e.warehouseId == warehouse.id)
+            .where(
+              (e) =>
+                  e.id == line['inventoryItemId'] &&
+                  e.warehouseId == warehouse.id,
+            )
             .firstOrNull;
         if (item == null) {
           throw const FormatException('اختر صنفًا من المستودع المحدد.');
@@ -304,16 +418,20 @@ class ReactWorkspace {
         final units = _num(line, 'unitNum', 1);
         if (units != 1 || _num(line, 'bonus') != 0) {
           throw const FormatException(
-              'اختر الوحدة الأساسية دون كمية مجانية لهذا الصنف.');
+            'اختر الوحدة الأساسية دون كمية مجانية لهذا الصنف.',
+          );
         }
-        rows.add(InvoiceItemRow(
+        rows.add(
+          InvoiceItemRow(
             id: '${rows.length}',
             itemId: item.id,
             productName: item.name,
             quantity: _num(line, 'quantity'),
             unitPrice: _num(line, 'price'),
             discount: _num(line, 'discount'),
-            roundLineTotal: true));
+            roundLineTotal: true,
+          ),
+        );
       }
       final amount = _num(d, 'amount');
       if (rows.isNotEmpty &&
@@ -330,35 +448,37 @@ class ReactWorkspace {
           throw const FormatException('عملة الشراء لا تطابق عملة المورد.');
         }
         await controller.postPurchaseInvoice(
-            accountId: account.id,
-            warehouseId: warehouse.id,
-            payment: payment,
-            rows: rows,
-            reference: reference,
-            exchangeRate: _num(d, 'exchangeRate', 1),
-            invoiceDate: date,
-            freeAmount: free,
-            cashboxAccountId: cashbox,
-            requestId: receipt.key,
-            bridgeReceipt: receipt);
+          accountId: account.id,
+          warehouseId: warehouse.id,
+          payment: payment,
+          rows: rows,
+          reference: reference,
+          exchangeRate: _num(d, 'exchangeRate', 1),
+          invoiceDate: date,
+          freeAmount: free,
+          cashboxAccountId: cashbox,
+          requestId: receipt.key,
+          bridgeReceipt: receipt,
+        );
       } else {
         if (currency != controller.defaultCurrency) {
           throw const FormatException('عملة البيع لا تطابق العملة الافتراضية.');
         }
         await controller.submitSalesInvoice(
-            accountId: account.id,
-            customerName: account.name,
-            warehouse: warehouse,
-            payment: payment,
-            includeVat: false,
-            rows: rows,
-            freeAmount: free,
-            invoiceDate: date,
-            requestId: receipt.key,
-            documentNumber: reference,
-            memo: _string(d, 'details'),
-            cashboxAccountId: cashbox,
-            bridgeReceipt: receipt);
+          accountId: account.id,
+          customerName: account.name,
+          warehouse: warehouse,
+          payment: payment,
+          includeVat: false,
+          rows: rows,
+          freeAmount: free,
+          invoiceDate: date,
+          requestId: receipt.key,
+          documentNumber: reference,
+          memo: _string(d, 'details'),
+          cashboxAccountId: cashbox,
+          bridgeReceipt: receipt,
+        );
       }
     } else {
       final kind = switch (d['kind']) {
@@ -367,25 +487,27 @@ class ReactWorkspace {
         'transfer' => LedgerKind.transfer,
         'currency' => LedgerKind.currency,
         _ => throw const FormatException(
-            'استخدم النموذج الأصلي لنوع المستند المحدد.')
+            'استخدم النموذج الأصلي لنوع المستند المحدد.',
+          ),
       };
       await controller.postLocalEntry(
-          accountId: account.id,
-          kind: kind,
-          counterpartId: d['counterpartAccountId'] as String?,
-          cashboxAccountId: cashbox,
-          requestId: receipt.key,
-          documentNumber: reference,
-          direction: direction,
-          payment: payment,
-          amount: _num(d, 'amount'),
-          currency: currency,
-          exchangeRate: _num(d, 'exchangeRate', 1),
-          fromCurrency:
-              d['fromCurrency'] == null ? null : _currency(d['fromCurrency']),
-          note: _string(d, 'details'),
-          expenseCategory: _string(d, 'expenseCategory'),
-          bridgeReceipt: receipt);
+        accountId: account.id,
+        kind: kind,
+        counterpartId: d['counterpartAccountId'] as String?,
+        cashboxAccountId: cashbox,
+        requestId: receipt.key,
+        documentNumber: reference,
+        direction: direction,
+        payment: payment,
+        amount: _num(d, 'amount'),
+        currency: currency,
+        exchangeRate: _num(d, 'exchangeRate', 1),
+        fromCurrency:
+            d['fromCurrency'] == null ? null : _currency(d['fromCurrency']),
+        note: _string(d, 'details'),
+        expenseCategory: _string(d, 'expenseCategory'),
+        bridgeReceipt: receipt,
+      );
     }
   }
 
@@ -399,18 +521,20 @@ class ReactWorkspace {
             'unitNum': 1,
             'quantity': l.quantity,
             'price': l.unitPrice,
-            'total': l.quantity * l.unitPrice
-          }
+            'total': l.quantity * l.unitPrice,
+          },
       ];
   Json _entry(LedgerEntryRecord l) =>
       _ledgerToHybridJson(l, lines: _lines(l.id));
 
   Future<Json> snapshot() async {
     final db = await controller.database.database;
-    final rows = await db.query('erp_state',
-        columns: ['payloadJson'],
-        where: 'stateKey = ?',
-        whereArgs: ['react_ui_preferences']);
+    final rows = await db.query(
+      'erp_state',
+      columns: ['payloadJson'],
+      where: 'stateKey = ?',
+      whereArgs: ['react_ui_preferences'],
+    );
     final prefs = rows.isEmpty
         ? <String, dynamic>{}
         : jsonDecode(rows.single['payloadJson'] as String)
@@ -430,7 +554,7 @@ class ReactWorkspace {
         'defaultCurrency': controller.defaultCurrency.label,
         'whatsappProvider': controller.messageProvider,
         'whatsappPhone': controller.messagePhone,
-        'whatsappInstantEnabled': controller.instantMessages
+        'whatsappInstantEnabled': controller.instantMessages,
       },
       'currencies': [
         for (final c in CurrencyCode.values)
@@ -441,8 +565,8 @@ class ReactWorkspace {
             'symbol': c.label,
             'ratePrimary': 1.0,
             'rateSecondary': 1.0,
-            ...controller.currencyDetails(c)
-          }
+            ...controller.currencyDetails(c),
+          },
       ],
       'accountGroups': [
         if (hasDirectory)
@@ -458,8 +582,9 @@ class ReactWorkspace {
               'isEmployee': archive.groupCategories[group.id] == 'employees',
             }
         else
-          for (final category
-              in AccountCategory.values.where(categories.contains))
+          for (final category in AccountCategory.values.where(
+            categories.contains,
+          ))
             {
               'id': category.index + 1,
               'name': category.label,
@@ -468,7 +593,7 @@ class ReactWorkspace {
               'sortOrder': category.index + 1,
               'hasBill': true,
               'isEmployee': category == AccountCategory.employees,
-            }
+            },
       ],
       'cashboxes': [
         for (final a in boxes)
@@ -480,25 +605,26 @@ class ReactWorkspace {
             'state': 1,
             'boxType': 0,
             'sortOrder': a.codeNumber,
-            'isActive': true
-          }
+            'isActive': true,
+          },
       ],
       'accounts': [
         for (final a in controller.accounts)
-          _accountToHybridJson(a,
-              groupId: hasDirectory
-                  ? archive.membership[a.id]
-                  : a.category.index + 1),
+          _accountToHybridJson(
+            a,
+            groupId:
+                hasDirectory ? archive.membership[a.id] : a.category.index + 1,
+          ),
       ],
       'warehouses': [
         for (final (i, w) in controller.warehouses.indexed)
-          _warehouseToHybridJson(w, i + 1)
+          _warehouseToHybridJson(w, i + 1),
       ],
       'ledger': controller.ledger.map(_entry).toList(),
       'inventory': controller.inventory.map(_inventoryToHybridJson).toList(),
       'uiPreferences': {
         'themeMode': controller.isDarkMode ? 'dark' : 'light',
-        ...prefs
+        ...prefs,
       },
       'activeCurrency':
           prefs['activeCurrency'] ?? controller.defaultCurrency.label,
@@ -509,23 +635,23 @@ class ReactWorkspace {
         'filePickerSupported': false,
         'googleDriveConfigured': false,
         'whatsappShareSupported': false,
-        'readOnlyFinancial': !allowWrites
-      }
+        'readOnlyFinancial': !allowWrites,
+      },
     };
   }
 
   String _groupCurrency(String? value) =>
       CurrencyCode.values
-          .where((c) =>
-              c.name.toUpperCase() == value?.toUpperCase() || c.label == value)
+          .where(
+            (c) =>
+                c.name.toUpperCase() == value?.toUpperCase() ||
+                c.label == value,
+          )
           .firstOrNull
           ?.label ??
       controller.defaultCurrency.label;
 
-  Map<String, Object?> _accountToHybridJson(
-    AccountRecord a, {
-    int? groupId,
-  }) =>
+  Map<String, Object?> _accountToHybridJson(AccountRecord a, {int? groupId}) =>
       <String, Object?>{
         'id': a.id,
         'ownerId': workspaceId,

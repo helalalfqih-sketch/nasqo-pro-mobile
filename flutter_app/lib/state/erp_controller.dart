@@ -494,6 +494,7 @@ class ErpController extends ChangeNotifier {
   Map<String,dynamic> get _workspaceModuleData => {
     ..._modules.toJson(),
     'currencyDetails': _currencyDetails,
+    'defaultCurrency': defaultCurrency.name,
     'appearance':{'primary':primaryTint,'secondary':secondaryTint,'radius':homeRadius},
     if(groupDirectory!=null) 'groupDirectory':groupDirectory,
     'alertState':{'read':readAlerts.toList(),'dismissed':dismissedAlerts.toList()},
@@ -1083,6 +1084,7 @@ class ErpController extends ChangeNotifier {
         final currencies = snap.erpData?['currencyDetails'];
         _currencyDetails = currencies is Map ? Map<String, dynamic>.from(currencies)
             : WebBackup.readCurrencyDetails(original?['currencies']);
+        defaultCurrency = CurrencyCode.values.where((c) => c.name == snap.erpData?['defaultCurrency']).firstOrNull ?? CurrencyCode.sar;
         _loadAppearance(snap.erpData?['appearance']);
         _loadAlertState(snap.erpData?['alertState']);
         _loadMessagePreferences(snap.erpData?['messagePreferences']);
@@ -1348,6 +1350,30 @@ class ErpController extends ChangeNotifier {
       accounts..clear()..addAll(next);
       if(!_disposed) notifyListeners();
     } finally { _editingWorkspace=false; }
+  }
+
+  Future<void> saveWorkspaceSettings({required String name, required CurrencyCode currency,
+      required String provider, required String phone, required bool instant}) async {
+    final company = name.trim();
+    if (company.isEmpty || company.length > 100 || !{'external','nasqo'}.contains(provider)) {
+      throw const FormatException('تحقق من اسم المنشأة وإعدادات المراسلة.');
+    }
+    _requireAvailableMutation();
+    _editingWorkspace = true;
+    try {
+      final preferences = {'provider':provider, 'phone':phone.trim(), 'instant':instant};
+      if (_usesPersistentStore) {
+        await initDatabase();
+        if (!dbReady) throw StateError('قاعدة البيانات غير جاهزة.');
+        await _writeTail;
+        await _saveCurrentSnapshot(nextCompany:company, nextModuleData:{
+          ..._workspaceModuleData, 'defaultCurrency':currency.name, 'messagePreferences':preferences});
+      }
+      companyName = company;
+      defaultCurrency = currency;
+      _loadMessagePreferences(preferences);
+      if (!_disposed) notifyListeners();
+    } finally { _editingWorkspace = false; }
   }
 
   Future<void> renameCompany(String name) async {
@@ -1762,7 +1788,7 @@ class ErpController extends ChangeNotifier {
   }
 
   Future<void> updateCatalogItem(String id,{required String name,required String sku,
-      required String unit,required double threshold}) async {
+      required String unit,required double threshold, double? quantity, double? avgCost, BridgeReceipt? bridgeReceipt}) async {
     _requireAvailableMutation();
     _editingWorkspace=true;
     try {
@@ -1776,12 +1802,16 @@ class ErpController extends ChangeNotifier {
         throw const FormatException('تحقق من اسم الصنف والوحدة وحد التنبيه.');
       }
       final old=inventory[i], code=sku.trim();
+      if ((quantity != null && (!quantity.isFinite || quantity < 0)) ||
+          (avgCost != null && (!avgCost.isFinite || avgCost < 0))) {
+        throw const FormatException('تحقق من الكمية ومتوسط التكلفة.');
+      }
       if(code.isNotEmpty && inventory.any((v)=>v.id!=id && v.warehouseId==old.warehouseId &&
         v.sku.toLowerCase()==code.toLowerCase())) throw StateError('الرمز مستخدم في هذا المستودع.');
       final next=List.of(inventory);
       next[i]=InventoryItemRecord(id:id,name:name.trim(),sku:code,unit:unit.trim(),warehouseId:old.warehouseId,
-        quantity:old.quantity,avgCost:old.avgCost,minThreshold:threshold);
-      if(_usesPersistentStore) await _saveCurrentSnapshot(nextInventory:next);
+        quantity:quantity ?? old.quantity,avgCost:avgCost ?? old.avgCost,minThreshold:threshold);
+      if(_usesPersistentStore) await _saveCurrentSnapshot(nextInventory:next, bridgeResult:bridgeReceipt?.result(id));
       inventory..clear()..addAll(next);
       if(!_disposed) notifyListeners();
     } finally { _editingWorkspace=false; }

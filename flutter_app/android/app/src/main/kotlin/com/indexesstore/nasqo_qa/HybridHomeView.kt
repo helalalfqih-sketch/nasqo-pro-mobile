@@ -122,6 +122,12 @@ private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: I
                         result.success(null)
                     }
                 }
+                "reactBack" -> {
+                    if (!reactWorkspace || !started || web.url != page) result.success(false)
+                    else web.evaluateJavascript(
+                        "!window.dispatchEvent(new Event('nasqo:android-back', {cancelable:true}))"
+                    ) { consumed -> result.success(consumed == "true") }
+                }
                 "present" -> {
                     val payload = call.arguments as? String
                     if (!started || payload == null) result.error("NOT_READY", "Local view unavailable", null)

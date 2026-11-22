@@ -33,6 +33,7 @@ export const HYBRID_ALLOWED_COMMANDS = [
   // Core navigation, UI preferences, and native device actions
   "navigate",
   "goBack",
+  "openLegacyRecovery",
   "getSnapshot",
   "changeCurrency",
   "saveUiPreferences",
@@ -210,6 +211,7 @@ export interface HybridPickFileResult {
 
 export interface HybridCommandPayloadMap {
   navigate: { route: string; params?: Record<string, string | number | boolean | undefined> };
+  openLegacyRecovery: Record<string, never>;
   goBack: { currentRoute?: string; stackDepth?: number };
   getSnapshot: { workspaceId?: string; forceRefresh?: boolean };
   changeCurrency: { scope: "dashboard" | "category" | "statement" | "report"; targetId?: string; currency: string };

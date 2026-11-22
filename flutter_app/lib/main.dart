@@ -66,9 +66,13 @@ class NasqoProErpApp extends StatefulWidget {
 
 class _NasqoProErpAppState extends State<NasqoProErpApp> {
   ErpController? _ownedController;
+  bool _legacyRecovery = false;
+
+  bool get _reactAndroid =>
+      !kIsWeb && Platform.isAndroid && reactHomeEnabled && !_legacyRecovery;
 
   ErpController get _controller =>
-      widget.controller ?? (_ownedController ??= ErpController(emptyOnFirstInstall: reactHomeEnabled));
+      widget.controller ?? (_ownedController ??= ErpController(emptyOnFirstInstall: !kIsWeb && Platform.isAndroid && reactHomeEnabled));
 
   @override
   void dispose() {
@@ -113,7 +117,12 @@ class _NasqoProErpAppState extends State<NasqoProErpApp> {
           ),
           home: Directionality(
             textDirection: TextDirection.rtl,
-            child: _controller.requiresLocalDatabase && !_controller.dbReady
+            child: _reactAndroid
+                ? ReactHome(
+                    controller: _controller,
+                    onLegacy: () => setState(() => _legacyRecovery = true),
+                  )
+                : _controller.requiresLocalDatabase && !_controller.dbReady
                 ? LocalDbStartupView(
                     diagnosticCode: _controller.localDatabaseDiagnostic,
                     retry: _controller.initDatabase,
@@ -138,7 +147,6 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
   final _shellKey = GlobalKey<ScaffoldState>();
   final _homeScroll = ScrollController();
   final _updateKey = GlobalKey<DevUpdateActionState>();
-  bool _useReact = reactHomeEnabled;
   bool _usePilot = !kIsWeb && Platform.isAndroid;
   String? _activeModule;
 
@@ -539,10 +547,6 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
 
   @override
   Widget build(BuildContext context) {
-    if (_usePilot && _useReact) {
-      return ReactHome(controller: widget.controller,
-          onLegacy: () => setState(() => _useReact = false));
-    }
     if (_usePilot) {
       return Scaffold(
         key: _shellKey,

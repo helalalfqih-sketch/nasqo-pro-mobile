@@ -14,6 +14,7 @@ class InvoiceMovementRow {
   String lastDate = '';
   int lastNumber = -1, lastPosition = -1;
   double invoiceNet = 0, prior = 0, incoming = 0, outgoing = 0, opening = 0, remaining = 0;
+  double unitCost = 0;
   bool active = false;
 }
 
@@ -21,6 +22,7 @@ List<InvoiceMovementRow> invoiceMovementReport({
   required List<InventoryItemRecord> inventory, required List<LedgerEntryRecord> ledger,
   required List<SavedSaleLine> lines, RestoredGroups? metadata, required CurrencyCode currency,
   String warehouse = '',String from = '',String through = '',CostBasis basis = CostBasis.average,
+  void Function(String itemId, Map<String,Object?> movement)? onMovement,
 }) {
   final entries = {for(final e in ledger) e.id:e};
   final rows = {for(final i in inventory) i.id:InvoiceMovementRow(i)};
@@ -64,6 +66,10 @@ List<InvoiceMovementRow> invoiceMovementReport({
         (through.isNotEmpty && entry.entryDate.compareTo(through)>0)) continue;
     if(purchase) {row.periodBuyQty+=qty;row.periodBuyValue+=value;}
     if(warehouse.isNotEmpty && location!=warehouse) continue;
+    onMovement?.call(row.item.id, {'source':'invoice','refId':entry.id,'entryNumber':entry.entryNumber,
+      'date':entry.entryDate,'label':entry.typeLabel,'accountName':entry.accountName,'warehouseId':location,
+      'quantity':line.quantity,'unit':line.unit,'unitNum':detail?['unitNum'] ?? 1,'baseQuantity':qty,
+      'effectQty':purchase ? qty : -qty,'price':line.unitPrice,'total':value});
     row.active = true;
     if(purchase) {row.bought+=qty;row.purchases+=value;}
     else {row.sold+=qty;row.sales+=value;}
@@ -81,6 +87,11 @@ List<InvoiceMovementRow> invoiceMovementReport({
         continue;
       }
       if(through.isNotEmpty && tx.date.compareTo(through)>0) continue;
+      if(incoming || outgoing) onMovement?.call(row.item.id, {'source':'transfer',
+        'refId':tx.item,'date':tx.date,'label':'تحويل مخزني','accountName':'',
+        'warehouseId':incoming ? tx.destination : tx.source,'quantity':tx.quantity,
+        'unit':row.item.unit,'unitNum':tx.unit,'baseQuantity':qty,
+        'effectQty':(incoming ? qty : 0) - (outgoing ? qty : 0),'price':0,'total':0});
       if(incoming) row.incoming+=qty;
       if(outgoing) row.outgoing+=qty;
       if(incoming || outgoing) row.active=true;
@@ -103,6 +114,7 @@ List<InvoiceMovementRow> invoiceMovementReport({
       CostBasis.lastPurchase => r.lastCost ?? avg,
       CostBasis.average => avg,
     };
+    r.unitCost = cost;
     r.profit=_round2(r.sales-r.sold*cost);
   }
   result.sort((a,b)=>a.item.name.compareTo(b.item.name));

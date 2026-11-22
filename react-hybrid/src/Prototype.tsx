@@ -2524,7 +2524,7 @@ export function AuthenticatedWorkspace({
   // Hardware/system Back closes transient UI before navigating the screen stack.
   // At the dashboard the history guard keeps the installed PWA in the app.
   const handleSystemBack = () => {
-    if (overlay) { setOverlay(null); return true; }
+    if (overlay) { closeOverlay(); return true; }
     if (drawerOpen) { setDrawerOpen(false); return true; }
     if (dashboardMenuOpen) { setDashboardMenuOpen(false); return true; }
     if (exportState.open) { setExportState((current) => ({ ...current, open: false })); return true; }
@@ -2901,8 +2901,17 @@ function DashboardBottomNav({ flow }: { flow: FlowControls }) {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setQuickOpen(false);
     };
+    const closeQuickSheet = (event: Event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setQuickOpen(false);
+    };
+    window.addEventListener("nasqo:android-back", closeQuickSheet, true);
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("nasqo:android-back", closeQuickSheet, true);
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [quickOpen]);
 
   const scrollHomeTop = () => {
@@ -11979,6 +11988,7 @@ function SystemSettingsScreenBody({ flow }: { flow: FlowControls }) {
       onRestoreJson={ctx.triggerJsonRestore}
       onOpenTrash={ctx.openTrash}
       onSignOut={ctx.handleSignOut}
+      onLegacyRecovery={() => { void hybridBridge.invoke("openLegacyRecovery", {}).catch(error => ctx.showToast(String(error))); }}
       onNotify={ctx.showToast}
       onBack={flow.pop}
     />
@@ -12060,14 +12070,16 @@ function InventoryItemModal({
     }
     setSaving(true);
     try {
-      await createInventoryItem(ctx.uid, {
+      const values = {
         name: trimmedName,
         unit: unit.trim() || "حبة",
         quantity: parsedQty,
         avgCost: parsedCost,
         warehouseId: effectiveWarehouseId,
         quantityUnverified: false,
-      });
+      };
+      if (editing) await updateInventoryItem(ctx.uid, editing.id, values);
+      else await createInventoryItem(ctx.uid, values);
       triggerHaptic("success");
       ctx.showToast(`تم حفظ الصنف «${trimmedName}» في المخزن`);
       setName("");
@@ -12089,7 +12101,7 @@ function InventoryItemModal({
     <div className="center-modal-layer" data-testid="inventory-item-modal">
       <button className="center-modal-backdrop" onClick={onClose} aria-label="إغلاق" />
       <section className="warehouse-modal" role="dialog" aria-modal="true" aria-labelledby="inv-add-title">
-        <h2 id="inv-add-title">إضافة صنف مخزني</h2>
+        <h2 id="inv-add-title">{editing ? "تعديل صنف مخزني" : "إضافة صنف مخزني"}</h2>
         {formError ? (
           <p role="alert" className="auth-error" data-testid="inventory-item-error" style={{ margin: 0 }}>
             {formError}

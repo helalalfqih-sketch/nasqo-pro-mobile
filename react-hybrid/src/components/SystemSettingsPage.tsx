@@ -56,6 +56,7 @@ interface SystemSettingsPageProps {
   onRestoreJson: () => void;
   onOpenTrash?: () => void;
   onSignOut: () => void;
+  onLegacyRecovery?: () => void;
   onNotify: (msg: string) => void;
   onBack: () => void;
   onSaveWorkspaceSettings?: (next: WorkspaceSettings) => Promise<void>;
@@ -85,6 +86,7 @@ export function SystemSettingsPage({
   onOpenFullSqliteImport,
   onRestoreJson,
   onSignOut,
+  onLegacyRecovery,
   onNotify,
   onBack,
   onSaveWorkspaceSettings,
@@ -1812,6 +1814,14 @@ export function SystemSettingsPage({
                   تسجيل الخروج
                 </button>
               </div>
+              {onLegacyRecovery && (
+                <details className="sys-faq-row">
+                  <summary>استرداد الواجهة</summary>
+                  <button type="button" className="sys-faq-link" onClick={onLegacyRecovery}>
+                    فتح الواجهة السابقة لهذه الجلسة
+                  </button>
+                </details>
+              )}
               {faqOpen ? (
                 <div className="sys-faq-card">
                   <strong>أبرز الإرشادات:</strong>

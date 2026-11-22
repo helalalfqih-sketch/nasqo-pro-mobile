@@ -497,17 +497,22 @@ export function FlowStack({
 
   // Listen to Android hardware back button forwarded by Flutter via the bridge
   useEffect(() => {
-    return hybridBridge.onHostEvent("backPressed", () => {
-      if (systemBackRef.current?.()) {
-        return;
-      }
-      if (stackRef.current.length > 1) {
-        pop();
-      } else {
-        emitGoBackOnce(stackRef.current[0]?.id ?? "home", 1);
-      }
-    });
-  }, [emitGoBackOnce, pop]);
+    const handleBack = () => {
+      if (systemBackRef.current?.()) return true;
+      if (stackRef.current.length <= 1) return false;
+      pop();
+      return true;
+    };
+    const onAndroidBack = (event: Event) => {
+      if (handleBack()) event.preventDefault();
+    };
+    window.addEventListener("nasqo:android-back", onAndroidBack);
+    const unsubscribe = hybridBridge.onHostEvent("backPressed", handleBack);
+    return () => {
+      window.removeEventListener("nasqo:android-back", onAndroidBack);
+      unsubscribe();
+    };
+  }, [pop]);
 
   const controls = useMemo<FlowControls>(() => {
     const current = stack[stack.length - 1];
@@ -586,6 +591,8 @@ export function FlowStack({
                 <motion.div
                   key={entry.key}
                   className="flow-screen"
+                  aria-hidden={!isTop}
+                  inert={!isTop}
                   data-flow-current={isTop ? "true" : "false"}
                   data-testid={isTop ? "flow-current" : undefined}
                   initial={isTop ? { opacity: 0.92 } : false}

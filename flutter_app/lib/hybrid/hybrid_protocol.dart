@@ -4,10 +4,11 @@ import 'package:crypto/crypto.dart';
 const String kHybridProtocolVersion = '1.0.0';
 const String kHybridBridgeChannelName = 'NasqoHome';
 
-/// Strict 37-command allowlist matching `src/hybrid/contracts.ts`.
+/// Strict command allowlist matching `src/hybrid/contracts.ts`.
 const Set<String> kHybridAllowedCommands = <String>{
   'navigate',
   'goBack',
+  'openLegacyRecovery',
   'getSnapshot',
   'changeCurrency',
   'saveUiPreferences',
