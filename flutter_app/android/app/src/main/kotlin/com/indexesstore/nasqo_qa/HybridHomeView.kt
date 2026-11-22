@@ -126,7 +126,7 @@ private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: I
                 override fun onShowFileChooser(
                     webView: WebView?,
                     filePathCallback: ValueCallback<Array<Uri>>?,
-                    fileChooserParams: FileChooserParams?
+                    fileChooserParams: WebChromeClient.FileChooserParams?
                 ): Boolean {
                     if (filePathCallback == null ||
                         fileChooserParams == null ||
