@@ -120,6 +120,15 @@ def main(baseline, candidate):
     # Seed real persisted business rows using the audited SQLite fixture in a
     # disposable, force-stopped emulator. This never touches a user device.
     sql = pathlib.Path("qa/tools/direct_upgrade_fixture.sql").read_text()
+    # QA 10021 uses an empty-on-first-install workspace. Seed the warehouse
+    # and stock explicitly instead of relying on the older 10020 demo dataset.
+    sql = sql.replace("BEGIN;", """BEGIN;
+        INSERT OR IGNORE INTO warehouses(id,name,details,isDefault)
+        VALUES('wh_1','المخزن الرئيسي','',1);
+        INSERT OR IGNORE INTO inventory_items(
+          id,name,unit,quantity,avgCost,warehouseId,minThreshold,sku)
+        VALUES('inv_1','صنف اختبار الترقية','حبة',10,2,'wh_1',0,'QA-INV-1');
+    """)
     sql = sql.replace(
         "COMMIT;",
         """INSERT INTO ledger_entries(id,accountId,accountName,kind,typeLabel,payment,
