@@ -46,8 +46,15 @@ def installed_code():
 
 def stop():
     adb("shell", "am", "force-stop", PACKAGE)
-    p = subprocess.run(["adb", "shell", "pidof", PACKAGE], capture_output=True)
-    assert p.returncode != 0 or not p.stdout.strip(), "App still running"
+    # Android can report a dying process briefly after force-stop.
+    # Wait for an actually stopped app; never snapshot a live SQLite database.
+    for _ in range(40):
+        p = subprocess.run(["adb", "shell", "pidof", PACKAGE],
+                           capture_output=True, timeout=8)
+        if p.returncode != 0 or not p.stdout.strip():
+            return
+        time.sleep(0.25)
+    raise AssertionError("App still running after force-stop; abort SQLite snapshot")
 
 def launch():
     adb("shell", "am", "start", "-W", "-n", PACKAGE + "/.MainActivity")
