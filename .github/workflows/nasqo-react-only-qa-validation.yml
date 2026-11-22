@@ -5,6 +5,9 @@ on:
       - qa/react-only-release-10021-0583100
     paths:
       - .github/workflows/nasqo-react-only-qa-validation.yml
+      - qa/react_sqlite/release_upgrade.py
+      - qa/react_sqlite/run_signed_upgrade.sh
+      - qa/react_sqlite/run_release_forms.sh
 permissions:
   contents: read
   actions: read
