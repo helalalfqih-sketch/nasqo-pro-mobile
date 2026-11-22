@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useState, type ChangeEvent, type MouseEvent } from "react";
 import {
   downloadUnifiedSqliteFile,
   fetchArchiveSummary,
@@ -18,6 +18,7 @@ import type {
   WorkspaceSettings,
 } from "../types";
 import { runWithBrandLoader } from "../utils/brandLoaderBus";
+import { pickNativeWebsiteBackup, restoreNativeWebsiteBackup, type NativeWebsiteBackupPreview } from "../hybrid/serviceAdapter";
 
 type Props = {
   open: boolean;
@@ -32,6 +33,15 @@ type Props = {
 };
 
 type InspectedUpload =
+  | {
+      kind: "native";
+      fileName: string;
+      previewToken: string;
+      restorable: boolean;
+      counts: Record<string, number>;
+      unsupportedRecords: Record<string, number>;
+      reason?: string;
+    }
   | {
       kind: "sqlite";
       fileName: string;
@@ -117,6 +127,52 @@ export function FullSqliteImportModal({
 
   if (!open) return null;
 
+  // Retain the original React import screen; Android selects and reads the
+  // bytes in Dart, then returns only preview counts and a one-time token.
+  const handleNativeFileChoice = async (event: MouseEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    if (busy) return;
+    setError("");
+    setNotice("");
+    setBusy(true);
+    try {
+      const preview: NativeWebsiteBackupPreview =
+        await runWithBrandLoader("جارٍ فحص نسخة الويب المحلية...", () =>
+          pickNativeWebsiteBackup(workspaceId));
+      if (preview.cancelled) return;
+      const counts = preview.counts ?? {};
+      const unsupportedRecords = preview.unsupportedRecords ?? {};
+      setUpload({
+        kind: "native",
+        fileName: preview.fileName ?? "نسخة الويب",
+        previewToken: preview.previewToken ?? "",
+        restorable: preview.restorable === true,
+        counts, unsupportedRecords,
+        reason: preview.reason,
+      });
+      const detail = [
+        "الحسابات: " + (counts.accounts ?? 0),
+        "المجموعات: " + (counts.groups ?? 0),
+        "العملات: " + (counts.currencies ?? 0),
+        "الفواتير: " + (counts.invoices ?? 0),
+        "السندات: " + (counts.vouchers ?? 0),
+        "المخازن: " + (counts.warehouses ?? 0),
+        "الأصناف: " + (counts.items ?? 0),
+      ].join(" • ");
+      const unsupported = Object.entries(unsupportedRecords)
+        .map(([name, number]) => name + ": " + number).join(" • ");
+      setNotice("معاينة ملف " + (preview.fileName ?? "") + ": " + detail
+        + (unsupported ? " • غير مدعوم: " + unsupported : ""));
+      if (!preview.restorable) {
+        setError(preview.reason ?? "فشلت مطابقة النسخة؛ الاستعادة محظورة.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "تعذّر اختيار الملف.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -163,6 +219,22 @@ export function FullSqliteImportModal({
     setNotice("");
     setBusy(true);
     try {
+      if (upload.kind === "native") {
+        if (!replaceAll || !upload.restorable) {
+          throw new Error(upload.reason ?? "هذه النسخة لا تدعم الدمج؛ يلزم استعادة مؤكدة.");
+        }
+        const result = await restoreNativeWebsiteBackup(workspaceId, upload.previewToken);
+        if (result.cancelled) {
+          setNotice("أُلغيت الاستعادة؛ لم تتغير بيانات الهاتف.");
+          return;
+        }
+        if (!result.restored) throw new Error("لم يكتمل تحقق SQLite.");
+        setUpload(null);
+        setNotice("اكتملت استعادة بيانات الويب والتحقق من SQLite.");
+        onNotify("اكتملت استعادة بيانات الويب والتحقق من SQLite.");
+        await refreshMetadata();
+        return;
+      }
       if (upload.kind === "sql") {
         const report = await importSmartProSqlIntoServer(
           workspaceId,
@@ -340,12 +412,13 @@ export function FullSqliteImportModal({
                 <input
                   type="file"
                   id="legacy-center-sqlite-input"
-                  accept=".sqlite,.db,.back,.sql"
+                  accept=".sqlite,.db,.sqlite3,.back,.json,.gz,.sql"
                   onChange={handleFileChange}
                   style={{ display: "none" }}
                 />
                 <label
                   htmlFor="legacy-center-sqlite-input"
+                  onClick={(event) => void handleNativeFileChoice(event)}
                   style={{ display: "inline-block", background: "#0284c7", color: "#fff", padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
                 >
                   اختر ملف النسخة الاحتياطية
@@ -354,7 +427,9 @@ export function FullSqliteImportModal({
                   {upload
                     ? upload.kind === "sql"
                       ? `${upload.fileName} • ${(upload.byteLength / (1024 * 1024)).toFixed(2)} MiB`
-                      : `${upload.fileName} • ${upload.tablesCount} قسم • ${upload.totalRows.toLocaleString("en-US")} سجل`
+                      : upload.kind === "native"
+                        ? `${upload.fileName} • ${Object.values(upload.counts).reduce((a,b)=>a+b,0)} سجل • معاينة SQLite محلية`
+                        : `${upload.fileName} • ${upload.tablesCount} قسم • ${upload.totalRows.toLocaleString("en-US")} سجل`
                     : "يتم فحص ملف النسخة الاحتياطية واستيراده مباشرة إلى النظام."}
                 </div>
                 {upload?.kind === "sql" ? (
@@ -368,7 +443,7 @@ export function FullSqliteImportModal({
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {upload ? (
                   <>
-                    <button
+                    {upload.kind !== "native" ? <button
                       type="button"
                       data-testid="legacy-import-and-show"
                       disabled={busy}
@@ -378,12 +453,12 @@ export function FullSqliteImportModal({
                       {upload.kind === "sqlite"
                         ? "استيراد ودمج فوق الحالي (بدون مسح)"
                         : "استيراد وحفظ البيانات"}
-                    </button>
-                    {upload.kind === "sqlite" ? (
+                    </button> : null}
+                    {upload.kind === "sqlite" || upload.kind === "native" ? (
                       <button
                         type="button"
                         data-testid="legacy-sqlite-restore-replace"
-                        disabled={busy}
+                        disabled={busy || (upload.kind === "native" && !upload.restorable)}
                         onClick={() => void handleImportUpload(true)}
                         style={{ background: "#b45309", color: "#fff", border: "none", padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                       >
