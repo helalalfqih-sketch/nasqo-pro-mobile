@@ -4,7 +4,7 @@ import 'package:crypto/crypto.dart';
 const String kHybridProtocolVersion = '1.0.0';
 const String kHybridBridgeChannelName = 'NasqoHome';
 
-/// Strict 37-command allowlist matching `src/hybrid/contracts.ts`.
+/// Strict allowlist matching `src/hybrid/contracts.ts`.
 const Set<String> kHybridAllowedCommands = <String>{
   'navigate',
   'goBack',
@@ -17,6 +17,10 @@ const Set<String> kHybridAllowedCommands = <String>{
   'printDocument',
   'exportPdf',
   'pickFile',
+  'saveLegacyArchive',
+  'listLegacyArchives',
+  'describeLegacyArchive',
+  'queryLegacyArchive',
   'showMessage',
   'saveWorkspaceSettings',
   'saveAccountGroup',
