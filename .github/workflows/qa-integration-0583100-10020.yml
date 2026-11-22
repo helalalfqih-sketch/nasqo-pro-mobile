@@ -128,7 +128,11 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$APK" > "$RUNNER_TEMP/verify.txt"
           grep -F 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/verify.txt"
           grep -F 'Number of signers: 1' "$RUNNER_TEMP/verify.txt"
-          actual="$(grep 'Signer #1 certificate SHA-256 digest:' "$RUNNER_TEMP/verify.txt" | head -1 | cut -d: -f2- | tr -dc '0-9a-fA-F' | tr 'A-F' 'a-f')"
+          keytool -printcert -rfc -jarfile "$APK" > "$RUNNER_TEMP/signer.pem"
+          test "$(grep -c '^-----BEGIN CERTIFICATE-----' "$RUNNER_TEMP/signer.pem")" -eq 1
+          openssl x509 -in "$RUNNER_TEMP/signer.pem" -outform DER -out "$RUNNER_TEMP/signer.der"
+          actual="$(sha256sum "$RUNNER_TEMP/signer.der" | cut -d' ' -f1)"
+          echo "Verified SHA-256 signer certificate fingerprint: $actual"
           test "$actual" = "$SIGNER_CERT_SHA" || { echo 'QA signer certificate mismatch'; exit 1; }
           info="$("$AAPT" dump badging "$APK" | head -1)"
           printf '%s\n' "$info" | grep -F "name='com.indexesstore.nasqo_qa'"
