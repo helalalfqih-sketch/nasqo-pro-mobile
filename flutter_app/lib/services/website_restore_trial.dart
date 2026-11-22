@@ -292,3 +292,37 @@ Future<Map<String, Object?>> testWebsiteRestore(WebBackup backup) async {
     }
   }
 }
+
+
+/// Verify the actual committed phone database, not merely the scratch trial.
+/// Failure must trigger the caller's preserved local-backup rollback.
+Future<void> verifyCommittedWebsiteRestore(
+    LocalDatabase live, WebBackup backup) async {
+  final db = await live.database;
+  final integrity = await db.rawQuery('PRAGMA integrity_check');
+  if (integrity.length != 1 || integrity.single.values.single != 'ok' ||
+      (await db.rawQuery('PRAGMA foreign_key_check')).isNotEmpty) {
+    throw const FormatException('فشلت سلامة قاعدة البيانات بعد الحفظ.');
+  }
+  final actual = await live.loadSnapshot();
+  final expected = LocalDbSnapshot(
+    accounts: backup.accounts,
+    ledger: backup.ledger,
+    warehouses: backup.warehouses,
+    inventory: backup.inventory,
+    saleLines: backup.lines,
+  );
+  final exported = await live.readOriginalWebExport();
+  if (!mapEquals(_rows(actual), _rows(expected)) ||
+      actual.companyName != backup.company ||
+      actual.nextEntryNumber != backup.lastNumber ||
+      exported == null ||
+      jsonEncode(exported) != jsonEncode(jsonDecode(backup.original))) {
+    throw const FormatException('اختلاف في السجلات بعد حفظ نسخة الويب.');
+  }
+  final before = _financialReport(expected, backup.groupData);
+  final after = _financialReport(actual, RestoredGroups.fromJson(exported));
+  if (jsonEncode(before) != jsonEncode(after)) {
+    throw const FormatException('اختلاف في الأرصدة أو العملات أو كميات الأصناف.');
+  }
+}
