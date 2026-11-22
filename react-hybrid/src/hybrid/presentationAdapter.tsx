@@ -108,9 +108,16 @@ export function createFlutterPresentationAdapter(
     },
     pickFile: async (request) => {
       if (!hybridBridge.hasNativeTransport()) return null;
+      // Android's system document picker is user-driven. The previous global
+      // 35-second heavy-operation timeout expired while selecting a .back and
+      // scanning its 23-table SQLite archive, so React silently lost the
+      // native preview even when the Dart inspection was still running.
+      // Allow up to five minutes for the full picker + native read-only scan.
+      // No file bytes cross the WebView boundary.
       const result = await hybridBridge.invoke<"pickFile", HybridPickFileResult | null>(
         "pickFile",
         request,
+        { timeoutMs: 300_000 },
       );
       if (!result || result.cancelled) return null;
       return result;
