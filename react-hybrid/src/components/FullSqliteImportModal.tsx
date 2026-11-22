@@ -20,7 +20,7 @@ import type {
 import { runWithBrandLoader } from "../utils/brandLoaderBus";
 import { useHybridPresentation } from "../hybrid/presentationAdapter";
 import { hybridBridge } from "../hybrid/bridge";
-import { createIdempotencyKey, type NativeWebImportPreview, type HybridWorkspaceSnapshot } from "../hybrid/contracts";
+import { createIdempotencyKey, type NativeWebImportPreview, type HybridWorkspaceSnapshot, type SmartProArchiveInfo } from "../hybrid/contracts";
 import { applyHybridSnapshot, refreshWorkspaceFromServer } from "../hybrid/serviceAdapter";
 
 type Props = {
@@ -72,6 +72,13 @@ export function FullSqliteImportModal({
   const hybrid = useHybridPresentation();
   const [nativePreview, setNativePreview] = useState<NativeWebImportPreview | null>(null);
   const [nativeConfirm, setNativeConfirm] = useState(false);
+  const [archiveSha, setArchiveSha] = useState<string | null>(null);
+  const [legacyTables, setLegacyTables] = useState<SmartProArchiveInfo["tables"]>([]);
+  const [legacyAudit, setLegacyAudit] = useState<SmartProArchiveInfo | null>(null);
+  const [savedArchives, setSavedArchives] = useState<Array<{ sourceSha256: string; sizeBytes: number }>>([]);
+  const tableOptions = hybrid.isHybrid
+    ? legacyTables.map(t => ({ name: t.name, rowsCount: t.rows }))
+    : tablesMeta;
 
   const [tablesMeta, setTablesMeta] = useState<UnifiedTableMeta[]>([]);
   const [summary, setSummary] = useState<ArchiveSummaryPayload | null>(null);
@@ -106,7 +113,7 @@ export function FullSqliteImportModal({
   }, [open, refreshMetadata]);
 
   useEffect(() => {
-    if (!open || tab !== "tables") return;
+    if (!open || tab !== "tables" || hybrid.isHybrid) return;
     let active = true;
     void queryUnifiedSqliteTable(workspaceId, selectedTable, tableSearch, 30, tableOffset)
       .then((res) => {
@@ -121,7 +128,35 @@ export function FullSqliteImportModal({
     return () => {
       active = false;
     };
-  }, [open, tab, workspaceId, selectedTable, tableSearch, tableOffset]);
+  }, [open, tab, workspaceId, selectedTable, tableSearch, tableOffset, hybrid.isHybrid]);
+
+  useEffect(() => {
+    if (!open || !hybrid.isHybrid) return;
+    let active = true;
+    void hybridBridge.invoke<"listLegacyArchives", Array<{ sourceSha256: string; sizeBytes: number }>>(
+      "listLegacyArchives", {},
+    ).then(rows => { if (active) setSavedArchives(rows); })
+      .catch(err => { if (active) setError(err instanceof Error ? err.message : "تعذر عرض قائمة الأرشيفات."); });
+    return () => { active = false; };
+  }, [open, hybrid.isHybrid]);
+
+  useEffect(() => {
+    if (!open || tab !== "tables" || !hybrid.isHybrid || !archiveSha || !selectedTable) return;
+    let active = true;
+    void hybridBridge.invoke<"queryLegacyArchive", {
+      columns: string[]; rows: Record<string, unknown>[]; total: number;
+    }>("queryLegacyArchive", {
+      sourceSha256: archiveSha, table: selectedTable, offset: tableOffset, limit: 30,
+    }).then(result => {
+      if (!active) return;
+      setTableCols(result.columns);
+      setTableRows(result.rows);
+      setTableTotal(result.total);
+    }).catch(err => {
+      if (active) setError(err instanceof Error ? err.message : "تعذر قراءة صفحة الأرشيف.");
+    });
+    return () => { active = false; };
+  }, [open, tab, hybrid.isHybrid, archiveSha, selectedTable, tableOffset]);
 
   if (!open) return null;
 
@@ -141,9 +176,15 @@ export function FullSqliteImportModal({
       if (!selected || selected.cancelled) return;
       if (!selected.preview) throw Error("لم تصل معاينة النسخة المختبرة من SQLite.");
       setNativePreview(selected.preview);
-      setNotice(selected.preview.canRestore
-        ? "اكتمل فحص الملف والاستعادة التجريبية المعزولة؛ راجع الأعداد قبل الموافقة."
-        : "الملف يحتوي بيانات غير مدعومة أو لم يجتز اختبار الاستعادة؛ لن تُمس بيانات الهاتف.");
+      if (selected.preview.historicalArchive) {
+        setLegacyAudit(selected.preview.historicalArchive);
+        setLegacyTables(selected.preview.historicalArchive.tables);
+        setNotice("تم فتح SmartPro v28 للمعاينة التاريخية فقط؛ لم تُرحّل أي قيود مالية.");
+      } else {
+        setNotice(selected.preview.canRestore
+          ? "اكتمل فحص الملف والاستعادة التجريبية المعزولة؛ راجع الأعداد قبل الموافقة."
+          : "الملف يحتوي بيانات غير مدعومة أو لم يجتز اختبار الاستعادة؛ لن تُمس بيانات الهاتف.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "تعذر فحص النسخة في Android.");
     } finally {
@@ -181,6 +222,63 @@ export function FullSqliteImportModal({
       onNotify(message);
     } catch (err) {
       setError(err instanceof Error ? err.message : "فشلت الاستعادة. لم يُعلن نجاح.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveHistoricalOnly = async () => {
+    const preview = nativePreview;
+    if (!preview?.historicalArchive || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await hybridBridge.invoke<"saveLegacyArchive", {
+        saved: boolean; alreadySaved: boolean;
+        sourceSha256: string; tables: SmartProArchiveInfo["tables"];
+      }>("saveLegacyArchive", {
+        previewToken: preview.previewToken,
+        sourceSha256: preview.sourceSha256,
+      }, { timeoutMs: 120000 });
+      if (!result.saved) throw Error("لم يؤكد Dart حفظ الأرشيف الخاص.");
+      setArchiveSha(result.sourceSha256);
+      setLegacyTables(result.tables);
+      setSelectedTable(result.tables.some(t => t.name === "customers")
+        ? "customers" : result.tables[0]?.name || "");
+      setTableOffset(0);
+      setSavedArchives(previous => previous.some(x => x.sourceSha256 === result.sourceSha256)
+        ? previous : [...previous, { sourceSha256: result.sourceSha256, sizeBytes: preview.sizeBytes }]);
+      setNotice(result.alreadySaved
+        ? "الأرشيف موجود مسبقًا بالبصمة نفسها؛ لم تُكرر أي سجلات مالية."
+        : "حُفظت نسخة SmartPro الأصلية بلا تعديل في مساحة Android الخاصة، للقراءة فقط.");
+      setTab("tables");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "تعذر حفظ الأرشيف التاريخي.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const viewSavedArchive = async (sha: string) => {
+    setBusy(true);
+    setError("");
+    try {
+      const result = await hybridBridge.invoke<"describeLegacyArchive", {
+        sourceSha256: string; tables: SmartProArchiveInfo["tables"];
+        issues: Record<string, number>; tableCount: number; totalRows: number;
+        postingEligible: number; documentTypes: SmartProArchiveInfo["documentTypes"];
+        currencyReferences: SmartProArchiveInfo["currencyReferences"];
+      }>("describeLegacyArchive", { sourceSha256: sha }, { timeoutMs: 120000 });
+      setArchiveSha(sha);
+      setLegacyTables(result.tables);
+      setLegacyAudit({ ...result, readOnly: true });
+      setSelectedTable(result.tables.some(t => t.name === "customers")
+        ? "customers" : result.tables[0]?.name || "");
+      setTableOffset(0);
+      setTab("tables");
+      setNotice("أرشيف تاريخي للقراءة فقط. الحسابات التشغيلية وSQLite الأصلية لم تتغير.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "تعذر فتح الأرشيف المحفوظ.");
     } finally {
       setBusy(false);
     }
