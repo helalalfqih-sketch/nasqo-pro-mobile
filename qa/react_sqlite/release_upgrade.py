@@ -119,7 +119,7 @@ def main(baseline, candidate):
         direction,amount,currency,exchangeRate,details,documentNumber,warehouseId,
         warehouseName,expenseCategory,entryNumber,deleted,entryDate)
         VALUES ('qa-review-voucher','qa-review-usd','عميل المراجعة','voucher',
-        'سند قبض','cash','credit',4,'usd',1,'fixture','QA-V-21',NULL,NULL,'',91015,0,'2026-11-22');
+        'سند قبض','cash','credit',4,'usd',1,'fixture','QA-V-21','wh_1','المخزن الرئيسي','',91015,0,'2026-11-22');
         COMMIT;"""
     )
     proc = subprocess.run(["adb", "shell", "-T", "sqlite3", DB],
