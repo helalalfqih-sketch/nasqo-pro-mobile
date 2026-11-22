@@ -10,6 +10,8 @@ on:
       - 'flutter_app/android/app/src/main/kotlin/com/indexesstore/nasqo_qa/**'
       - 'react-hybrid/src/hybrid/contracts.ts'
       - 'react-hybrid/src/Prototype.tsx'
+      - 'flutter_app/test/qa_web_import_bridge_test.dart'
+      - 'flutter_app/test/web_backup_restore_test.dart'
   workflow_dispatch:
 permissions:
   contents: read
