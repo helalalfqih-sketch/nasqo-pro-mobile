@@ -15,8 +15,15 @@ import '../state/erp_controller.dart';
 /// One-shot, private, on-device import session. No backup bytes cross WebView.
 /// All accounting records remain in the existing nasqo_pro_erp.db.
 class QaWebsiteImport {
-  QaWebsiteImport(this.controller);
+  QaWebsiteImport(this.controller,
+      {Future<Directory> Function()? privateCache,
+       Future<Map<String, Object?>?> Function()? selectFile})
+      : _privateCache = privateCache ?? getTemporaryDirectory,
+        _selectFile = selectFile ??
+            (() => _channel.invokeMapMethod<String, Object?>('selectWebsiteBackup'));
   final ErpController controller;
+  final Future<Directory> Function() _privateCache;
+  final Future<Map<String, Object?>?> Function() _selectFile;
   static const _channel = MethodChannel('com.indexesstore.nasqo_qa/website_import');
   static const maxBytes = 32 * 1024 * 1024;
   String? _token;
@@ -30,8 +37,7 @@ class QaWebsiteImport {
     _busy = true;
     try {
       await discard();
-      final selected = await _channel.invokeMapMethod<String, Object?>(
-          'selectWebsiteBackup');
+      final selected = await _selectFile();
       if (selected == null) return {'cancelled': true};
       final token = selected['token'];
       if (token is! String || !RegExp(r'^[0-9a-f]{32}$').hasMatch(token)) {
@@ -126,7 +132,7 @@ class QaWebsiteImport {
   }
 
   Future<Uint8List> _readPrivate(String token) async {
-    final dir = await getTemporaryDirectory();
+    final dir = await _privateCache();
     final root = p.join(dir.path, 'nasqo-website-import');
     final file = File(p.join(root, '$token.bin'));
     if (p.dirname(file.path) != root ||
@@ -148,7 +154,7 @@ class QaWebsiteImport {
     _digest = null;
     _created = null;
     if (token == null) return;
-    final dir = await getTemporaryDirectory();
+    final dir = await _privateCache();
     final file = File(p.join(dir.path, 'nasqo-website-import', '$token.bin'));
     if (await file.exists()) await file.delete();
   }
