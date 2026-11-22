@@ -1,14 +1,33 @@
 """Inspect the Android accessibility tree outside the outer WebView boundary."""
 import json
 import subprocess
+import re
+import time
 import sys
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
 out=Path(sys.argv[1])
 pkg='com.indexesstore.nasqo_qa'
-subprocess.run(['adb','shell','uiautomator','dump','/sdcard/nasqo-qa-window.xml'],check=True,stdout=subprocess.DEVNULL,timeout=22)
-xml=subprocess.check_output(['adb','exec-out','cat','/sdcard/nasqo-qa-window.xml'])
+def window():
+    subprocess.run(['adb','shell','uiautomator','dump','/sdcard/nasqo-qa-window.xml'],check=True,
+                   stdout=subprocess.DEVNULL,timeout=25)
+    return subprocess.check_output(['adb','exec-out','cat','/sdcard/nasqo-qa-window.xml'])
+
+xml=window()
+# On a resized Google APIs image the unrelated launcher can time out. Keep the
+# dialog evidence and close only that named system dialog before testing NASQO.
+for attempt in range(2):
+    nodes=list(ET.fromstring(xml).iter('node'))
+    if not any(n.get('package')=='android' and n.get('resource-id')=='android:id/alertTitle'
+               and n.get('text')=="Pixel Launcher isn't responding" for n in nodes):
+        break
+    close=next(n for n in nodes if n.get('package')=='android' and n.get('resource-id')=='android:id/aerr_close')
+    out.with_name(out.stem+'-launcher-'+str(attempt)+'.xml').write_bytes(xml)
+    left,top,right,bottom=map(int,re.findall(r'-?\d+',close.get('bounds')))
+    subprocess.run(['adb','shell','input','tap',str((left+right)//2),str((top+bottom)//2)],check=True)
+    time.sleep(1)
+    xml=window()
 out.write_bytes(xml)
 webviews=[]
 native=[]

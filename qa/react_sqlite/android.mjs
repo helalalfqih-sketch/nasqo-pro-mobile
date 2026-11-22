@@ -121,13 +121,14 @@ try {
     assert.equal(shell('pm','list','packages',app),'', 'Use a fresh test emulator');
     adb('install','-r',apk);
   }
-  shell('wm','size','393x852'); shell('wm','density','160');
+  if (!upgrade) { shell('wm','size','393x852'); shell('wm','density','160'); }
   shell('cmd','connectivity','airplane-mode','enable');
   shell('svc','wifi','disable'); shell('svc','data','disable');
   assert.equal(shell('settings','get','global','airplane_mode_on'),'1');
   result.androidApi=shell('getprop','ro.build.version.sdk');
   view=await attach();
   result.firstPid=view.pid;
+  if (upgrade) execFileSync('python3',['qa/qa10021/native_chrome.py','android-evidence/initial-native.xml']);
   await capture('first-launch');
   console.log('Installed APK rendered the local React dashboard in airplane mode');
   const fresh=await request('getSnapshot',{workspaceId});

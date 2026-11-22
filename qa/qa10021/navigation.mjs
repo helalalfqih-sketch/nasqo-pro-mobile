@@ -23,10 +23,10 @@ export async function exerciseReleaseNavigation({view,until,shell,adb,save}) {
       assert.equal(ui.headers.length,1);assert.equal(ui.footers.length,1);assert.equal(ui.navBars.length,1);
     }
     assert.equal(await view.evaluate('location.pathname'),'/react/index.html');
+    const native=JSON.parse(execFileSync('python3',['qa/qa10021/native_chrome.py','android-evidence/'+state.name+'-native.xml'],{encoding:'utf8'}));
     save(state.name+'-release.png',adb('exec-out','screencap','-p'));
     const screen=await view.call('Page.captureScreenshot',{format:'png'});
     save(state.name+'-content.png',Buffer.from(screen.data,'base64'));
-    const native=JSON.parse(execFileSync('python3',['qa/qa10021/native_chrome.py','android-evidence/'+state.name+'-native.xml'],{encoding:'utf8'}));
     results.push({name:state.name,...ui,...native});
     save('release-navigation.json',JSON.stringify(results,null,2));
     if(state.name==='settings'){
