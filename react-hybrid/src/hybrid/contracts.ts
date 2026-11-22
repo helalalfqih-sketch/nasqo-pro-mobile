@@ -196,8 +196,9 @@ export interface HybridExportPdfPayload {
 }
 
 export interface HybridPickFileRequest {
+  workspaceId?: string;
   purpose: "restore-backup" | "import-items" | "import-accounts-csv" | "company-logo";
-  accept: string[];
+  accept?: string[];
 }
 
 export interface HybridPickFileResult {
@@ -280,7 +281,7 @@ export interface HybridCommandPayloadMap {
   getProductPriceStats: { workspaceId: string; itemId: string };
   saveErpData: { workspaceId: string; data: ErpWorkspaceData };
   backupWorkspace: { workspaceId: string; backupName?: string; target: "local" | "cloud" };
-  restoreWorkspace: { workspaceId: string; fileName: string; format: "json" | "sqlite" | "sql"; base64Content: string };
+  restoreWorkspace: { workspaceId: string; previewToken?: string; fileName?: string; format?: "json" | "sqlite" | "sql"; base64Content?: string };
   resetWorkspace: { workspaceId: string; mode: "empty" | "demo" };
   googleDriveAction: { operation: string; args?: Record<string, unknown> };
 }
