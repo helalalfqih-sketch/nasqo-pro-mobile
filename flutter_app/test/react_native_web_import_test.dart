@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -212,4 +213,58 @@ void main() {
     expect(controller.accounts, isEmpty);
     expect(controller.ledger, isEmpty);
   });
+  test('native inspection replies promptly and exposes safe polling without writes',
+      () async {
+    final source = File('${dir.path}/poll-backup.json')
+      ..writeAsStringSync(jsonEncode(sampleWebBackup()));
+    final choice = Completer<XFile?>();
+    final bridge = ReactNativeBackupBridge(
+        controller, chooseFile: () => choice.future);
+    final workspace = ReactWorkspace(
+        controller, allowWrites: true, backupBridge: bridge);
+    var requestNumber = 0;
+    Future<Map> command(String action, Map<String, Object?> payload) async {
+      final raw = await workspace.handle(jsonEncode({
+        'protocolVersion': '1.0.0',
+        'kind': 'request',
+        'action': action,
+        'requestId': 'inspect_${++requestNumber}',
+        'timestampMs': DateTime.now().millisecondsSinceEpoch,
+        'payload': payload,
+      }));
+      return jsonDecode(raw) as Map;
+    }
+
+    final started = await command(
+        'beginBackupInspection', {'purpose': 'restore-backup'});
+    expect(started['ok'], true, reason: started.toString());
+    final jobId = (started['data'] as Map)['jobId'] as String;
+    final pending = await command(
+        'getBackupInspectionStatus', {'jobId': jobId});
+    expect(pending['ok'], true);
+    expect((pending['data'] as Map)['phase'], 'picking');
+    expect(controller.accounts, isEmpty);
+    expect(controller.ledger, isEmpty);
+
+    choice.complete(XFile(source.path));
+    Map? result;
+    for (var attempt = 0; attempt < 200; attempt++) {
+      final response = await command(
+          'getBackupInspectionStatus', {'jobId': jobId});
+      expect(response['ok'], true, reason: response.toString());
+      final status = response['data'] as Map;
+      if (status['phase'] == 'complete') {
+        result = status['result'] as Map;
+        break;
+      }
+      expect(status['phase'], isNot('failed'), reason: status.toString());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    expect(result, isNotNull, reason: 'native job did not complete');
+    expect((result!['preview'] as Map)['canRestore'], true);
+    expect(result.containsKey('base64Content'), false);
+    expect(controller.accounts, isEmpty);
+    expect(controller.ledger, isEmpty);
+  });
+
 }
