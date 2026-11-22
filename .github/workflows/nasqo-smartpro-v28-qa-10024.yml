@@ -1,0 +1,228 @@
+name: QA 10024 immutable SmartPro v28 historical archive Android signed release
+on:
+  push:
+    branches:
+      - qa/smartpro-v28-picker-10024-20261122
+    paths:
+      - .github/workflows/nasqo-smartpro-v28-qa-10024.yml
+      - qa/smartpro_v28/**
+      - flutter_app/lib/services/smartpro_historical_archive.dart
+      - flutter_app/lib/hybrid/react_native_backup_bridge.dart
+      - flutter_app/lib/hybrid/react_workspace.dart
+      - flutter_app/test/smartpro_v28_historical_archive_test.dart
+      - react-hybrid/src/components/FullSqliteImportModal.tsx
+      - react-hybrid/src/hybrid/presentationAdapter.tsx
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  signed-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify React-only QA ancestry
+        run: |
+          set -euo pipefail
+          test -f flutter_app/lib/hybrid/react_native_backup_bridge.dart
+          test -f react-hybrid/src/components/FullSqliteImportModal.tsx
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.0'
+          channel: stable
+          cache: true
+      - name: Build React UI with immutable SmartPro v28 archive service
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit
+          npm run check:runtime
+          npm run build:hybrid
+          test -s flutter_app/assets/react/hybrid-manifest.json
+      - name: Static analysis, 22-table synthetic SmartPro v28 archive and Flutter regressions
+        working-directory: flutter_app
+        run: |
+          set -euo pipefail
+          flutter config --jdk-dir="$JAVA_HOME"
+          flutter pub get
+          python3 ../qa/smartpro_v28/generate_synthetic.py test/fixtures/smartpro_v28_synthetic.back
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+          bash ../qa/tools/test-linux.sh
+      - name: Restore existing QA keystore securely
+        env:
+          KEYSTORE_BASE64: ${{ secrets.NASQO_DEV_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.NASQO_DEV_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.NASQO_DEV_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NASQO_DEV_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          for key in KEYSTORE_BASE64 STORE_PASSWORD KEY_PASSWORD KEY_ALIAS; do
+            [[ -n "${!key}" ]] || { echo "Missing QA signing secret: $key"; exit 1; }
+          done
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/nasqo-qa.jks"
+          chmod 600 "$RUNNER_TEMP/nasqo-qa.jks"
+          echo "NASQO_DEV_KEYSTORE_PATH=$RUNNER_TEMP/nasqo-qa.jks" >> "$GITHUB_ENV"
+          echo "NASQO_DEV_KEYSTORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "NASQO_DEV_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          echo "NASQO_DEV_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+      - name: Compile signed QA Release 10024
+        working-directory: flutter_app
+        run: |
+          set -euo pipefail
+          flutter build apk --release --android-skip-build-dependency-validation \
+            --build-name=1.0.18 --build-number=10024 \
+            --dart-define=NASQO_QA_REACT_PRIMARY=true \
+            --dart-define=NASQO_QA_REACT_ALLOW_WRITES=true
+      - name: Verify QA certificate package version and APK SHA256
+        run: |
+          set -euo pipefail
+          apk=flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          test -s "$apk"
+          signer="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          aapt="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
+          "$signer" verify --verbose --print-certs "$apk" | tee "$RUNNER_TEMP/apk-verify.txt"
+          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/apk-verify.txt"
+          grep -Fi 'certificate SHA-256 digest:' "$RUNNER_TEMP/apk-verify.txt" |
+            grep -Fqi '0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79'
+          "$aapt" dump badging "$apk" | head -1 |
+            grep -F "name='com.indexesstore.nasqo_qa' versionCode='10024' versionName='1.0.18'"
+          sha256sum "$apk" > release-apk.sha256
+          stat -c '%s' "$apk" > release-apk.bytes
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nasqo-signed-smartpro-v28-qa-10024
+          path: |
+            flutter_app/build/app/outputs/flutter-apk/app-release.apk
+            release-apk.sha256
+            release-apk.bytes
+          if-no-files-found: error
+          retention-days: 14
+
+  android-release-forms:
+    needs: signed-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NASQO_RELEASE_QA_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-signed-smartpro-v28-qa-10024
+          path: candidate
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Run React offline financial forms, native SQLite and single WebView
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: bash qa/react_sqlite/run_release_forms.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-10024-react-release-evidence
+          path: qa-release-evidence/
+          retention-days: 14
+
+  android-smartpro-archive:
+    needs: signed-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NASQO_RELEASE_QA_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-signed-smartpro-v28-qa-10024
+          path: candidate
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Android SAF SmartPro v28 original archive with paginated history and zero posting offline
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: bash qa/smartpro_v28/run_android_archive.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-10024-smartpro-v28-archive-evidence
+          path: |
+            qa-smartpro-evidence/*.json
+            qa-smartpro-evidence/*.png
+            qa-smartpro-evidence/*.txt
+          retention-days: 14
+
+  signed-upgrade-db:
+    needs: signed-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-signed-smartpro-v28-qa-10024
+          path: candidate
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-signed-smartpro-v28-qa-10023
+          run-id: 45059791896
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Verify previous signed 10023 SHA256
+        run: |
+          set -euo pipefail
+          baseline="$(find baseline -name app-release.apk -type f | head -1)"
+          echo "a27c677295761a86e0fded787844da40bf3b9f10860947fe81d0f4dfa345481c  $baseline" | sha256sum -c -
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Verify signed 10023 to 10024 upgrade and SQLite integrity offline
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: bash qa/smartpro_v28/run_signed_upgrade_10024.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-10024-signed-sqlite-upgrade-evidence
+          path: qa-release-evidence/
+          retention-days: 14
