@@ -1214,8 +1214,26 @@ class ErpController extends ChangeNotifier {
       await _writeTail;
       final rollback = await files.createBackup();
       await files.testRestore(rollback.id);
+      // Validate in disposable SQLite before changing the live database.
+      await testWebsiteRestore(backup);
       final preferences = websitePreferences(backup);
-      await writeWebsiteSnapshot(_localDatabase, backup, isDarkMode);
+      try {
+        await writeWebsiteSnapshot(_localDatabase, backup, isDarkMode);
+        await verifyCommittedWebsiteRestore(_localDatabase, backup);
+      } catch (error, stack) {
+        try {
+          await files.restoreLocal(rollback.id);
+          _nextEntryNumber = 0;
+          await _loadOrCreateDatabase();
+          if (!dbReady) {
+            throw StateError('فشلت إعادة فتح SQLite بعد الرجوع.');
+          }
+        } catch (_) {
+          throw StateError('تعذّرت إعادة نسخة الرجوع؛ احتُفظ بالملف '
+              + rollback.id + ' دون إعادة الاستيراد.');
+        }
+        Error.throwWithStackTrace(error, stack);
+      }
       accounts..clear()..addAll(backup.accounts);
       ledger..clear()..addAll(backup.ledger);
       warehouses..clear()..addAll(backup.warehouses);
