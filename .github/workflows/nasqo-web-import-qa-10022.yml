@@ -138,6 +138,43 @@ jobs:
           path: qa-release-evidence/
           retention-days: 14
 
+  android-native-web-import:
+    needs: signed-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NASQO_RELEASE_QA_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - uses: actions/download-artifact@v4
+        with:
+          name: nasqo-qa-signed-native-web-import-10022
+          path: candidate
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Native Android SAF Web JSON picker, confirmation, SQLite readback offline
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: bash qa/react_sqlite/run_native_web_import.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-10022-native-web-file-import-evidence
+          path: qa-native-import-evidence/
+          retention-days: 14
+
   signed-upgrade-db:
     needs: signed-release
     runs-on: ubuntu-latest
