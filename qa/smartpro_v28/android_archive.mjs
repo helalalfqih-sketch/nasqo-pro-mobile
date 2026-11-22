@@ -156,9 +156,11 @@ try {
   await click(view, "[data-testid=home-nav-profile]");
   await click(view,"[data-testid=settings-tab-database]");
   await click(view,"[data-testid=settings-restore-backup-btn]");
+  const pickerStartedAt = Date.now();
   await click(view,"[data-testid=native-web-backup-pick]");
   stage = "picker";
   await selectThroughAndroidPicker();
+  console.log("SMARTPRO_PICKER_ELAPSED_MS", Date.now() - pickerStartedAt);
   stage = "historical-preview";
   await until(() => view.evaluate(
     "Boolean(document.querySelector('[data-testid=smartpro-v28-historical-preview]'))"),
@@ -230,7 +232,30 @@ try {
   console.log("PASS SmartPro v28: original archive preserved, 23 tables paginated, no financial posting, offline cold reopen");
 } catch(error) {
   console.error("Native import test failed at", stage, error);
-  fs.writeFileSync(path.join(evidence,"failure-stage.txt"),stage+"\n"+String(error));
+  // CI uses fabricated records only. Capture minimal UI state to distinguish
+  // a native picker/bridge failure from a React rendering or timing failure.
+  try {
+    const diag = await view.evaluate(`(() => {
+      const modal = document.querySelector(".full-sqlite-import-modal");
+      const text = modal?.innerText || "";
+      return {
+        modalOpen: Boolean(modal),
+        pickerControlVisible: Boolean(modal?.querySelector("[data-testid=native-web-backup-pick]")),
+        historicalPreview: Boolean(modal?.querySelector("[data-testid=smartpro-v28-historical-preview]")),
+        normalPreview: Boolean(modal?.querySelector("[data-testid=native-web-backup-preview]")),
+        busy: Boolean(modal?.querySelector("[data-testid=native-web-backup-pick]")?.disabled),
+        uiDiagnosticLines: text.split("\\n").map(x => x.trim()).filter(x =>
+          /تعذّر|فشل|انتهت مهلة|خطأ|غير مدعوم|SQLite|SmartPro|المعاينة/.test(x)).slice(0, 7),
+      };
+    })()`);
+    fs.writeFileSync(path.join(evidence,"failure-ui-diagnostics.json"),JSON.stringify(diag,null,2));
+    console.error("SMARTPRO_UI_DIAGNOSTICS", JSON.stringify(diag));
+    fs.writeFileSync(path.join(evidence,"failure-ui.png"),
+      execFileSync("adb", ["exec-out","screencap","-p"], {maxBuffer: 16 * 1024 * 1024}));
+  } catch (diagError) {
+    console.error("Unable to capture SmartPro UI diagnostics", String(diagError));
+  }
+  fs.writeFileSync(path.join(evidence,"failure-stage.txt"),stage+"\\n"+String(error));
   throw error;
 } finally {
   view.close();
