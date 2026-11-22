@@ -1581,3 +1581,41 @@ export async function queryUnifiedSqliteTable(
 ): Promise<{ table: string; columns: string[]; total: number; rows: Record<string, unknown>[] }> {
   return { table, columns: [], total: 0, rows: [] };
 }
+
+
+// QA website-backup import uses the Android file picker. File bytes and the
+// scratch SQLite never cross the WebView bridge.
+export type NativeWebsiteBackupPreview = {
+  cancelled?: boolean;
+  fileName?: string;
+  bytes?: number;
+  format?: "JSON" | "SQLite";
+  sourceVersion?: number;
+  sourceSha256?: string;
+  integrity?: string;
+  previewToken?: string;
+  restorable?: boolean;
+  reason?: string;
+  counts?: Record<string, number>;
+  unsupportedRecords?: Record<string, number>;
+  trial?: Record<string, unknown>;
+};
+
+export async function pickNativeWebsiteBackup(uid = LOCAL_WORKSPACE_UID): Promise<NativeWebsiteBackupPreview> {
+  return hybridBridge.invoke<"pickFile", NativeWebsiteBackupPreview>("pickFile",
+    { workspaceId: uid, purpose: "restore-backup" }, {timeoutMs: 120000});
+}
+
+export async function restoreNativeWebsiteBackup(
+  uid: string, previewToken: string,
+): Promise<{restored?: boolean; cancelled?: boolean; replayed?: boolean; snapshot?: HybridWorkspaceSnapshot}> {
+  const result = await hybridBridge.invoke<"restoreWorkspace", {
+    restored?: boolean; cancelled?: boolean; replayed?: boolean;
+    snapshot?: HybridWorkspaceSnapshot
+  }>("restoreWorkspace", {
+    workspaceId: uid || LOCAL_WORKSPACE_UID,
+    previewToken,
+  }, {idempotencyKey: createIdempotencyKey("restoreWorkspace", previewToken), timeoutMs: 120000});
+  if (result?.snapshot) applyHybridSnapshot(result.snapshot);
+  return result;
+}
