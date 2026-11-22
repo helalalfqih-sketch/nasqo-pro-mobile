@@ -5,15 +5,20 @@ import '../models/erp_models.dart';
 import '../services/posting_receipt.dart';
 import '../state/erp_controller.dart';
 import 'hybrid_protocol.dart';
+import 'react_native_backup_bridge.dart';
 
 typedef Json = Map<String, Object?>;
 
 /// Adapts the packaged React protocol to the same native operations as the
 /// Flutter forms. Every successful financial reply follows the SQLite commit.
 class ReactWorkspace {
-  ReactWorkspace(this.controller, {required this.allowWrites});
+  ReactWorkspace(ErpController controller,
+      {required this.allowWrites, ReactNativeBackupBridge? backupBridge})
+      : controller = controller,
+        _backups = backupBridge ?? ReactNativeBackupBridge(controller);
   final ErpController controller;
   final bool allowWrites;
+  final ReactNativeBackupBridge _backups;
   static const workspaceId = 'local-erp-workspace';
   Future<void> _pending = Future.value();
 
@@ -68,6 +73,18 @@ class ReactWorkspace {
     switch (request.action) {
       case 'getSnapshot':
         return snapshot();
+      case 'pickFile':
+        return _backups.chooseAndInspect(payload);
+      case 'backupWorkspace':
+        return _backups.createLocalBackup(payload);
+      case 'restoreWorkspace':
+        if (!allowWrites) {
+          throw const HybridBridgeException('UNAUTHORIZED_ACTION',
+              'كتابة قاعدة البيانات معطلة في إعداد QA.');
+        }
+        final receipt =
+            await _backups.restoreConfirmed(payload, request.idempotencyKey);
+        return {...receipt, 'snapshot': await snapshot()};
       case 'getInvoiceDetail':
         final entry = controller.ledger
             .where((e) => e.id == payload['entryId'])
