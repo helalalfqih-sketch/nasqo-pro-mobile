@@ -101,5 +101,5 @@ jobs:
         if: always()
         with:
           name: qa-10022-release-upgrade-evidence
-          path: qa-release-evidence/
+          path: qa-web-import-upgrade-evidence/
           retention-days: 14
