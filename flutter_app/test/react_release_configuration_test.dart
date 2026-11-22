@@ -82,8 +82,8 @@ void main() {
       'kind': 'request',
       'requestId': 'qa_unsupported',
       'timestampMs': DateTime.now().millisecondsSinceEpoch,
-      'action': 'pickFile',
-      'payload': {'purpose': 'restore-backup', 'accept': ['.json']},
+      'action': 'exportPdf',
+      'payload': {'purpose': 'unsupported-qa-pdf'},
     }))) as Map;
     expect(response['ok'], false);
     expect((response['error'] as Map)['code'], 'SERVICE_UNAVAILABLE');
