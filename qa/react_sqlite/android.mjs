@@ -122,6 +122,7 @@ try {
   view=await attach();
   result.firstPid=view.pid;
   await capture('first-launch');
+  console.log('Installed APK rendered the local React dashboard in airplane mode');
   const fresh=await request('getSnapshot',{workspaceId});
   assert.deepEqual([fresh.accounts.length,fresh.ledger.length,fresh.inventory.length],[0,0,0]);
   assert.equal(fresh.capabilities.readOnlyFinancial,false);
@@ -135,6 +136,7 @@ try {
   const v=await post('createLedgerEntry',voucher,'qa-voucher');
   result.steps.push('Posted account, item, invoice and voucher offline; simultaneous invoice saved once');
   stop();
+  console.log('Inspecting SQLite on the stopped Android process');
   const firstDb=JSON.parse(execFileSync('python3',['qa/react_sqlite/read_device_db.py',acc.id,item.id,inv[0].entry.id,v.entry.id],{encoding:'utf8'}));
   result.sqliteBeforeRestart=firstDb;
   view=await attach();
@@ -154,6 +156,7 @@ try {
   assert.deepEqual(result.sqliteAfterReplay,firstDb);
   result.steps.push('Offline process restart, readback, repeated and conflicting postings; database identical');
   view=await attach();
+  console.log('Submitting account, stock, invoice and voucher through the React forms');
   const ids=await exerciseForms(view,until,()=>request('getSnapshot',{workspaceId}));
   stop();
   result.formsDatabase=JSON.parse(execFileSync('python3',['qa/react_sqlite/read_device_db.py',...ids,'forms'],{encoding:'utf8'}));

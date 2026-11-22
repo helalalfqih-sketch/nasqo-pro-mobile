@@ -2,6 +2,7 @@
 import json
 import pathlib
 import sqlite3
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -20,9 +21,10 @@ assert base in available, available
 android_sql = None
 sqlite_shell = subprocess.run(['adb','shell','command','-v','sqlite3'], capture_output=True, text=True)
 if sqlite_shell.returncode == 0 and sqlite_shell.stdout.strip().endswith('/sqlite3'):
-    native = subprocess.run([*adb, 'sqlite3', '-readonly', 'databases/' + base],
-        input="PRAGMA integrity_check;\nSELECT sqlite_version();\nSELECT count(*) FROM ledger_entries;\n",
-        capture_output=True, text=True, check=True).stdout.strip().splitlines()
+    sql = 'PRAGMA integrity_check; SELECT sqlite_version(); SELECT count(*) FROM ledger_entries;'
+    device_command = shlex.join(['run-as', package, 'sqlite3', '-readonly', 'databases/' + base, sql])
+    native = subprocess.run(['adb', 'shell', '-T', device_command],
+        capture_output=True, text=True, check=True, timeout=20).stdout.strip().splitlines()
     assert len(native) == 3 and native[0] == 'ok' and int(native[2]) == 2 * expected, native
     android_sql = dict(integrity=native[0], sqliteVersion=native[1], ledgerRows=int(native[2]))
 with tempfile.TemporaryDirectory() as temp:
