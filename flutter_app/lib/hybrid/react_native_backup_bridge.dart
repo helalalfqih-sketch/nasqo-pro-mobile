@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
@@ -38,6 +39,66 @@ class ReactNativeBackupBridge {
   String? _completedToken;
   String? _completedKey;
   Map<String, Object?>? _completedReceipt;
+
+  // The Android picker and SQLite inspection can outlast a WebView request.
+  // React polls short, metadata-only requests while the native task continues.
+  String? _inspectionJobId;
+  String _inspectionPhase = 'idle';
+  Map<String, Object?>? _inspectionResult;
+  String? _inspectionFailure;
+
+  Map<String, Object?> beginInspection(Map<String, Object?> payload) {
+    if (payload['purpose'] != 'restore-backup') {
+      throw const FormatException('نوع اختيار الملف غير مدعوم.');
+    }
+    if (const {'picking', 'reading', 'auditing', 'verifying'}
+        .contains(_inspectionPhase)) {
+      throw const FormatException(
+          'فحص نسخة احتياطية قيد التنفيذ؛ لا تبدأ فحصًا ثانيًا.');
+    }
+    final jobId = _newToken();
+    _inspectionJobId = jobId;
+    _inspectionPhase = 'picking';
+    _inspectionResult = null;
+    _inspectionFailure = null;
+
+    // Do not block ReactWorkspace's serialized channel with a long scan.
+    unawaited(Future<void>(() async {
+      try {
+        final result = await chooseAndInspect(payload, onStage: (phase) {
+          if (_inspectionJobId == jobId) _inspectionPhase = phase;
+        });
+        if (_inspectionJobId == jobId) {
+          _inspectionResult = result;
+          _inspectionPhase = 'complete';
+        }
+      } on FormatException catch (error) {
+        if (_inspectionJobId == jobId) {
+          _inspectionFailure = error.message.toString();
+          _inspectionPhase = 'failed';
+        }
+      } catch (_) {
+        if (_inspectionJobId == jobId) {
+          _inspectionFailure =
+              'تعذّر فحص النسخة المحلية؛ لم تتغير قاعدة البيانات.';
+          _inspectionPhase = 'failed';
+        }
+      }
+    }));
+    return {'jobId': jobId, 'phase': 'picking'};
+  }
+
+  Map<String, Object?> inspectionStatus(Map<String, Object?> payload) {
+    if (payload['jobId'] is! String ||
+        payload['jobId'] != _inspectionJobId) {
+      throw const FormatException('معرّف فحص النسخة غير صالح.');
+    }
+    return <String, Object?>{
+      'phase': _inspectionPhase,
+      if (_inspectionPhase == 'complete') 'result': _inspectionResult,
+      if (_inspectionPhase == 'failed') 'error': _inspectionFailure,
+    };
+  }
 
   static Future<XFile?> _androidPicker() => openFile(
         acceptedTypeGroups: [
@@ -93,7 +154,7 @@ class ReactNativeBackupBridge {
   }
 
   Future<Map<String, Object?>> chooseAndInspect(
-      Map<String, Object?> payload) async {
+      Map<String, Object?> payload, {void Function(String)? onStage}) async {
     if (payload['purpose'] != 'restore-backup') {
       throw const FormatException(
           'يُتاح اختيار ملف النسخة الاحتياطية فقط عبر هذا المسار.');
@@ -107,7 +168,9 @@ class ReactNativeBackupBridge {
     _historicalToken = null;
     _sourceSha = null;
     _expiresAt = null;
+    onStage?.call('picking');
     final selected = await _chooseFile();
+    onStage?.call('reading');
     if (selected == null) return {'cancelled': true};
     final advertisedLength = await selected.length();
     if (advertisedLength < 1 || advertisedLength > maxBytes) {
@@ -121,6 +184,7 @@ class ReactNativeBackupBridge {
       buffer.add(chunk);
     }
     final bytes = buffer.takeBytes();
+    onStage?.call('auditing');
     final fileSha = sha256.convert(bytes).toString();
     final raw = await unpackWebsiteBackup(bytes, maxBytes);
     final isSqlite = raw.length >= 16 &&
@@ -213,6 +277,7 @@ class ReactNativeBackupBridge {
     Map<String, Object?>? trial;
     String? trialError;
     try {
+      onStage?.call('verifying');
       trial = await testWebsiteRestore(backup); // isolated SQLite, no live writes
     } catch (error) {
       trialError = error is FormatException
