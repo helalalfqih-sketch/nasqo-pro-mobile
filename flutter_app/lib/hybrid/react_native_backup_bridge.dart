@@ -7,6 +7,7 @@ import 'package:file_selector/file_selector.dart';
 
 import '../models/erp_models.dart';
 import '../services/local_backup_files.dart';
+import '../services/smartpro_historical_archive.dart';
 import '../services/web_backup.dart';
 import '../services/website_backup_file.dart';
 import '../services/website_restore_trial.dart';
@@ -22,6 +23,10 @@ class ReactNativeBackupBridge {
 
   final ErpController controller;
   final NativeBackupChooser _chooseFile;
+  SmartProHistoricalArchive get _historical => SmartProHistoricalArchive(controller.database);
+  Uint8List? _historicalBytes;
+  String? _historicalSha;
+  String? _historicalToken;
   static const int maxBytes = LocalBackupFiles.maxBackupBytes;
   static const Duration previewLifetime = Duration(minutes: 10);
 
@@ -97,6 +102,9 @@ class ReactNativeBackupBridge {
     _staged = null;
     _preview = null;
     _token = null;
+    _historicalBytes = null;
+    _historicalSha = null;
+    _historicalToken = null;
     _sourceSha = null;
     _expiresAt = null;
     final selected = await _chooseFile();
@@ -118,6 +126,79 @@ class ReactNativeBackupBridge {
     final isSqlite = raw.length >= 16 &&
         ascii.decode(raw.sublist(0, 16), allowInvalid: true) ==
             'SQLite format 3\u0000';
+    // SmartPro 28 is historical evidence, not a supported mobile ledger
+    // export. Do not run the strict financial converter against it or reject
+    // extra columns, missing currency IDs and unknown document types.
+    // The exact original bytes remain inside Dart and are never returned to
+    // the React WebView. This branch deliberately blocks accounting posting.
+    final schemaHeaderVersion = isSqlite && raw.length >= 64
+        ? (raw[60] << 24) | (raw[61] << 16) | (raw[62] << 8) | raw[63]
+        : -1;
+    if (schemaHeaderVersion == 28) {
+      if (raw.length != bytes.length ||
+          sha256.convert(raw).toString() != fileSha) {
+        throw const FormatException(
+            'الأرشيف التاريخي يجب اختياره كملف SQLite أصلي غير مضغوط.');
+      }
+      final audit = await _historical.inspect(raw);
+      final tables = (audit['counts'] as Map).cast<String, int>();
+      final issues = (audit['issues'] as Map).cast<String, int>();
+      final token = _newToken();
+      _historicalBytes = bytes;
+      _historicalSha = fileSha;
+      _historicalToken = token;
+      _expiresAt = DateTime.now().add(previewLifetime);
+      final preview = <String, Object?>{
+        'fileName': selected.name,
+        'format': 'SQLite',
+        'version': 28,
+        'sizeBytes': bytes.length,
+        'sourceSha256': fileSha,
+        'counts': <String, int>{
+          'accounts': tables['customers'] ?? 0,
+          'groups': tables['boxes'] ?? 0,
+          'currencies': tables['currencies'] ?? 0,
+          // Document categories cannot safely be inferred from bill_type.
+          'invoices': 0,
+          'vouchers': 0,
+          'movements': tables['input_move'] ?? 0,
+          'invoiceLines': (tables['bill_details'] ?? 0) +
+              (tables['bill_details2'] ?? 0),
+          'warehouses': tables['stores'] ?? 0,
+          'items': tables['products'] ?? 0,
+        },
+        'unsupported': [
+          for (final issue in issues.entries)
+            if (issue.value > 0)
+              {'section': issue.key, 'count': issue.value},
+        ],
+        'trialIntegrity': audit['integrity'],
+        'trialMatchedRecords': 0,
+        'trialError': audit['postingBlockedReason'],
+        'canRestore': false,
+        'previewToken': token,
+        'historicalArchive': {
+          'tableCount': audit['tableCount'],
+          'totalRows': audit['totalRows'],
+          'tables': audit['tables'],
+          'issues': audit['issues'],
+          'documentTypes': audit['documentTypes'],
+          'currencyReferences': audit['currencyReferences'],
+          'sourceSha256': audit['sourceSha256'],
+          'postingEligible': 0,
+          'readOnly': true,
+          'alreadyArchived': false,
+        },
+      };
+      _preview = preview;
+      return {
+        'cancelled': false,
+        'fileName': selected.name,
+        'sizeBytes': bytes.length,
+        'preview': preview,
+        'previewToken': token,
+      };
+    }
     final source = await readWebsiteBackup(bytes, maxBytes);
     if (utf8.encode(source).length > maxBytes) {
       throw const FormatException('النسخة بعد التحويل تجاوزت الحد المدعوم.');
@@ -177,6 +258,51 @@ class ReactNativeBackupBridge {
       'preview': preview,
       'previewToken': token,
     };
+  }
+
+  /// Archive confirmation never invokes restoreWebBackup or financial writes.
+  /// Saving identical source bytes twice is idempotent across app restarts.
+  Future<Map<String, Object?>> saveHistoricalArchive(
+      Map<String, Object?> payload) async {
+    final sha = payload['sourceSha256'];
+    if (sha is! String ||
+        payload['previewToken'] != _historicalToken ||
+        sha != _historicalSha ||
+        DateTime.now().isAfter(
+            _expiresAt ?? DateTime.fromMillisecondsSinceEpoch(0)) ||
+        _historicalBytes == null) {
+      throw const FormatException(
+          'انتهت صلاحية معاينة النسخة التاريخية؛ اختر الملف مجددًا.');
+    }
+    final result = await _historical.saveArchive(_historicalBytes!, sha);
+    _historicalBytes = null;
+    _historicalToken = null;
+    _historicalSha = null;
+    return result;
+  }
+
+  Future<List<Map<String, Object?>>> listHistoricalArchives() =>
+      _historical.listArchives();
+
+  Future<Map<String, Object?>> describeHistoricalArchive(
+      Map<String, Object?> payload) async {
+    final sha = payload['sourceSha256'];
+    if (sha is! String) {
+      throw const FormatException('بصمة الملف التاريخي مطلوبة.');
+    }
+    return _historical.describe(sha);
+  }
+
+  Future<Map<String, Object?>> pageHistoricalArchive(
+      Map<String, Object?> payload) async {
+    final sha = payload['sourceSha256'];
+    final table = payload['table'];
+    if (sha is! String || table is! String) {
+      throw const FormatException('بصمة الأرشيف واسم الجدول مطلوبان.');
+    }
+    final offset = payload['offset'] is int ? payload['offset'] as int : 0;
+    final limit = payload['limit'] is int ? payload['limit'] as int : 20;
+    return _historical.page(sha, table, offset, limit);
   }
 
   Future<Map<String, Object?>> createLocalBackup(

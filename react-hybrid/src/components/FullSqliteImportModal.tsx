@@ -20,7 +20,7 @@ import type {
 import { runWithBrandLoader } from "../utils/brandLoaderBus";
 import { useHybridPresentation } from "../hybrid/presentationAdapter";
 import { hybridBridge } from "../hybrid/bridge";
-import { createIdempotencyKey, type NativeWebImportPreview, type HybridWorkspaceSnapshot } from "../hybrid/contracts";
+import { createIdempotencyKey, type NativeWebImportPreview, type HybridWorkspaceSnapshot, type SmartProArchiveInfo } from "../hybrid/contracts";
 import { applyHybridSnapshot, refreshWorkspaceFromServer } from "../hybrid/serviceAdapter";
 
 type Props = {
@@ -72,8 +72,14 @@ export function FullSqliteImportModal({
   const hybrid = useHybridPresentation();
   const [nativePreview, setNativePreview] = useState<NativeWebImportPreview | null>(null);
   const [nativeConfirm, setNativeConfirm] = useState(false);
-
+  const [archiveSha, setArchiveSha] = useState<string | null>(null);
+  const [legacyTables, setLegacyTables] = useState<SmartProArchiveInfo["tables"]>([]);
+  const [legacyAudit, setLegacyAudit] = useState<SmartProArchiveInfo | null>(null);
+  const [savedArchives, setSavedArchives] = useState<Array<{ sourceSha256: string; sizeBytes: number }>>([]);
   const [tablesMeta, setTablesMeta] = useState<UnifiedTableMeta[]>([]);
+  const tableOptions = hybrid.isHybrid
+    ? legacyTables.map(t => ({ name: t.name, rowsCount: t.rows }))
+    : tablesMeta;
   const [summary, setSummary] = useState<ArchiveSummaryPayload | null>(null);
   const [selectedTable, setSelectedTable] = useState("accounts");
   const [tableSearch, setTableSearch] = useState("");
@@ -106,7 +112,7 @@ export function FullSqliteImportModal({
   }, [open, refreshMetadata]);
 
   useEffect(() => {
-    if (!open || tab !== "tables") return;
+    if (!open || tab !== "tables" || hybrid.isHybrid) return;
     let active = true;
     void queryUnifiedSqliteTable(workspaceId, selectedTable, tableSearch, 30, tableOffset)
       .then((res) => {
@@ -121,7 +127,35 @@ export function FullSqliteImportModal({
     return () => {
       active = false;
     };
-  }, [open, tab, workspaceId, selectedTable, tableSearch, tableOffset]);
+  }, [open, tab, workspaceId, selectedTable, tableSearch, tableOffset, hybrid.isHybrid]);
+
+  useEffect(() => {
+    if (!open || !hybrid.isHybrid) return;
+    let active = true;
+    void hybridBridge.invoke<"listLegacyArchives", Array<{ sourceSha256: string; sizeBytes: number }>>(
+      "listLegacyArchives", {},
+    ).then(rows => { if (active) setSavedArchives(rows); })
+      .catch(err => { if (active) setError(err instanceof Error ? err.message : "تعذر عرض قائمة الأرشيفات."); });
+    return () => { active = false; };
+  }, [open, hybrid.isHybrid]);
+
+  useEffect(() => {
+    if (!open || tab !== "tables" || !hybrid.isHybrid || !archiveSha || !selectedTable) return;
+    let active = true;
+    void hybridBridge.invoke<"queryLegacyArchive", {
+      columns: string[]; rows: Record<string, unknown>[]; total: number;
+    }>("queryLegacyArchive", {
+      sourceSha256: archiveSha, table: selectedTable, offset: tableOffset, limit: 30,
+    }).then(result => {
+      if (!active) return;
+      setTableCols(result.columns);
+      setTableRows(result.rows);
+      setTableTotal(result.total);
+    }).catch(err => {
+      if (active) setError(err instanceof Error ? err.message : "تعذر قراءة صفحة الأرشيف.");
+    });
+    return () => { active = false; };
+  }, [open, tab, hybrid.isHybrid, archiveSha, selectedTable, tableOffset]);
 
   if (!open) return null;
 
@@ -141,9 +175,15 @@ export function FullSqliteImportModal({
       if (!selected || selected.cancelled) return;
       if (!selected.preview) throw Error("لم تصل معاينة النسخة المختبرة من SQLite.");
       setNativePreview(selected.preview);
-      setNotice(selected.preview.canRestore
-        ? "اكتمل فحص الملف والاستعادة التجريبية المعزولة؛ راجع الأعداد قبل الموافقة."
-        : "الملف يحتوي بيانات غير مدعومة أو لم يجتز اختبار الاستعادة؛ لن تُمس بيانات الهاتف.");
+      if (selected.preview.historicalArchive) {
+        setLegacyAudit(selected.preview.historicalArchive);
+        setLegacyTables(selected.preview.historicalArchive.tables);
+        setNotice("تم فتح SmartPro v28 للمعاينة التاريخية فقط؛ لم تُرحّل أي قيود مالية.");
+      } else {
+        setNotice(selected.preview.canRestore
+          ? "اكتمل فحص الملف والاستعادة التجريبية المعزولة؛ راجع الأعداد قبل الموافقة."
+          : "الملف يحتوي بيانات غير مدعومة أو لم يجتز اختبار الاستعادة؛ لن تُمس بيانات الهاتف.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "تعذر فحص النسخة في Android.");
     } finally {
@@ -181,6 +221,63 @@ export function FullSqliteImportModal({
       onNotify(message);
     } catch (err) {
       setError(err instanceof Error ? err.message : "فشلت الاستعادة. لم يُعلن نجاح.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveHistoricalOnly = async () => {
+    const preview = nativePreview;
+    if (!preview?.historicalArchive || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await hybridBridge.invoke<"saveLegacyArchive", {
+        saved: boolean; alreadySaved: boolean;
+        sourceSha256: string; tables: SmartProArchiveInfo["tables"];
+      }>("saveLegacyArchive", {
+        previewToken: preview.previewToken,
+        sourceSha256: preview.sourceSha256,
+      }, { timeoutMs: 120000 });
+      if (!result.saved) throw Error("لم يؤكد Dart حفظ الأرشيف الخاص.");
+      setArchiveSha(result.sourceSha256);
+      setLegacyTables(result.tables);
+      setSelectedTable(result.tables.some(t => t.name === "customers")
+        ? "customers" : result.tables[0]?.name || "");
+      setTableOffset(0);
+      setSavedArchives(previous => previous.some(x => x.sourceSha256 === result.sourceSha256)
+        ? previous : [...previous, { sourceSha256: result.sourceSha256, sizeBytes: preview.sizeBytes }]);
+      setNotice(result.alreadySaved
+        ? "الأرشيف موجود مسبقًا بالبصمة نفسها؛ لم تُكرر أي سجلات مالية."
+        : "حُفظت نسخة SmartPro الأصلية بلا تعديل في مساحة Android الخاصة، للقراءة فقط.");
+      setTab("tables");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "تعذر حفظ الأرشيف التاريخي.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const viewSavedArchive = async (sha: string) => {
+    setBusy(true);
+    setError("");
+    try {
+      const result = await hybridBridge.invoke<"describeLegacyArchive", {
+        sourceSha256: string; tables: SmartProArchiveInfo["tables"];
+        issues: Record<string, number>; tableCount: number; totalRows: number;
+        postingEligible: number; documentTypes: SmartProArchiveInfo["documentTypes"];
+        currencyReferences: SmartProArchiveInfo["currencyReferences"];
+      }>("describeLegacyArchive", { sourceSha256: sha }, { timeoutMs: 120000 });
+      setArchiveSha(sha);
+      setLegacyTables(result.tables);
+      setLegacyAudit({ ...result, readOnly: true });
+      setSelectedTable(result.tables.some(t => t.name === "customers")
+        ? "customers" : result.tables[0]?.name || "");
+      setTableOffset(0);
+      setTab("tables");
+      setNotice("أرشيف تاريخي للقراءة فقط. الحسابات التشغيلية وSQLite الأصلية لم تتغير.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "تعذر فتح الأرشيف المحفوظ.");
     } finally {
       setBusy(false);
     }
@@ -351,7 +448,7 @@ export function FullSqliteImportModal({
         <div style={{ display: "flex", gap: 6, padding: "8px 16px", background: "#f1f5f9", borderBottom: "1px solid #e2e8f0", flexWrap: "wrap" }}>
           {[
             { id: "overview" as const, label: "الاستيراد والتصدير" },
-            { id: "tables" as const, label: `عرض السجلات والجداول (${tablesMeta.length})` },
+            { id: "tables" as const, label: `عرض السجلات والجداول (${tableOptions.length})` },
             { id: "audit" as const, label: "سجل المطابقة" },
           ].map((item) => (
             <button
@@ -456,7 +553,9 @@ export function FullSqliteImportModal({
 
               {nativePreview ? (
                 <section data-testid="native-web-backup-preview" style={{ border: "1px solid #cbd5e1", borderRadius: 10, padding: 12, marginBottom: 12 }}>
-                  <strong>معاينة النسخة قبل استبدال بيانات الهاتف</strong>
+                  <strong>{nativePreview.historicalArchive
+                    ? "معاينة الأرشيف التاريخي — لا توجد قيود مالية مرحّلة"
+                    : "معاينة النسخة قبل استبدال بيانات الهاتف"}</strong>
                   <div style={{ fontSize: 12, marginTop: 6 }}>
                     الصيغة: {nativePreview.format} v{String(nativePreview.version)} •
                     سلامة SQLite المعزولة: {nativePreview.trialIntegrity} •
@@ -474,6 +573,24 @@ export function FullSqliteImportModal({
                       </div>
                     ))}
                   </div>
+                  {nativePreview.historicalArchive ? (
+                    <div data-testid="smartpro-v28-historical-preview" style={{ marginTop: 12 }}>
+                      <p><strong>SmartPro v28</strong> • {nativePreview.historicalArchive.tableCount} جدول
+                        • {nativePreview.historicalArchive.totalRows.toLocaleString("en-US")} سجل في الأرشيف الأصلي</p>
+                      <p style={{ fontSize: 12, overflowWrap: "anywhere" }}>
+                        SHA-256: <bdi>{nativePreview.sourceSha256}</bdi>
+                      </p>
+                      <p style={{ color: "#991b1b", fontSize: 12 }}>
+                        الحركات والعملات والمخازن والأرصدة ذات المعنى غير المثبت تبقى تاريخية؛
+                        الترحيل المالي الآلي موقوف حتى المطابقة.
+                      </p>
+                      <button type="button" data-testid="smartpro-save-archive" disabled={busy}
+                        onClick={() => void saveHistoricalOnly()}
+                        style={{ padding: 10, background: "#0f766e", color: "#fff", border: 0, borderRadius: 8 }}>
+                        حفظ الأرشيف الأصلي للقراءة فقط
+                      </button>
+                    </div>
+                  ) : null}
                   {nativePreview.unsupported.length ? (
                     <p data-testid="native-unsupported-records" style={{ color: "#991b1b", fontSize: 12 }}>
                       سجلات غير مدعومة (محظورة من الاستيراد):
@@ -502,10 +619,24 @@ export function FullSqliteImportModal({
                         </div>
                       )}
                     </>
-                  ) : <p>الاستعادة غير مسموحة لهذا الملف قبل تصحيح المشاكل المذكورة.</p>}
+                  ) : <p>{nativePreview.historicalArchive
+                    ? "يمكن حفظ واستعراض كل الجداول؛ لا ترحيل مالي قبل استكمال المطابقة."
+                    : "الاستعادة غير مسموحة لهذا الملف قبل تصحيح المشاكل المذكورة."}</p>}
                 </section>
               ) : null}
 
+              {hybrid.isHybrid && savedArchives.length > 0 ? (
+                <div style={{ padding: 10, border: "1px solid #e2e8f0", borderRadius: 10, marginBottom: 10 }}>
+                  <strong>الأرشيفات التاريخية المحفوظة</strong>
+                  {savedArchives.map(a => (
+                    <button key={a.sourceSha256} type="button" disabled={busy}
+                      onClick={() => void viewSavedArchive(a.sourceSha256)}
+                      style={{ display: "block", padding: 8, marginTop: 5 }}>
+                      فتح أرشيف <bdi>{a.sourceSha256.slice(0, 18)}…</bdi> • {(a.sizeBytes / 1048576).toFixed(2)} MiB
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {!hybrid.isHybrid && upload ? (
                   <>
@@ -565,12 +696,13 @@ export function FullSqliteImportModal({
                   }}
                   style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 12, background: "#fff" }}
                 >
-                  {tablesMeta.map((t) => (
+                  {tableOptions.map((t) => (
                     <option key={t.name} value={t.name}>
                       {t.name} ({t.rowsCount.toLocaleString("en-US")})
                     </option>
                   ))}
                 </select>
+                {!hybrid.isHybrid ? (
                 <input
                   type="search"
                   value={tableSearch}
@@ -581,6 +713,9 @@ export function FullSqliteImportModal({
                   placeholder="بحث داخل الجدول..."
                   style={{ flex: 1, minWidth: 180, padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 12 }}
                 />
+                ) : (
+                  <span style={{ fontSize: 12 }}>صفحات أرشيف تاريخي غير مرحّل محاسبيًا</span>
+                )}
               </div>
 
               <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 10 }}>
@@ -597,7 +732,9 @@ export function FullSqliteImportModal({
                       <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
                         {tableCols.map((c) => (
                           <td key={c} style={{ padding: "6px 8px", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {row[c] === null || row[c] === undefined ? "—" : String(row[c])}
+                            {row[c] === null || row[c] === undefined
+  ? "—"
+  : typeof row[c] === "object" ? JSON.stringify(row[c]) : String(row[c])}
                           </td>
                         ))}
                       </tr>
@@ -669,7 +806,20 @@ export function FullSqliteImportModal({
                   </div>
                 </div>
               ))}
-              {(summary?.stats.imports ?? []).length === 0 ? (
+              {hybrid.isHybrid && legacyAudit ? (
+                <section data-testid="smartpro-archive-audit" style={{ padding: 12, border: "1px solid #e2e8f0", borderRadius: 10 }}>
+                  <strong>مطابقة SmartPro v28 — قراءة تاريخية فقط</strong>
+                  <p>الجداول: {legacyAudit.tableCount} • السجلات: {legacyAudit.totalRows} • القيود المرحلة: 0</p>
+                  {Object.entries(legacyAudit.issues)
+                    .filter(([, count]) => count > 0)
+                    .map(([name, count]) => <div key={name}>{name}: {count.toLocaleString("en-US")}</div>)}
+                  <p>أنواع مستندات تحتاج إلى مطابقة:</p>
+                  {legacyAudit.documentTypes.map(t => <span key={t.id} style={{ margin: 4, display: "inline-block" }}>
+                    نوع {t.id}: {t.count.toLocaleString("en-US")}
+                  </span>)}
+                </section>
+              ) : null}
+              {(summary?.stats.imports ?? []).length === 0 && !hybrid.isHybrid ? (
                 <p style={{ color: "#64748b", fontSize: 13 }}>لم تُستورد ملفات مصادر بعد في سجل التدقيق.</p>
               ) : null}
             </div>

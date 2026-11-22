@@ -75,6 +75,14 @@ class ReactWorkspace {
         return snapshot();
       case 'pickFile':
         return _backups.chooseAndInspect(payload);
+      case 'saveLegacyArchive':
+        return _backups.saveHistoricalArchive(payload);
+      case 'listLegacyArchives':
+        return _backups.listHistoricalArchives();
+      case 'describeLegacyArchive':
+        return _backups.describeHistoricalArchive(payload);
+      case 'queryLegacyArchive':
+        return _backups.pageHistoricalArchive(payload);
       case 'backupWorkspace':
         return _backups.createLocalBackup(payload);
       case 'restoreWorkspace':
