@@ -1,5 +1,6 @@
 """Read a stopped test app's Android SQLite database and WAL in a temporary directory."""
 import json
+import os
 import pathlib
 import sqlite3
 import shlex
@@ -13,8 +14,19 @@ expected = 2 if forms else 1
 fixture_label = 'الواجهة' if forms else 'Android'
 package = 'com.indexesstore.nasqo_qa'
 base = 'nasqo_pro_erp.db'
-adb = ['adb', 'exec-out', 'run-as', package]
-available = subprocess.check_output([*adb, 'ls', 'databases']).decode().split()
+release_qa = os.environ.get('NASQO_RELEASE_QA_TEST') == '1'
+if release_qa:
+    # The Release app is deliberately not android:debuggable. CI may read
+    # private SQLite only on a rooted disposable emulator, never a real phone.
+    qemu = subprocess.check_output(['adb','shell','getprop','ro.kernel.qemu']).strip()
+    uid = subprocess.check_output(['adb','shell','id','-u']).strip()
+    assert qemu == b'1' and uid == b'0', 'Release DB inspection requires a rooted emulator'
+    adb = ['adb', 'exec-out']
+    database_dir = '/data/user/0/' + package + '/databases'
+else:
+    adb = ['adb', 'exec-out', 'run-as', package]
+    database_dir = 'databases'
+available = subprocess.check_output([*adb, 'ls', database_dir]).decode().split()
 assert base in available, available
 # Some emulator system images provide the Android SQLite shell. Independently
 # query the stopped app's DB in place before the byte-for-byte host inspection.
@@ -22,7 +34,9 @@ android_sql = None
 sqlite_shell = subprocess.run(['adb','shell','command','-v','sqlite3'], capture_output=True, text=True)
 if sqlite_shell.returncode == 0 and sqlite_shell.stdout.strip().endswith('/sqlite3'):
     sql = 'PRAGMA integrity_check; SELECT sqlite_version(); SELECT count(*) FROM ledger_entries;'
-    device_command = shlex.join(['run-as', package, 'sqlite3', '-readonly', 'databases/' + base, sql])
+    device_command = shlex.join(
+        (['sqlite3'] if release_qa else ['run-as', package, 'sqlite3']) +
+        ['-readonly', database_dir + '/' + base, sql])
     native = subprocess.run(['adb', 'shell', '-T', device_command],
         capture_output=True, text=True, check=True, timeout=20).stdout.strip().splitlines()
     assert len(native) == 3 and native[0] == 'ok' and int(native[2]) == 2 * expected, native
@@ -31,7 +45,7 @@ with tempfile.TemporaryDirectory() as temp:
     for extension in ('', '-wal', '-journal'):
         filename = base + extension
         if filename in available:
-            pathlib.Path(temp, filename).write_bytes(subprocess.check_output([*adb, 'cat', 'databases/' + filename]))
+            pathlib.Path(temp, filename).write_bytes(subprocess.check_output([*adb, 'cat', database_dir + '/' + filename]))
     with sqlite3.connect(pathlib.Path(temp, base)) as db:
         assert db.execute('PRAGMA integrity_check').fetchone() == ('ok',)
         assert db.execute('SELECT COUNT(*) FROM accounts').fetchone()[0] == expected
