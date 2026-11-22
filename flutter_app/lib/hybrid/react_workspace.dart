@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 import '../models/erp_models.dart';
 import '../services/posting_receipt.dart';
 import '../state/erp_controller.dart';
+import 'qa_website_import.dart';
 import 'hybrid_protocol.dart';
 
 typedef Json = Map<String, Object?>;
@@ -14,6 +15,7 @@ class ReactWorkspace {
   ReactWorkspace(this.controller, {required this.allowWrites});
   final ErpController controller;
   final bool allowWrites;
+  late final QaWebsiteImport websiteImport = QaWebsiteImport(controller);
   static const workspaceId = 'local-erp-workspace';
   Future<void> _pending = Future.value();
 
@@ -68,6 +70,34 @@ class ReactWorkspace {
     switch (request.action) {
       case 'getSnapshot':
         return snapshot();
+      case 'pickFile':
+        if (!allowWrites) {
+          throw const HybridBridgeException('UNAUTHORIZED_ACTION',
+              'استيراد النسخ غير مفعل في إعداد QA.');
+        }
+        if (payload['purpose'] != 'restore-backup') {
+          throw const HybridBridgeException('SERVICE_UNAVAILABLE',
+              'منتقي الملفات لهذا الغرض غير متاح.');
+        }
+        return websiteImport.pickAndPreview();
+      case 'backupWorkspace':
+        if (!allowWrites) {
+          throw const HybridBridgeException('UNAUTHORIZED_ACTION',
+              'إنشاء النسخ غير مفعل.');
+        }
+        final backup = await controller.createLocalBackup();
+        return {'created': true, 'backupId': backup.id, 'sizeBytes': backup.bytes};
+      case 'restoreWorkspace':
+        if (!allowWrites) {
+          throw const HybridBridgeException('UNAUTHORIZED_ACTION',
+              'استيراد النسخ غير مفعل.');
+        }
+        if (payload['confirmed'] != true || payload['session'] is! String) {
+          throw const HybridBridgeException('VALIDATION_ERROR',
+              'تتطلب الاستعادة معاينة سابقة وموافقة صريحة.');
+        }
+        final restored = await websiteImport.confirm(payload['session'] as String);
+        return {...restored, 'snapshot': await snapshot()};
       case 'getInvoiceDetail':
         final entry = controller.ledger
             .where((e) => e.id == payload['entryId'])
