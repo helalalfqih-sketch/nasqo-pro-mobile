@@ -58,7 +58,14 @@ private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: I
             }
         }
         if (reactWorkspace) {
-            if ((context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            // Permit Chromium DevTools only on disposable Android emulators
+            // for signed QA Release smoke tests. Never enable on real devices.
+            val emulatorForQa = android.os.Build.TYPE != "user" &&
+                (android.os.Build.FINGERPRINT.startsWith("generic") ||
+                 android.os.Build.FINGERPRINT.contains("emulator") ||
+                 android.os.Build.PRODUCT.contains("sdk"))
+            if ((context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0 ||
+                emulatorForQa) {
                 WebView.setWebContentsDebuggingEnabled(true)
             }
             val assetPattern = Regex("assets/[A-Za-z0-9_.-]+")
