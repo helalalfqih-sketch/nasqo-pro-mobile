@@ -120,6 +120,15 @@ def main(baseline, candidate):
     # Seed real persisted business rows using the audited SQLite fixture in a
     # disposable, force-stopped emulator. This never touches a user device.
     sql = pathlib.Path("qa/tools/direct_upgrade_fixture.sql").read_text()
+    # QA 10021 clean-install no longer seeds the old SKU-101 item. Seed an
+    # isolated known inventory row before the legacy fixture reads it.
+    sql = sql.replace(
+        "BEGIN;",
+        """BEGIN;
+        INSERT OR IGNORE INTO warehouses(id,name,details,isDefault)
+        VALUES('wh_1','المخزن الرئيسي','QA-only',1);
+        INSERT INTO inventory_items(id,name,unit,quantity,avgCost,warehouseId,minThreshold,sku)
+        VALUES('inv_1','صنف تجريبي','حبة',7,10,'wh_1',0,'SKU-101');""")
     sql = sql.replace(
         "COMMIT;",
         """INSERT INTO ledger_entries(id,accountId,accountName,kind,typeLabel,payment,
