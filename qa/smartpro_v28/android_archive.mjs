@@ -148,6 +148,26 @@ shell("svc","data","disable");
 assert.equal(shell("settings","get","global","airplane_mode_on"),"1");
 let view = await attach();
 let stage = "start";
+// Diagnostic listener captures only bridge action status and error codes.
+// The fixture is synthetic. No selected-file bytes or customer rows are logged.
+await view.evaluate(`(() => {
+  window.__qaSmartProResponses = [];
+  window.NasqoHome.addEventListener("message", event => {
+    try {
+      const message = JSON.parse(event.data);
+      if (message.action === "pickFile" || message.action === "saveLegacyArchive") {
+        window.__qaSmartProResponses.push({
+          action: message.action, ok: message.ok,
+          errorCode: message.error?.code,
+          errorMessage: message.error?.message,
+          previewVersion: message.data?.preview?.version,
+          hasHistoricalArchive: Boolean(message.data?.preview?.historicalArchive),
+        });
+      }
+    } catch {}
+  });
+  return true;
+})()`);
 try {
   const before = await readSnapshot(view);
   assert.equal(before.accounts.length, 0);
@@ -230,7 +250,36 @@ try {
   console.log("PASS SmartPro v28: original archive preserved, 23 tables paginated, no financial posting, offline cold reopen");
 } catch(error) {
   console.error("Native import test failed at", stage, error);
-  fs.writeFileSync(path.join(evidence,"failure-stage.txt"),stage+"\n"+String(error));
+  const diagnostics = {
+    stage, error: String(error),
+    bridge: null, ui: null,
+  };
+  try {
+    diagnostics.ui = await view.evaluate(`(() => ({
+      modalVisible: Boolean(document.querySelector(".full-sqlite-import-modal")),
+      pickerVisible: Boolean(document.querySelector('[data-testid="native-web-backup-pick"]')),
+      smartproPreviewVisible: Boolean(document.querySelector('[data-testid="smartpro-v28-historical-preview"]')),
+      appContent: document.querySelector(".full-sqlite-import-modal")?.innerText.slice(0, 5000) || "",
+      recentToasts: [...document.querySelectorAll('[role="alert"],[data-testid*="toast"]')].map(el => el.innerText.slice(0, 1000)),
+      bridge: window.__qaSmartProResponses || [],
+    }))()`);
+    diagnostics.bridge = diagnostics.ui.bridge;
+  } catch (diagError) {
+    diagnostics.diagnosticError = String(diagError);
+  }
+  try {
+    const screen = execFileSync("adb",["exec-out","screencap","-p"]);
+    fs.writeFileSync(path.join(evidence,"synthetic-v28-failure-android.png"),screen);
+  } catch {}
+  try {
+    // Record app errors only. Never include raw DB pages, keystore or credentials.
+    const appLog = adb("logcat","-d","-t","900","*:E");
+    fs.writeFileSync(path.join(evidence,"synthetic-v28-android-errors.txt"),
+      appLog.split("\n").filter(line =>
+        /nasqo|flutter|sqlite|file_selector|PlatformException|AndroidRuntime/i.test(line)).slice(-100).join("\n"));
+  } catch {}
+  fs.writeFileSync(path.join(evidence,"smartpro-v28-diagnostics.json"),JSON.stringify(diagnostics,null,2));
+  console.error("QA_TEST_DIAGNOSTICS", JSON.stringify(diagnostics).slice(0,5500));
   throw error;
 } finally {
   view.close();
