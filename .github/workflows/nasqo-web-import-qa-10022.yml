@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/nasqo-web-import-qa-10022.yml'
       - 'flutter_app/lib/**'
+      - 'react-hybrid/src/**'
       - 'flutter_app/test/react_website_import_test.dart'
       - 'qa/react_sqlite/release_upgrade_10022.py'
   workflow_dispatch:
