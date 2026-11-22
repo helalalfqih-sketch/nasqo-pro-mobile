@@ -75,6 +75,10 @@ class ReactWorkspace {
         return snapshot();
       case 'pickFile':
         return _backups.chooseAndInspect(payload);
+      case 'beginBackupInspection':
+        return _backups.beginInspection(payload);
+      case 'getBackupInspectionStatus':
+        return _backups.inspectionStatus(payload);
       case 'saveLegacyArchive':
         return _backups.saveHistoricalArchive(payload);
       case 'listLegacyArchives':
