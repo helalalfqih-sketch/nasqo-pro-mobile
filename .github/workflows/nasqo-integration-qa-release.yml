@@ -1,0 +1,95 @@
+# QA-only workflow. The checkout is pinned to an immutable source SHA.
+# Does not alter the integration source branch, server, production or update manifests.
+name: NASQO integration 0583100 signed QA APK
+on:
+  push:
+    branches:
+      - qa/integration-release-0583100
+permissions:
+  contents: read
+jobs:
+  signed-integration-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 058310087cf8624568cd1665480d1f9acf5e1449
+          persist-credentials: false
+      - name: Verify immutable integration commit
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '058310087cf8624568cd1665480d1f9acf5e1449'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.0'
+          channel: stable
+          cache: true
+      - name: Build bundled offline React assets
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit
+          npm run check:runtime
+          npm run build:hybrid
+          test -s flutter_app/assets/react/hybrid-manifest.json
+      - name: Static analysis and Flutter SQLite tests
+        working-directory: flutter_app
+        run: |
+          set -euo pipefail
+          flutter config --jdk-dir="$JAVA_HOME"
+          flutter pub get
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+          bash ../qa/tools/test-linux.sh
+      - name: Restore existing development QA signing material
+        env:
+          KEYSTORE_BASE64: ${{ secrets.NASQO_DEV_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.NASQO_DEV_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.NASQO_DEV_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NASQO_DEV_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE_BASE64 STORE_PASSWORD KEY_PASSWORD KEY_ALIAS; do
+            [[ -n "${!name}" ]] || { echo "Required QA signing secret missing: $name"; exit 1; }
+          done
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/nasqo-qa.jks"
+          chmod 600 "$RUNNER_TEMP/nasqo-qa.jks"
+          echo "NASQO_DEV_KEYSTORE_PATH=$RUNNER_TEMP/nasqo-qa.jks" >> "$GITHUB_ENV"
+          echo "NASQO_DEV_KEYSTORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "NASQO_DEV_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          echo "NASQO_DEV_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+      - name: Build signed QA Release APK
+        working-directory: flutter_app
+        run: |
+          set -euo pipefail
+          flutter build apk --release --build-name=1.0.18 --build-number=10020 --android-skip-build-dependency-validation
+      - name: Verify QA application identity signing and file hash
+        run: |
+          set -euo pipefail
+          apk=flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          test -s "$apk"
+          signer="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          aapt="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
+          test -x "$signer" && test -x "$aapt"
+          "$signer" verify --verbose --print-certs "$apk" | tee "$RUNNER_TEMP/apk-verify.txt"
+          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/apk-verify.txt"
+          grep -Fi 'certificate SHA-256 digest:' "$RUNNER_TEMP/apk-verify.txt" | grep -Fqi '0df120c5300269f289cf66ccf48aa9ce81e295055e9f7ae80159ee021e3a5a79'
+          "$aapt" dump badging "$apk" | head -1 | grep -F "name='com.indexesstore.nasqo_qa' versionCode='10020' versionName='1.0.18'"
+          sha256sum "$apk" > release-apk.sha256
+          stat -c '%s' "$apk" > release-apk.bytes
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nasqo-integration-qa-signed-10020
+          path: |
+            flutter_app/build/app/outputs/flutter-apk/app-release.apk
+            release-apk.sha256
+            release-apk.bytes
+          if-no-files-found: error
+          retention-days: 14
