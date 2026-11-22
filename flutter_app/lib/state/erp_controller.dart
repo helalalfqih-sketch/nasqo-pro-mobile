@@ -1214,23 +1214,51 @@ class ErpController extends ChangeNotifier {
       await _writeTail;
       final rollback = await files.createBackup();
       await files.testRestore(rollback.id);
-      final preferences = websitePreferences(backup);
-      await writeWebsiteSnapshot(_localDatabase, backup, isDarkMode);
-      accounts..clear()..addAll(backup.accounts);
-      ledger..clear()..addAll(backup.ledger);
-      warehouses..clear()..addAll(backup.warehouses);
-      inventory..clear()..addAll(backup.inventory);
-      saleLines..clear()..addAll(backup.lines);
-      groupDirectory=null;
-      restoredGroups = backup.groupData;
-      _currencyDetails = Map.of(backup.currencyDetails);
-      _loadAppearance(null);
-      _loadAlertState(null);
-      _loadMessagePreferences(preferences);
-      _loadModules(backup.modules);
-      companyName = backup.company;
-      _nextEntryNumber = backup.lastNumber;
-      if (!_disposed) notifyListeners();
+      try {
+        final preferences = websitePreferences(backup);
+        await writeWebsiteSnapshot(_localDatabase, backup, isDarkMode);
+        final db = await _localDatabase.database;
+        final integrity = await db.rawQuery('PRAGMA integrity_check');
+        if (integrity.length != 1 ||
+            integrity.single.values.single != 'ok' ||
+            (await db.rawQuery('PRAGMA foreign_key_check')).isNotEmpty) {
+          throw StateError('فشل التحقق من SQLite بعد استعادة الويب.');
+        }
+        final reopened = await _localDatabase.loadSnapshot();
+        if (reopened.accounts.length != backup.accounts.length ||
+            reopened.ledger.length != backup.ledger.length ||
+            reopened.inventory.length != backup.inventory.length ||
+            reopened.warehouses.length != backup.warehouses.length) {
+          throw StateError('عدد السجلات بعد الحفظ لا يطابق المعاينة.');
+        }
+        accounts..clear()..addAll(reopened.accounts);
+        ledger..clear()..addAll(reopened.ledger);
+        warehouses..clear()..addAll(reopened.warehouses);
+        inventory..clear()..addAll(reopened.inventory);
+        saleLines..clear()..addAll(reopened.saleLines);
+        groupDirectory = null;
+        restoredGroups = backup.groupData;
+        _currencyDetails = Map.of(backup.currencyDetails);
+        _loadAppearance(null);
+        _loadAlertState(null);
+        _loadMessagePreferences(preferences);
+        _loadModules(backup.modules);
+        companyName = backup.company;
+        _nextEntryNumber = backup.lastNumber;
+        if (!_disposed) notifyListeners();
+      } catch (error) {
+        // Preserve the original failure if recovery itself is unavailable.
+        // The recovery copy was verified in isolated SQLite before mutation.
+        try {
+          await files.restoreLocal(rollback.id);
+          _nextEntryNumber = 0;
+          _loadModules(const ErpWorkspaceSnapshot());
+          await _loadOrCreateDatabase();
+        } catch (recoveryError) {
+          throw StateError('فشلت الاستعادة والرجوع للنسخة السابقة: $recoveryError');
+        }
+        rethrow;
+      }
     } finally {
       _resetting = false;
     }
