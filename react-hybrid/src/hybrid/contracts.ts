@@ -42,6 +42,8 @@ export const HYBRID_ALLOWED_COMMANDS = [
   "printDocument",
   "exportPdf",
   "pickFile",
+  "beginBackupInspection",
+  "getBackupInspectionStatus",
   "saveLegacyArchive",
   "listLegacyArchives",
   "describeLegacyArchive",
@@ -261,6 +263,8 @@ export interface HybridCommandPayloadMap {
   printDocument: HybridPrintPayload;
   exportPdf: HybridExportPdfPayload;
   pickFile: HybridPickFileRequest;
+  beginBackupInspection: HybridPickFileRequest;
+  getBackupInspectionStatus: { jobId: string };
   saveLegacyArchive: { previewToken: string; sourceSha256: string };
   listLegacyArchives: Record<string, never>;
   describeLegacyArchive: { sourceSha256: string };
