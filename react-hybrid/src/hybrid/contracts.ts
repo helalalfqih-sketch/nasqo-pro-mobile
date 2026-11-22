@@ -42,6 +42,10 @@ export const HYBRID_ALLOWED_COMMANDS = [
   "printDocument",
   "exportPdf",
   "pickFile",
+  "saveLegacyArchive",
+  "listLegacyArchives",
+  "describeLegacyArchive",
+  "queryLegacyArchive",
   "showMessage",
   // Accounting, accounts, inventory, and reports (persisted exclusively by Dart/SQLite)
   "saveWorkspaceSettings",
@@ -200,7 +204,21 @@ export interface HybridPickFileRequest {
   accept: string[];
 }
 
+export interface SmartProArchiveInfo {
+  sourceSha256: string;
+  tableCount: number;
+  totalRows: number;
+  readOnly: boolean;
+  postingEligible: number;
+  issues: Record<string, number>;
+  tables: Array<{ name: string; rows: number; columns: string[] }>;
+  documentTypes: Array<{ id: string | null; count: number; status: string }>;
+  currencyReferences: Array<{ id: string | null; count: number }>;
+  alreadyArchived?: boolean;
+}
+
 export interface NativeWebImportPreview {
+  historicalArchive?: SmartProArchiveInfo;
   fileName: string;
   format: "JSON" | "SQLite";
   version: number;
@@ -243,6 +261,10 @@ export interface HybridCommandPayloadMap {
   printDocument: HybridPrintPayload;
   exportPdf: HybridExportPdfPayload;
   pickFile: HybridPickFileRequest;
+  saveLegacyArchive: { previewToken: string; sourceSha256: string };
+  listLegacyArchives: Record<string, never>;
+  describeLegacyArchive: { sourceSha256: string };
+  queryLegacyArchive: { sourceSha256: string; table: string; offset: number; limit: number };
   showMessage: { message: string; level?: "info" | "success" | "warning" | "error" };
   saveWorkspaceSettings: { workspaceId: string; updates: Partial<WorkspaceSettings> };
   saveAccountGroup: { workspaceId: string; payload: Partial<AccountGroupRecord> & { name: string } };
