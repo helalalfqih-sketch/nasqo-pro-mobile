@@ -1,3 +1,4 @@
+import 'package:nasqo_pro_erp/services/posting_receipt.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +20,7 @@ class PendingSalesController extends ErpController {
       DateTime? invoiceDate,
       ValueChanged<String>? onCommitted,
       String? requestId,
+      BridgeReceipt? bridgeReceipt,
       required String customerName,
       required WarehouseRecord warehouse,
       required PaymentMethod payment,

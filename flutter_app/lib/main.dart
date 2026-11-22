@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'hybrid/hybrid_home_view.dart';
+import 'hybrid/react_home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/dashboard_screen.dart';
@@ -67,7 +68,7 @@ class _NasqoProErpAppState extends State<NasqoProErpApp> {
   ErpController? _ownedController;
 
   ErpController get _controller =>
-      widget.controller ?? (_ownedController ??= ErpController());
+      widget.controller ?? (_ownedController ??= ErpController(emptyOnFirstInstall: reactHomeEnabled));
 
   @override
   void dispose() {
@@ -137,6 +138,7 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
   final _shellKey = GlobalKey<ScaffoldState>();
   final _homeScroll = ScrollController();
   final _updateKey = GlobalKey<DevUpdateActionState>();
+  bool _useReact = reactHomeEnabled;
   bool _usePilot = !kIsWeb && Platform.isAndroid;
   String? _activeModule;
 
@@ -537,6 +539,10 @@ class _NasqoMainShellState extends State<NasqoMainShell> {
 
   @override
   Widget build(BuildContext context) {
+    if (_usePilot && _useReact) {
+      return ReactHome(controller: widget.controller,
+          onLegacy: () => setState(() => _useReact = false));
+    }
     if (_usePilot) {
       return Scaffold(
         key: _shellKey,

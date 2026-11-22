@@ -1,3 +1,4 @@
+import 'package:nasqo_pro_erp/services/posting_receipt.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:nasqo_pro_erp/models/sales_return_draft.dart';
@@ -47,6 +48,7 @@ class _GatedStore extends LocalDatabase {
     required bool isDarkMode,
     required int nextEntryNumber,
     SaleFacts? appendedSaleFacts,
+    BridgeResult? bridgeResult,
     String? restoredWebExport,
     Map<String, Object?>? erpData,
   }) async {
@@ -65,6 +67,7 @@ class _GatedStore extends LocalDatabase {
       isDarkMode: isDarkMode,
       nextEntryNumber: nextEntryNumber,
       appendedSaleFacts: appendedSaleFacts,
+      bridgeResult: bridgeResult,
       restoredWebExport: restoredWebExport,
       erpData: erpData,
     );

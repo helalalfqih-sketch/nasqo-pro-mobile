@@ -1,0 +1,192 @@
+/* NASQO PRO ERP — Native Android WebView Hybrid Stylesheet
+ * Preserves 100% of original prototype.css tokens, Light/Dark palettes, and RTL design
+ * while removing desktop PhoneFrame chrome and hardening 320px-427px & 130% font scaling.
+ */
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--nasqo-canvas, #f2f4fa);
+  color: var(--nasqo-ink, #1a2138);
+  font-family: "IBM Plex Sans Arabic", "Cairo", system-ui, -apple-system, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root.dark,
+:root.dark body,
+:root.dark #root,
+:root.dark .hybrid-webview-viewport {
+  background: var(--nasqo-canvas, #0b1220);
+  color: var(--nasqo-ink, #e2e8f0);
+}
+
+.hybrid-webview-viewport {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  max-width: 100vw;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing: border-box;
+  background: var(--nasqo-canvas, #f2f4fa);
+}
+
+.hybrid-flow-stack {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.hybrid-native-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+.hybrid-native-carousel {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.hybrid-native-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+/* Boot / Error State inside Android WebView */
+.hybrid-boot-shell {
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+  background: var(--nasqo-canvas, #f2f4fa);
+  direction: rtl;
+}
+
+.hybrid-boot-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--nasqo-surface, #ffffff);
+  color: var(--nasqo-ink, #1a2138);
+  border: 1px solid var(--nasqo-line, rgba(26, 33, 56, 0.1));
+  border-radius: 18px;
+  padding: 22px 18px;
+  text-align: center;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.hybrid-boot-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.hybrid-boot-desc {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--nasqo-muted, #5c6680);
+}
+
+.hybrid-boot-btn {
+  min-height: 44px;
+  min-width: 150px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: none;
+  background: var(--nasqo-blue, #3f38bf);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Touch target & overflow hardening for narrow screens (320px - 360px) and 130% font scale */
+.hybrid-webview-viewport button:not(.smart-tile-corner-btn),
+.hybrid-webview-viewport [role="button"]:not(.smart-tile-corner-btn),
+.hybrid-webview-viewport select {
+  min-height: 36px;
+}
+
+.hybrid-webview-viewport .modal-card,
+.hybrid-webview-viewport .modal-sheet,
+.hybrid-webview-viewport .reports-hub-card,
+.hybrid-webview-viewport .settings-tabs-bar {
+  max-width: calc(100vw - 16px);
+  box-sizing: border-box;
+}
+
+@media (max-width: 360px) {
+  .hybrid-webview-viewport .dashboard-header,
+  .hybrid-webview-viewport .app-toolbar {
+    padding-inline: 8px;
+    gap: 4px;
+  }
+
+  .hybrid-webview-viewport .dashboard-header-title,
+  .hybrid-webview-viewport .toolbar-title {
+    font-size: 0.92rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hybrid-webview-viewport .home-tiles-grid,
+  .hybrid-webview-viewport .dashboard-tiles-grid {
+    gap: 6px;
+    padding-inline: 8px;
+  }
+
+  .hybrid-webview-viewport .modal-card {
+    width: calc(100vw - 12px);
+    max-width: calc(100vw - 12px);
+    padding-inline: 10px;
+  }
+
+  .hybrid-webview-viewport .settings-tabs-bar {
+    gap: 4px;
+  }
+
+  .hybrid-webview-viewport .settings-tab-btn {
+    padding-inline: 6px;
+    font-size: 0.78rem;
+  }
+}
+
+@media (max-width: 330px) {
+  .hybrid-webview-viewport .header-icon-btn,
+  .hybrid-webview-viewport .toolbar-icon-btn {
+    min-width: 34px;
+    width: 34px;
+    height: 34px;
+    padding: 4px;
+  }
+
+  .hybrid-webview-viewport .bottom-nav-label {
+    font-size: 0.68rem;
+  }
+}

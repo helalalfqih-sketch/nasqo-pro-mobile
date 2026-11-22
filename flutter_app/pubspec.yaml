@@ -31,6 +31,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/react/
+    - assets/react/assets/
     - assets/nasqo_logo.png
     - assets/fonts/OFL-Noto.txt
   fonts:

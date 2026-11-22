@@ -26,14 +26,14 @@ import java.io.ByteArrayInputStream
 class HybridHomeFactory(private val messenger: BinaryMessenger, private val activity: Activity) :
     PlatformViewFactory(StandardMessageCodec.INSTANCE) {
     override fun create(context: Context, viewId: Int, args: Any?): PlatformView =
-        HybridHomeView(context, messenger, viewId, activity)
+        HybridHomeView(context, messenger, viewId, activity, (args as? Map<*, *>)?.get("reactWorkspace") == true)
 }
 
-private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: Int, activity: Activity) : PlatformView {
+private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: Int, activity: Activity, private val reactWorkspace: Boolean) : PlatformView {
     private val web = WebView(context)
     private val channel = MethodChannel(messenger, "nasqo/home/$id")
     private val origin = Uri.parse("https://appassets.androidplatform.net")
-    private val page = "$origin/home/index.html"
+    private val page = if (reactWorkspace) "$origin/react/index.html" else "$origin/home/index.html"
     private val created = SystemClock.elapsedRealtime()
     private var started = false
     private var painted = false
@@ -51,15 +51,32 @@ private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: I
             name to Pair("font/ttf", "hybrid_home/$name")
         }
         val resources = assets + fontFiles
-        val loader = WebViewAssetLoader.Builder().addPathHandler("/home/") { path ->
+        val loaderBuilder = WebViewAssetLoader.Builder().addPathHandler("/home/") { path ->
             resources[path]?.let { (mime, file) ->
                 WebResourceResponse(mime, if (mime.startsWith("text/") || path == "home.js") "utf-8" else null,
                     context.assets.open(file))
             }
-        }.build()
+        }
+        if (reactWorkspace) {
+            if ((context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+                WebView.setWebContentsDebuggingEnabled(true)
+            }
+            val assetPattern = Regex("assets/[A-Za-z0-9_.-]+")
+            val mimeTypes = mapOf("html" to "text/html", "js" to "text/javascript", "css" to "text/css",
+                "png" to "image/png", "woff" to "font/woff", "woff2" to "font/woff2")
+            loaderBuilder.addPathHandler("/react/") { path ->
+                val mime = mimeTypes[path.substringAfterLast('.')]
+                if (mime == null || !(path == "index.html" || assetPattern.matches(path))) null
+                else try {
+                    val encoding = if (mime.startsWith("text/")) "utf-8" else null
+                    WebResourceResponse(mime, encoding, context.assets.open("flutter_assets/assets/react/$path"))
+                } catch (_: java.io.IOException) { null }
+            }
+        }
+        val loader = loaderBuilder.build()
         web.settings.apply {
             javaScriptEnabled = true
-            domStorageEnabled = false
+            domStorageEnabled = reactWorkspace
             allowFileAccess = false
             allowContentAccess = false
             blockNetworkLoads = true
@@ -84,10 +101,20 @@ private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: I
                         if (!started) {
                             started = true
                             WebViewCompat.addWebMessageListener(web, "NasqoHome", setOf(origin.toString())) {
-                                _, message, sender, mainFrame, _ ->
+                                _, message, sender, mainFrame, reply ->
                                 if (mainFrame && sender == origin && message.type == WebMessageCompat.TYPE_STRING) {
                                     val data = message.data
-                                    if (data != null && data.length <= 4096) channel.invokeMethod("intent", data)
+                                    if (reactWorkspace && data != null && data.length <= 262144) {
+                                        channel.invokeMethod("reactRequest", data, object : MethodChannel.Result {
+                                            override fun success(result: Any?) {
+                                                if (started && result is String) reply.postMessage(result)
+                                            }
+                                            override fun error(code: String, message: String?, details: Any?) = Unit
+                                            override fun notImplemented() = Unit
+                                        })
+                                    } else if (!reactWorkspace && data != null && data.length <= 4096) {
+                                        channel.invokeMethod("intent", data)
+                                    }
                                 }
                             }
                             web.loadUrl(page)
@@ -153,6 +180,7 @@ private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: I
     override fun dispose() {
         channel.setMethodCallHandler(null)
         if (started) WebViewCompat.removeWebMessageListener(web, "NasqoHome")
+        started = false
         web.stopLoading()
         web.destroy()
     }

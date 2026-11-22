@@ -1,3 +1,4 @@
+import 'package:nasqo_pro_erp/services/posting_receipt.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nasqo_pro_erp/models/erp_models.dart';
@@ -20,6 +21,7 @@ class DocumentSpy extends ErpController {
       DateTime? invoiceDate,
       ValueChanged<String>? onCommitted,
       String? requestId,
+      BridgeReceipt? bridgeReceipt,
     required String customerName,
     required WarehouseRecord warehouse,
     required PaymentMethod payment,

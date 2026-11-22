@@ -54,3 +54,15 @@ class PostingReceipt {
     return null;
   }
 }
+
+/// Identity of a WebView write. Its result is saved by the native snapshot
+/// transaction so a lost reply can be replayed after process death.
+class BridgeReceipt {
+  const BridgeReceipt(this.key, this.fingerprint);
+  final String key;
+  final String fingerprint;
+  String get stateKey => 'react_receipt/$key';
+  BridgeResult result(String entityId) => (receipt: this, entityId: entityId);
+}
+
+typedef BridgeResult = ({BridgeReceipt receipt, String entityId});

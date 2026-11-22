@@ -1,0 +1,1 @@
+function e(e){return!!e.quantityUnverified}function t(e){let t=e.sellingPrice;if(t!==void 0&&Number.isFinite(t)&&t>0)return t;if(e.legacyRef)return null;let n=Math.round(e.avgCost*1.25);return Number.isFinite(n)&&n>0?n:null}function n(n){return!e(n)&&n.quantity>0&&t(n)!==null}function r(t){return!e(t)}export{e as i,r as n,n as r,t};

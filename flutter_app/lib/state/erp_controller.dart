@@ -28,7 +28,7 @@ import '../services/simple_journal_draft_repository.dart';
 import '../services/fx_draft_repository.dart';
 
 class ErpController extends ChangeNotifier {
-  ErpController({bool autoInitDb = true, LocalDatabase? localDatabase})
+  ErpController({bool autoInitDb = true, LocalDatabase? localDatabase, this.emptyOnFirstInstall = false})
       : _localDatabase = localDatabase ?? LocalDatabase.instance,
         _usesPersistentStore = autoInitDb || localDatabase != null {
     _seedInitialData();
@@ -37,6 +37,7 @@ class ErpController extends ChangeNotifier {
     }
   }
 
+  final bool emptyOnFirstInstall;
   final LocalDatabase _localDatabase;
   LocalDatabase get database => _localDatabase;
   LocalDatabase get localDatabase => _localDatabase;
@@ -577,6 +578,10 @@ class ErpController extends ChangeNotifier {
   int _nextEntryNumber = 1200;
 
   void _seedInitialData() {
+    if (emptyOnFirstInstall) {
+      warehouses.add(const WarehouseRecord(id: 'wh_1', name: 'المخزن الرئيسي', isDefault: true));
+      return;
+    }
     warehouses.addAll(const [
       WarehouseRecord(
         id: 'wh_1',
@@ -1136,6 +1141,7 @@ class ErpController extends ChangeNotifier {
     List<SavedSaleLine>? nextSaleLines,
     int? nextEntryNumber,
     SaleFacts? appendedSaleFacts,
+    BridgeResult? bridgeResult,
   }) =>
       _localDatabase.saveSnapshot(
         accounts: List.of(nextAccounts ?? accounts),
@@ -1147,6 +1153,7 @@ class ErpController extends ChangeNotifier {
         isDarkMode: isDarkMode,
         nextEntryNumber: nextEntryNumber ?? _nextEntryNumber,
         appendedSaleFacts: appendedSaleFacts,
+        bridgeResult: bridgeResult,
         erpData: nextModuleData ?? _workspaceModuleData,
       );
 
@@ -1312,7 +1319,7 @@ class ErpController extends ChangeNotifier {
 
   Future<void> saveAccountRows(List<ImportedAccount> rows,{required AccountCategory category,
       required CurrencyCode currency,required EntryDirection direction,String note='',double creditLimit=0,
-      bool cash=false,String? editId}) async {
+      bool cash=false,String? editId, BridgeReceipt? bridgeReceipt}) async {
     _requireAvailableMutation();
     _editingWorkspace=true;
     try {
@@ -1337,7 +1344,7 @@ class ErpController extends ChangeNotifier {
           openingDirection:direction,note:note.trim(),creditLimit:creditLimit,isCashAccount:cash,codeNumber:code);
         if(index<0) {next.add(account);} else {next[index]=account;}
       }
-      if(_usesPersistentStore) await _saveCurrentSnapshot(nextAccounts:next);
+      if(_usesPersistentStore) await _saveCurrentSnapshot(nextAccounts:next, bridgeResult:bridgeReceipt?.result(index < 0 ? next.last.id : next[index].id));
       accounts..clear()..addAll(next);
       if(!_disposed) notifyListeners();
     } finally { _editingWorkspace=false; }
@@ -1630,7 +1637,7 @@ class ErpController extends ChangeNotifier {
   }
 
   Future<void> saveWarehouse({String? id, required String name, required String details,
-      required bool isDefault}) async {
+      required bool isDefault, BridgeReceipt? bridgeReceipt}) async {
     _requireAvailableMutation();
     _editingWorkspace = true;
     try {
@@ -1656,7 +1663,7 @@ class ErpController extends ChangeNotifier {
         }
       }
       if (index < 0) { next.add(warehouse); } else { next[index] = warehouse; }
-      if (_usesPersistentStore) await _saveCurrentSnapshot(nextWarehouses: next);
+      if (_usesPersistentStore) await _saveCurrentSnapshot(nextWarehouses: next, bridgeResult: bridgeReceipt?.result(warehouse.id));
       warehouses..clear()..addAll(next);
       if (!_disposed) notifyListeners();
     } finally { _editingWorkspace = false; }
@@ -1668,6 +1675,7 @@ class ErpController extends ChangeNotifier {
     String? counterpartId,
     String? cashboxAccountId,
     String? requestId,
+    BridgeReceipt? bridgeReceipt,
     String documentNumber = '',
     required EntryDirection direction,
     required PaymentMethod payment,
@@ -1743,7 +1751,7 @@ class ErpController extends ChangeNotifier {
           entryNumber: nextNumber, entryDate: entry.entryDate, warehouseId: '', warehouseName: ''));
       }
       final nextLedger = [...postings, ...ledger];
-      if (_usesPersistentStore) await _saveCurrentSnapshot(nextLedger: nextLedger, nextEntryNumber: nextNumber);
+      if (_usesPersistentStore) await _saveCurrentSnapshot(nextLedger: nextLedger, nextEntryNumber: nextNumber, bridgeResult: bridgeReceipt?.result(entry.id));
       ledger.insertAll(0, postings);
       _nextEntryNumber = nextNumber;
       if (!_disposed) notifyListeners();
@@ -1781,7 +1789,7 @@ class ErpController extends ChangeNotifier {
 
   Future<int> postPurchaseInvoice({required String accountId,required String warehouseId,
       required PaymentMethod payment,required List<InvoiceItemRow> rows, String reference='',double exchangeRate=1,
-      double? freeAmount, String? cashboxAccountId, DateTime? invoiceDate, String? requestId}) async {
+      double? freeAmount, String? cashboxAccountId, DateTime? invoiceDate, BridgeReceipt? bridgeReceipt, String? requestId}) async {
     _requireAvailableMutation();
     _editingWorkspace=true;
     final draftRows = [for (final row in rows) InvoiceItemRow(id:row.id, itemId:row.itemId,
@@ -1839,7 +1847,7 @@ class ErpController extends ChangeNotifier {
         warehouseName:warehouse.name,entryNumber:number,entryDate:(invoiceDate ?? DateTime.now()).toIso8601String().substring(0,10));
       final posted=[entry,if(box!=null) ...cashSaleSettlement(entry,cashboxId:box.id,cashboxName:box.name),...ledger];
       if(_usesPersistentStore) await _saveCurrentSnapshot(nextInventory:stock,nextLedger:posted,
-        nextSaleLines:lines,nextEntryNumber:number);
+        nextSaleLines:lines,nextEntryNumber:number,bridgeResult:bridgeReceipt?.result(id));
       inventory..clear()..addAll(stock);
       ledger..clear()..addAll(posted);
       saleLines..clear()..addAll(lines);
@@ -1932,6 +1940,7 @@ class ErpController extends ChangeNotifier {
 
   Future<void> receiveStock({
     String? existingId,
+    BridgeReceipt? bridgeReceipt,
     required double quantity,
     String name = '',
     String sku = '',
@@ -1974,7 +1983,7 @@ class ErpController extends ChangeNotifier {
           name: name.trim(), sku: sku.trim(), unit: unit.trim(), warehouseId: warehouseId,
           quantity: quantity, avgCost: avgCost, minThreshold: threshold));
       }
-      if (_usesPersistentStore) await _saveCurrentSnapshot(nextInventory: next);
+      if (_usesPersistentStore) await _saveCurrentSnapshot(nextInventory: next, bridgeResult: bridgeReceipt?.result(existingId ?? next.last.id));
       inventory..clear()..addAll(next);
       if (!_disposed) notifyListeners();
     } finally {
@@ -2028,6 +2037,7 @@ class ErpController extends ChangeNotifier {
     DateTime? invoiceDate,
     ValueChanged<String>? onCommitted,
     String? requestId,
+    BridgeReceipt? bridgeReceipt,
     String documentNumber = '',
     String memo = '',
   }) async {
@@ -2224,6 +2234,7 @@ class ErpController extends ChangeNotifier {
             nextInventory: stagedInventory,
             nextSaleLines: stagedLines,
             nextEntryNumber: entryNum,
+            bridgeResult: bridgeReceipt?.result(entryId),
             appendedSaleFacts: SaleFacts(
               entryId: entryId,
               currency: postedCurrency,

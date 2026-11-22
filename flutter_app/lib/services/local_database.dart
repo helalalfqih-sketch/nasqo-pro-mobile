@@ -1,4 +1,5 @@
 import 'cash_sale_settlement.dart';
+import 'posting_receipt.dart';
 import 'dart:convert';
 import 'voucher_draft_repository.dart';
 import 'cash_transfer_draft_repository.dart';
@@ -1062,6 +1063,18 @@ class LocalDatabase {
     return jsonDecode(rows.single['payloadJson'] as String) as Map<String,dynamic>;
   }
 
+  Future<String?> bridgeResult(BridgeReceipt request) async {
+    final db = await database;
+    final rows = await db.query('erp_state', columns: ['payloadJson'],
+        where: 'stateKey = ?', whereArgs: [request.stateKey], limit: 1);
+    if (rows.isEmpty) return null;
+    final saved = jsonDecode(rows.single['payloadJson'] as String) as Map;
+    if (saved['fingerprint'] != request.fingerprint) {
+      throw const SaleValidationException('مفتاح الحفظ مستخدم لعملية مختلفة.');
+    }
+    return saved['entityId'] as String;
+  }
+
   Future<void> saveSnapshot({
     required List<AccountRecord> accounts,
     required List<LedgerEntryRecord> ledger,
@@ -1072,11 +1085,20 @@ class LocalDatabase {
     required bool isDarkMode,
     required int nextEntryNumber,
     SaleFacts? appendedSaleFacts,
+    BridgeResult? bridgeResult,
     String? restoredWebExport,
     Map<String, Object?>? erpData,
   }) async {
     final db = await database;
     await db.transaction((txn) async {
+      if (bridgeResult != null) {
+        await txn.insert('erp_state', {
+          'stateKey': bridgeResult.receipt.stateKey,
+          'payloadJson': jsonEncode({'entityId': bridgeResult.entityId,
+            'fingerprint': bridgeResult.receipt.fingerprint}),
+          'updatedAt': DateTime.now().toUtc().toIso8601String(),
+        }, conflictAlgorithm: ConflictAlgorithm.abort);
+      }
       if (restoredWebExport != null) {
         await _clearTables(txn);
         await txn.insert('erp_state', {

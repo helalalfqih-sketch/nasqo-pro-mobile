@@ -1,0 +1,318 @@
+{
+  "app": "NASQO PRO ERP Hybrid React Bundle",
+  "protocolVersion": "1.0.0",
+  "bridgeChannel": "NasqoHome",
+  "supportedBridgeChannels": [
+    "NasqoHome",
+    "NasqoFlutterBridge",
+    "flutter_inappwebview"
+  ],
+  "entryHtml": "index.html",
+  "offlineReady": true,
+  "cspEnforced": true,
+  "mockHostStripped": true,
+  "totalFiles": 60,
+  "totalBytes": 4006701,
+  "files": [
+    {
+      "path": "assets/cairo-arabic-600-normal-B3EOalmC.woff",
+      "bytes": 17336,
+      "sha256": "49b703bc0b0e367147ed7cf3ffc7f44141cafe03eba8d268b20b549c913278b8"
+    },
+    {
+      "path": "assets/cairo-arabic-600-normal-rkrvveqO.woff2",
+      "bytes": 13896,
+      "sha256": "621909d2e4c8720d3af3a74028556956d343baaa5be48c47a0ad406607fc6515"
+    },
+    {
+      "path": "assets/cairo-arabic-700-normal-CyOqhaeK.woff",
+      "bytes": 17260,
+      "sha256": "6d9f4ec4696a1d21b489aff7808b7aebe2b3fe3e0df1be3cf8d158b35542851b"
+    },
+    {
+      "path": "assets/cairo-arabic-700-normal-D3nDedWX.woff2",
+      "bytes": 13952,
+      "sha256": "673212b4908a9a6366ad6beb8a8a58c91bc3cb7e6cc4802b315a240c2dd80eb9"
+    },
+    {
+      "path": "assets/cairo-arabic-800-normal-CVTPwINa.woff",
+      "bytes": 17308,
+      "sha256": "1b74c5cd36ee51480304c05b5fc83349ec21e84290c03926e2c043e1f3c99d6e"
+    },
+    {
+      "path": "assets/cairo-arabic-800-normal-G1qvPr6G.woff2",
+      "bytes": 13888,
+      "sha256": "ba5febcd1f64ca49060a110276ea847e43a1d1e9c1ef554edaf65b2c0429194a"
+    },
+    {
+      "path": "assets/cairo-latin-600-normal-buYOP1M3.woff",
+      "bytes": 19684,
+      "sha256": "edf2c3eb6993d0dd48944ea5f8ffd1237411e344e516255c02c8a27ac2e3f80c"
+    },
+    {
+      "path": "assets/cairo-latin-600-normal-mGS0uvCM.woff2",
+      "bytes": 15280,
+      "sha256": "7212d7c4943af5388b90cd38e18343c16782f40988616d0596f769c515b71018"
+    },
+    {
+      "path": "assets/cairo-latin-700-normal-6fcUy4Rc.woff",
+      "bytes": 19744,
+      "sha256": "76649239d3d1e88d740ec96c078083d0fe4bc428729f9e16d277afb3aa272cdf"
+    },
+    {
+      "path": "assets/cairo-latin-700-normal-C3GYtKbV.woff2",
+      "bytes": 15284,
+      "sha256": "c174069a5fe05b9a60a058a4d35553fbba7c5207ae979e8fcde5ebc4dacce5a0"
+    },
+    {
+      "path": "assets/cairo-latin-800-normal-BBdTpBXf.woff2",
+      "bytes": 15320,
+      "sha256": "6ed8549a606ad21113e05f26a7996f19a4b462a48012f39e5c95e40c458a3b0a"
+    },
+    {
+      "path": "assets/cairo-latin-800-normal-ReWrxM5E.woff",
+      "bytes": 19752,
+      "sha256": "674bfecd33a027f2f72dfe57226b83c5c47b0660770d1a14627459d5f2a03924"
+    },
+    {
+      "path": "assets/cairo-latin-ext-600-normal-DAfLYaOC.woff",
+      "bytes": 10244,
+      "sha256": "2bd16328435b3484456ad9f2f09cddcff5a26b2e3abf18116a13243887d326ec"
+    },
+    {
+      "path": "assets/cairo-latin-ext-600-normal-DuRnqffh.woff2",
+      "bytes": 7484,
+      "sha256": "adf6f2aa2e8cc808944679f8f2513c14dec129e5e6dbba2babc142e38a65fd53"
+    },
+    {
+      "path": "assets/cairo-latin-ext-700-normal-Cscux539.woff2",
+      "bytes": 7464,
+      "sha256": "3ccad777e333c1eb82ea036ec15e28e26f37f1083903ff35bcd6390aa6662a33"
+    },
+    {
+      "path": "assets/cairo-latin-ext-700-normal-htXca11Z.woff",
+      "bytes": 10252,
+      "sha256": "c4a8e058b817b1fb56b3ca7a84b351af8a590f1d86507194f188383a37cbbb01"
+    },
+    {
+      "path": "assets/cairo-latin-ext-800-normal-ChnkP8hn.woff2",
+      "bytes": 7428,
+      "sha256": "273f7c1ac82e84e0b6c2f32e69939a97bd8158983ee681c4ee6ea7a016d83a04"
+    },
+    {
+      "path": "assets/cairo-latin-ext-800-normal-RObK5hVW.woff",
+      "bytes": 10256,
+      "sha256": "f4eef15673aa7e16240bb62402de452c3804337201ebf544cf2f9316c5656ff8"
+    },
+    {
+      "path": "assets/chunk-ErpCrmPosScreen-TuVe6fwS.js",
+      "bytes": 28947,
+      "sha256": "44a6137d0864927bf3f6ed64e038d6a071e71d184eed3e11de6e4fe9c2e2cdd9"
+    },
+    {
+      "path": "assets/chunk-ErpFinanceScreen-D-2g0q1v.js",
+      "bytes": 26945,
+      "sha256": "2106ead265476165995206154820cada8973e46916d31c5b3f0a0a290d2b3e38"
+    },
+    {
+      "path": "assets/chunk-ErpHrScreen-CiHw0hvL.js",
+      "bytes": 8746,
+      "sha256": "88aeb46c05d396a998d3b1f8f27f3c37f9b0c25c7e220952290f3349d495ac36"
+    },
+    {
+      "path": "assets/chunk-ErpHubScreen-Dh29YR5d.js",
+      "bytes": 7978,
+      "sha256": "631b2e38c0855223e21b6ead5d127b1d90136c42d066d29875a3f423c5c9b013"
+    },
+    {
+      "path": "assets/chunk-ErpManufacturingScreen-DxpVVwoH.js",
+      "bytes": 8367,
+      "sha256": "40ff97fe50dd95255678cfb045067b75be3f8b07a7cd5a61ddb1697be362c366"
+    },
+    {
+      "path": "assets/chunk-ErpProcurementScreen-loi5fa0d.js",
+      "bytes": 7838,
+      "sha256": "2e77a337dbc133dafa19106589974e332212a8a11e55413b1cc83b4912b3b780"
+    },
+    {
+      "path": "assets/chunk-FullSqliteImportModal-DNeLPy7x.js",
+      "bytes": 14553,
+      "sha256": "bd970758f3f470b59f300034dd2e5e1186962012c9c5666466df12b3b3600b9c"
+    },
+    {
+      "path": "assets/chunk-html2canvas-DL_87MDo.js",
+      "bytes": 199571,
+      "sha256": "50e7a84b6f503a52a1b73de8e83d10ff6730840112b60640daf6171430fcc9a8"
+    },
+    {
+      "path": "assets/chunk-index.es-BplNdz9t.js",
+      "bytes": 151514,
+      "sha256": "3124e9b4feb2e60da55bb6f702d85ce6b859f18d9b9394aad39d46782bc72e35"
+    },
+    {
+      "path": "assets/chunk-liveSafety-DMCFaBr2.js",
+      "bytes": 334,
+      "sha256": "4edbb46fd2a47f95becaeabc4a4c3e22c2dddee3b9957ea25f51df1c79fa5d9a"
+    },
+    {
+      "path": "assets/chunk-purify.es-Cu8FNuDu.js",
+      "bytes": 28568,
+      "sha256": "921ac83a891f9a98b36a542556701dc1fa0d63e6eb9fdcaafd908e4bf9c909cd"
+    },
+    {
+      "path": "assets/chunk-QrScannerModal-DuEgHLxD.js",
+      "bytes": 139540,
+      "sha256": "b2f9eabe28785d5f079de4d00c5df402cf9ef84cf84ee5ad10cf8d58488b7ece"
+    },
+    {
+      "path": "assets/chunk-rolldown-runtime-CNC7AqOf.js",
+      "bytes": 879,
+      "sha256": "d4a36920c7bab6ec97d0bdc5d1233622f28fe010198ca32bcdd80c8cb6b64aae"
+    },
+    {
+      "path": "assets/chunk-smartProOfflineAdapter-0NpWYAcU.js",
+      "bytes": 5808,
+      "sha256": "23d107e698cd50fad9b130947ecf606dda4fc2b8646f0f03eabd5ce83238e23a"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-arabic-400-normal-CyU-ddYS.woff2",
+      "bytes": 42848,
+      "sha256": "6010e7fd0dce5d527583951750728cbe3c895efbd16aa0f809ab8c824878c9d8"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-arabic-400-normal-EA1o-u_Q.woff",
+      "bytes": 44136,
+      "sha256": "5777059c6186b4575f2097b83bf5ac50175b24ea8c430586f5be39a607875c21"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-arabic-500-normal-C4MQITzh.woff2",
+      "bytes": 45296,
+      "sha256": "90aef64fea9794f232332e907d45810ab268d1a11721340025eba2a2cdb36d5c"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-arabic-500-normal-DPXcppbm.woff",
+      "bytes": 46924,
+      "sha256": "9f5b9493535d6c8475381fa8414bb57058c8fe3d8a7dc27db6732e94eb8ac386"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-arabic-600-normal-0pRdybE_.woff2",
+      "bytes": 45688,
+      "sha256": "16734a5adb27b0f363e566cbbeacec480da0dc0baa19c8f0053251c2e2bc0eac"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-arabic-600-normal-MJZ0liF5.woff",
+      "bytes": 46780,
+      "sha256": "47e5f63ded5c73fd11542557db42cb98825f7b5f1e940e864190a0b0b29d8c5c"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-arabic-700-normal-9rXc6cUL.woff",
+      "bytes": 44364,
+      "sha256": "db496b08765417c5e5f418192802d71f0dcace4d337131a8e1127591accd8fa7"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-arabic-700-normal-DrtBj6UE.woff2",
+      "bytes": 44280,
+      "sha256": "04c730b4292731ccedadd5bd80756124364ae4923895145d9cd7b1f28e443de1"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-400-normal-Bo5KPYvw.woff2",
+      "bytes": 19164,
+      "sha256": "9ed8dcb02e6c7246de4c120295fafa39a7bb73085f4951a4524a07dc911069f2"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-400-normal-CFZh1unN.woff",
+      "bytes": 17512,
+      "sha256": "dba043d3901c69646b7c0deacbf7762b905887e43a394c115b02303b08bdca17"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-500-normal-BletK1Hp.woff",
+      "bytes": 18640,
+      "sha256": "99dc0e4fcfe2d25c9b183fc26bc7fe8a015b0c431ed74851a5634c2df5017ceb"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-500-normal-Cd6jVIg7.woff2",
+      "bytes": 20088,
+      "sha256": "be6a3b2e37f3ad67aa822a55ce356d28c416331c97530a1ec076c2118240ca2d"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-600-normal-Dk5eISD_.woff",
+      "bytes": 18880,
+      "sha256": "9a1577096ef8212b410a949155086b7435d08ffd7154d63f12f2c31ebfac17a3"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-600-normal-KrqB56Mw.woff2",
+      "bytes": 20500,
+      "sha256": "63f4757271e403f7baec0862f284ffaa4560ea6096ba9fe8bc6e585ca656e724"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-700-normal-BzSf6GNr.woff2",
+      "bytes": 19504,
+      "sha256": "ae2d59f91ecf9f7ed279e4a1fc1a9da8170fb0ce5b9152917a8f759033f5777c"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-700-normal-Cl4F7CZR.woff",
+      "bytes": 17780,
+      "sha256": "14d664226fe6aba968ad8b6edd8fe2a97e4a783fb06bf97bc394e2859634695d"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-ext-400-normal-BeVLg08x.woff",
+      "bytes": 5100,
+      "sha256": "e57a503ae929b27d4dda069a805bf2dea1d7f41e6fc82777e4617c2fced50983"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-ext-400-normal-BpLfq-63.woff2",
+      "bytes": 6656,
+      "sha256": "1935fa1a3326fcd48e20abe864bb30ace43fe58bd572f354c24271ea66208e04"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-ext-500-normal-Ck_W4G78.woff2",
+      "bytes": 6540,
+      "sha256": "ae5c1a58c18d253e20691f00e401319f01fc568d24d0e50165f276d1a99035b5"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-ext-500-normal-eJxPnL1P.woff",
+      "bytes": 5116,
+      "sha256": "bda6d5bccae9b17d9f49f2683cf6a4157aeb1f98c9594917af56671be0f1412e"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-ext-600-normal-DjDAeNQD.woff2",
+      "bytes": 6680,
+      "sha256": "0f7c03bb523b8084a84c4b7d95a5c7b294b7318f88b2e51829d5fe7aaef0d0bb"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-ext-600-normal-DT29Q8HW.woff",
+      "bytes": 5124,
+      "sha256": "74556ff3aaecddb25ac4d0184090b5a1848b83aa3d9f8eeca257bdb659a893c7"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-ext-700-normal-BSbyEp0V.woff2",
+      "bytes": 6564,
+      "sha256": "ab0b9584271f492336d9eadcef96f99b0da07e8e7046220aea5084f1644a9c9d"
+    },
+    {
+      "path": "assets/ibm-plex-sans-arabic-latin-ext-700-normal-C7GcWn11.woff",
+      "bytes": 5084,
+      "sha256": "607efd86ebb4d417ef472ec55fcbc24e5e3ed969ca974d35cd277497532762bf"
+    },
+    {
+      "path": "assets/NASQO_PRO_ERP_800_022d325f-47T0dSRW.png",
+      "bytes": 511636,
+      "sha256": "022d325fa84df3f97d5573ea1d13cef1f128c610a4994a721da4f2d0c556ac90"
+    },
+    {
+      "path": "assets/nasqo-hybrid-D5IVYHW2.js",
+      "bytes": 1721464,
+      "sha256": "22292bea13cd039c9e85ae5433f73cf9d54268076dc971d7bd93ded4f5b2ed52"
+    },
+    {
+      "path": "assets/style-Chkpssa5.css",
+      "bytes": 332051,
+      "sha256": "0b0944dd8d6037679db692459c2e68e85269b68e6bfa906d61da59d7e2d68a0e"
+    },
+    {
+      "path": "index.html",
+      "bytes": 882,
+      "sha256": "ba4482cd1953096637979ae580e8f0502d4912cd69b2e82445e2bda51e664272"
+    }
+  ]
+}
