@@ -5,6 +5,12 @@ on:
       - qa/web-backup-import-10022
     paths:
       - '.github/workflows/nasqo-web-import-qa-10022.yml'
+      - 'flutter_app/lib/hybrid/**'
+      - 'flutter_app/lib/state/erp_controller.dart'
+      - 'flutter_app/android/app/src/main/kotlin/com/indexesstore/nasqo_qa/**'
+      - 'react-hybrid/src/hybrid/contracts.ts'
+      - 'react-hybrid/src/Prototype.tsx'
+  workflow_dispatch:
 permissions:
   contents: read
   actions: read
