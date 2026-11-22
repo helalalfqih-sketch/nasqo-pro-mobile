@@ -97,12 +97,22 @@ class ReactWorkspace {
       case 'goBack':
       case 'navigate':
       case 'showMessage':
-        return {'handled': true};
+        // React FlowStack, not Flutter Navigator, is the UI owner.
+        return {'handled': true, 'uiOwner': 'react'};
+      case 'openInvoice':
+      case 'openVoucher':
+      case 'openAccountStatement':
+        // These are React navigation notifications, not commands to open
+        // native Flutter invoice, voucher or statement pages.
+        return {'handled': true, 'uiOwner': 'react'};
     }
-    if (!allowWrites ||
-        !kHybridFinancialMutationCommands.contains(request.action)) {
-      throw const HybridBridgeException(
-          'UNAUTHORIZED_ACTION', 'هذه العملية متاحة من واجهة Flutter الأصلية.');
+    if (!allowWrites) {
+      throw const HybridBridgeException('UNAUTHORIZED_ACTION',
+          'الكتابة المالية معطلة بإعداد QA. لم يتم تغيير قاعدة SQLite.');
+    }
+    if (!kHybridFinancialMutationCommands.contains(request.action)) {
+      throw const HybridBridgeException('SERVICE_UNAVAILABLE',
+          'هذه الوظيفة غير مكتملة في واجهة React التجريبية؛ لم تتم كتابة أي بيانات.');
     }
     final key = request.idempotencyKey!;
     if (key.length > 256) throw const FormatException('مفتاح الحفظ طويل جدًا.');
@@ -144,7 +154,7 @@ class ReactWorkspace {
         }
       default:
         throw const HybridBridgeException('SERVICE_UNAVAILABLE',
-            'استخدم واجهة Flutter الأصلية لهذه العملية.');
+            'هذه الوظيفة لم تُنفذ بعد في React QA؛ لم تتم كتابة أي بيانات.');
     }
     String? entityId = await controller.database.bridgeResult(receipt);
     final replayed = entityId != null;
@@ -367,7 +377,7 @@ class ReactWorkspace {
         'transfer' => LedgerKind.transfer,
         'currency' => LedgerKind.currency,
         _ => throw const FormatException(
-            'استخدم النموذج الأصلي لنوع المستند المحدد.')
+            'نوع المستند هذا غير مكتمل في React QA؛ لم تتم كتابة أي بيانات.')
       };
       await controller.postLocalEntry(
           accountId: account.id,
