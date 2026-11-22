@@ -90,6 +90,28 @@ private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: I
             javaScriptCanOpenWindowsAutomatically = false
             mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
         }
+        // Android WebView has no default JS confirmation UI. Restrict the
+        // explicit import consent dialog to our offline packaged React origin.
+        web.webChromeClient = object : android.webkit.WebChromeClient() {
+            override fun onJsConfirm(
+                view: WebView?, url: String?, message: String?,
+                result: android.webkit.JsResult?
+            ): Boolean {
+                if (!reactWorkspace || url?.startsWith("$origin/react/") != true ||
+                    result == null) {
+                    result?.cancel()
+                    return true
+                }
+                android.app.AlertDialog.Builder(activity)
+                    .setTitle("تأكيد استيراد NASQO")
+                    .setMessage(message ?: "هل توافق على استبدال بيانات الهاتف؟")
+                    .setNegativeButton("إلغاء") { _, _ -> result.cancel() }
+                    .setPositiveButton("موافقة واستيراد") { _, _ -> result.confirm() }
+                    .setOnCancelListener { result.cancel() }
+                    .show()
+                return true
+            }
+        }
         web.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse =
                 if (request.method == "GET") loader.shouldInterceptRequest(request.url) ?: denied() else denied()

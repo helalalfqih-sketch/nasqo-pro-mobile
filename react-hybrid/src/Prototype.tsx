@@ -1672,6 +1672,22 @@ export function AuthenticatedWorkspace({
 
   const saveLocalNamedBackup = useCallback(
     async (backupName: string) => {
+      if (hybrid.isHybrid) {
+        await runWithLoader("جاري إنشاء نسخة استرجاع محلية آمنة...", async () => {
+          try {
+            const result = await hybridBridge.invoke("backupWorkspace", {
+              workspaceId: LOCAL_WORKSPACE_UID,
+              backupName,
+              target: "local",
+            });
+            if (!result) throw new Error("لم تؤكد خدمة النسخ حفظ البيانات.");
+            showToast("حُفظت نسخة الاسترجاع داخل مساحة التطبيق الخاصة.");
+          } catch (err) {
+            showToast(err instanceof Error ? err.message : "تعذر إنشاء النسخة.");
+          }
+        });
+        return;
+      }
       await runWithLoader("جاري تجهيز وتصدير النسخة الاحتياطية...", async () => {
         const exportedAt = new Date().toISOString();
         const fileName = buildLocalBackupDownloadName(backupName);
@@ -1701,7 +1717,7 @@ export function AuthenticatedWorkspace({
         }
       });
     },
-    [buildBackupJsonString, runWithLoader, showToast, user.uid],
+    [buildBackupJsonString, hybrid, runWithLoader, showToast, user.uid],
   );
 
   const saveCloudNamedBackup = useCallback(
@@ -1776,26 +1792,70 @@ export function AuthenticatedWorkspace({
 
   const triggerJsonRestore = useCallback(() => {
     if (hybrid.isHybrid) {
-      void hybrid
-        .pickFile({
-          purpose: "restore-backup",
-          accept: [".json", ".db", ".sqlite", ".sqlite3", ".sql", ".backup", ".gz"],
-        })
-        .then(async (picked) => {
-          if (!picked || !picked.base64Content) return;
-          const binary = atob(picked.base64Content);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-          await restoreBackupRef.current?.(bytes, picked.fileName || "backup.sqlite");
-        })
-        .catch((err) => {
-          showToast(err instanceof Error ? err.message : "تعذر اختيار ملف النسخة الاحتياطية.");
-        });
+      void runWithLoader("جارٍ فحص النسخة على الهاتف دون تعديل البيانات...", async () => {
+        try {
+          const preview = await hybrid.pickFile({
+            purpose: "restore-backup",
+            accept: [".json", ".db", ".sqlite", ".sqlite3", ".gz"],
+          });
+          if (!preview || preview.cancelled || !preview.session) return;
+          const counts = preview.counts ?? {};
+          const unsupported = preview.unsupportedFields ?? [];
+          const details = [
+            "معاينة استيراد NASQO Web إلى SQLite المحلية",
+            "الحسابات: " + (counts.accounts ?? 0),
+            "المجموعات: " + (counts.groups ?? 0),
+            "العملات: " + (counts.currencies ?? 0),
+            "الفواتير: " + (counts.invoices ?? 0),
+            "السندات: " + (counts.vouchers ?? 0),
+            "المخازن: " + (counts.warehouses ?? 0),
+            "الأصناف: " + (counts.items ?? 0),
+            "القيود: " + (counts.ledger ?? 0),
+            "سطور الفواتير: " + (counts.invoiceLines ?? 0),
+            "صيغة الملف: " + (preview.format ?? "غير معروفة") +
+              " / الإصدار " + (preview.version ?? "?"),
+            "فحص SQLite المعزول: " +
+              (preview.trial?.integrity === "ok" ? "ناجح" : "غير مكتمل"),
+            unsupported.length
+              ? "حقول غير مدعومة: " + unsupported.join("، ")
+              : "لا توجد حقول إضافية غير معروفة",
+            "",
+            "سيُنشئ التطبيق نسخة استرجاع محلية قبل الاستبدال.",
+            "هل توافق على استبدال بيانات هذا الهاتف؟",
+          ].join("\n");
+          if (!window.confirm(details)) {
+            showToast("تم إلغاء الاستيراد؛ لم تتغير بيانات الهاتف.");
+            return;
+          }
+          const result = await hybridBridge.invoke<
+            "restoreWorkspace",
+            { committed: boolean; snapshot?: unknown }
+          >(
+            "restoreWorkspace",
+            { workspaceId: LOCAL_WORKSPACE_UID, session: preview.session, confirmed: true },
+            { timeoutMs: 120_000, dedupeKey: "restore:" + preview.session },
+          );
+          if (!result.committed || !result.snapshot) {
+            throw new Error("لم تؤكد خدمة SQLite اكتمال الاستعادة.");
+          }
+          hybridBridge.handleInbound({
+            protocolVersion: "1.0.0",
+            kind: "event",
+            event: "snapshotUpdated",
+            payload: result.snapshot,
+            timestampMs: Date.now(),
+          });
+          triggerHaptic("success");
+          showToast("اكتملت الاستعادة والتحقق من SQLite وتحديث واجهة React.", 6500);
+        } catch (err) {
+          triggerHaptic("warning");
+          showToast(err instanceof Error ? err.message : "تعذر استيراد النسخة.", 8000);
+        }
+      });
       return;
     }
     jsonRestoreInputRef.current?.click();
-  }, [hybrid, showToast]);
-
+  }, [hybrid, runWithLoader, showToast]);
   const triggerCsvImport = useCallback(() => {
     if (hybrid.isHybrid) {
       void hybrid

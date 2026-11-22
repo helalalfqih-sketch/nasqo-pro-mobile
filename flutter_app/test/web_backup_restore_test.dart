@@ -7,6 +7,7 @@ import 'package:nasqo_pro_erp/state/erp_controller.dart';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nasqo_pro_erp/services/web_backup.dart';
+import 'package:nasqo_pro_erp/services/website_restore_trial.dart';
 import 'package:nasqo_pro_erp/services/local_database.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -73,6 +74,7 @@ void main() {
   test('web invoice, balance and stock survive a cold reopen', () async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    databaseFactory = databaseFactoryFfi;
     final dir = await Directory.systemTemp.createTemp('nasqo-web-reconcile');
     final store = LocalDatabase.withFactory(databaseFactoryFfi, '${dir.path}/data.db');
     final first = ErpController(autoInitDb: false, localDatabase: store);
@@ -93,7 +95,14 @@ void main() {
        'entryDate':'2026-10-01','warehouseId':'w1','warehouseName':'المخزن',
        'lines':[{'inventoryItemId':'i1','itemName':'صنف','unit':'حبة','quantity':2,'price':15}]}
     ]};
-    await first.restoreWebBackup(WebBackup.parse(jsonEncode(export)));
+    final validated = WebBackup.parse(jsonEncode(export));
+    final preview = await testWebsiteRestore(validated);
+    expect(preview['integrity'], 'ok');
+    expect(preview['coldReopen'], true);
+    expect((preview['before'] as Map)['accounts'], 1);
+    expect((preview['before'] as Map)['invoices'], 1);
+    expect((preview['before'] as Map)['items'], 1);
+    await first.restoreWebBackup(validated);
     await store.close();
     final snapshot = await store.loadSnapshot();
     final customer = snapshot.accounts.single;

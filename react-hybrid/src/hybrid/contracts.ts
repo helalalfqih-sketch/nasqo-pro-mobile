@@ -202,10 +202,20 @@ export interface HybridPickFileRequest {
 
 export interface HybridPickFileResult {
   cancelled?: boolean;
-  fileName: string;
-  mimeType: string;
-  sizeBytes: number;
-  base64Content: string;
+  fileName?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  /** Small native metadata only; the actual backup never enters WebView. */
+  session?: string;
+  format?: string;
+  version?: number;
+  fileSha256?: string;
+  counts?: Record<string, number>;
+  unsupportedFields?: string[];
+  trial?: Record<string, unknown>;
+  requiresConfirmation?: boolean;
+  /** Legacy web picker payload; never populated by native backup import. */
+  base64Content?: string;
 }
 
 export interface HybridCommandPayloadMap {
@@ -280,7 +290,7 @@ export interface HybridCommandPayloadMap {
   getProductPriceStats: { workspaceId: string; itemId: string };
   saveErpData: { workspaceId: string; data: ErpWorkspaceData };
   backupWorkspace: { workspaceId: string; backupName?: string; target: "local" | "cloud" };
-  restoreWorkspace: { workspaceId: string; fileName: string; format: "json" | "sqlite" | "sql"; base64Content: string };
+  restoreWorkspace: { workspaceId: string; session: string; confirmed: boolean } | { workspaceId: string; fileName: string; format: "json" | "sqlite" | "sql"; base64Content: string };
   resetWorkspace: { workspaceId: string; mode: "empty" | "demo" };
   googleDriveAction: { operation: string; args?: Record<string, unknown> };
 }
