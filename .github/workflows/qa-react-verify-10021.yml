@@ -1,0 +1,87 @@
+name: Verify QA 10020 upgrade and React release screens
+on:
+  push:
+    branches: [qa/react-release-10021]
+    paths:
+      - 'qa/qa10021/**'
+      - 'qa/react_sqlite/**'
+      - '.github/workflows/qa-react-verify-10021.yml'
+permissions:
+  contents: read
+  actions: read
+env:
+  BUILD_RUN: '45047252758'
+  APP_SOURCE: '5806e97b4e49b61e80684103640e10cb07f6962d'
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Wait for pinned signed candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git diff --exit-code "$APP_SOURCE" HEAD -- flutter_app react-hybrid
+          for i in {1..80}; do
+            read -r head status conclusion <<< "$(gh api repos/"$GITHUB_REPOSITORY"/actions/runs/"$BUILD_RUN" --jq '[.head_sha,.status,(.conclusion // "-")]|@tsv')"
+            test "$head" = "$APP_SOURCE"
+            if [[ "$status" = completed ]]; then test "$conclusion" = success; break; fi
+            sleep 15
+          done
+          test "$status" = completed
+      - name: Download original 10020
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 45040841618
+          github-token: ${{ github.token }}
+          name: nasqo-qa-signed-10020-0583100
+          path: baseline
+      - name: Download signed release-mode 10021
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ env.BUILD_RUN }}
+          github-token: ${{ github.token }}
+          name: nasqo-qa-10021-candidate
+          path: candidate
+      - name: Verify input binaries
+        run: |
+          test "$(cat candidate/source-sha.txt)" = "$APP_SOURCE"
+          echo '47732d6230e568ff6c3e8f1f88d8f1724599149e94de34680593ed8195e9bd81  baseline/nasqo-qa-10020.apk' | sha256sum -c -
+          (cd candidate && sha256sum -c apk.sha256)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - name: Enable KVM for the disposable Android device
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Test upgrade, hardware Back, native chrome and offline SQLite on signed release
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          disable-linux-hw-accel: false
+          script: |
+            python3 qa/qa10021/upgrade.py baseline/nasqo-qa-10020.apk candidate/NASQO-PRO-QA-10021.apk
+            node qa/react_sqlite/android.mjs candidate/NASQO-PRO-QA-10021.apk android-evidence --upgraded
+      - name: Compare signed Android screens against live React
+        run: |
+          node qa/react_sqlite/web_reference.mjs android-evidence
+          node qa/qa10021/compare.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nasqo-qa-10021-emulator-evidence
+          path: android-evidence/
+          if-no-files-found: warn
+          retention-days: 14

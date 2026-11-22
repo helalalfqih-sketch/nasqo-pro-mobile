@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { exerciseForms } from './forms.mjs';
+import { exerciseReleaseNavigation } from '../qa10021/navigation.mjs';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
@@ -8,6 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 const apk = process.argv[2];
 const evidence = process.argv[3] || 'android-evidence';
+const upgrade = process.argv.includes('--upgraded');
 const app = 'com.indexesstore.nasqo_qa';
 const localUrl = 'https://appassets.androidplatform.net/react/index.html';
 const workspaceId = 'local-erp-workspace';
@@ -112,8 +114,13 @@ const result={app, exercise:'Production WebViewCompat to Dart and native SQLite'
 try {
   // Only run on a new disposable Android emulator, never a developer phone.
   assert([shell('getprop','ro.kernel.qemu'),shell('getprop','ro.boot.qemu')].includes('1'));
-  assert.equal(shell('pm','list','packages',app),'', 'Use a fresh test emulator');
-  adb('install','-r',apk);
+  if (upgrade) {
+    assert.match(shell('dumpsys','package',app), /versionCode=10021\b/);
+    assert.equal(shell('id','-u'),'0','Disposable rooted emulator required');
+  } else {
+    assert.equal(shell('pm','list','packages',app),'', 'Use a fresh test emulator');
+    adb('install','-r',apk);
+  }
   shell('wm','size','393x852'); shell('wm','density','160');
   shell('cmd','connectivity','airplane-mode','enable');
   shell('svc','wifi','disable'); shell('svc','data','disable');
@@ -124,7 +131,21 @@ try {
   await capture('first-launch');
   console.log('Installed APK rendered the local React dashboard in airplane mode');
   const fresh=await request('getSnapshot',{workspaceId});
-  assert.deepEqual([fresh.accounts.length,fresh.ledger.length,fresh.inventory.length],[0,0,0]);
+  const counts = {accounts:fresh.accounts.length, entries:fresh.ledger.length};
+  if (upgrade) {
+    assert(fresh.accounts.some(a=>a.id==='qa-review-usd'));
+    assert(fresh.ledger.some(e=>e.id==='qa-review-invoice'));
+    assert(fresh.ledger.some(e=>e.id==='qa21-existing-voucher'));
+    stop();
+    execFileSync('python3',['qa/qa10021/upgrade.py','upgraded'],{stdio:'inherit'});
+    view=await attach();
+    result.navigation=await exerciseReleaseNavigation({view, until, shell, adb, save});
+  } else {
+    assert.deepEqual([counts.accounts,counts.entries,fresh.inventory.length],[0,0,0]);
+  }
+  const inspectDatabase=(...args)=>JSON.parse(execFileSync('python3',['qa/react_sqlite/read_device_db.py',...args],
+    {encoding:'utf8',env:{...process.env, NASQO_RELEASE_UPGRADE:upgrade?'1':'0',
+      NASQO_BASE_ACCOUNTS:String(counts.accounts), NASQO_BASE_ENTRIES:String(counts.entries)}}));
   assert.equal(fresh.capabilities.readOnlyFinancial,false);
   const acc=(await post('saveAccount',{name:'مورد اختبار Android',category:'purchases'},'qa-account')).account;
   const item=(await post('createInventoryItem',{name:'صنف اختبار Android',warehouseId:'wh_1',unit:'حبة',quantity:10,avgCost:2},'qa-stock')).item;
@@ -137,7 +158,7 @@ try {
   result.steps.push('Posted account, item, invoice and voucher offline; simultaneous invoice saved once');
   stop();
   console.log('Inspecting SQLite on the stopped Android process');
-  const firstDb=JSON.parse(execFileSync('python3',['qa/react_sqlite/read_device_db.py',acc.id,item.id,inv[0].entry.id,v.entry.id],{encoding:'utf8'}));
+  const firstDb=inspectDatabase(acc.id,item.id,inv[0].entry.id,v.entry.id);
   result.sqliteBeforeRestart=firstDb;
   view=await attach();
   assert.notEqual(view.pid,result.firstPid);
@@ -145,28 +166,29 @@ try {
   assert.equal(shell('settings','get','global','airplane_mode_on'),'1');
   await capture('after-restart');
   const recovered=await request('getSnapshot',{workspaceId});
-  assert.equal(recovered.accounts[0].id,acc.id); assert.equal(recovered.inventory[0].quantity,13);
-  assert.deepEqual(recovered.ledger.map(e=>e.id).sort(),[inv[0].entry.id,v.entry.id].sort());
+  assert(recovered.accounts.some(a=>a.id===acc.id)); assert.equal(recovered.inventory.find(i=>i.id===item.id).quantity,13);
+  assert.deepEqual(recovered.ledger.filter(e=>e.accountId===acc.id).map(e=>e.id).sort(),[inv[0].entry.id,v.entry.id].sort());
   assert.equal((await post('createLedgerEntry',invoice,'qa-invoice')).postingReceipt.replayed,true);
   assert.equal((await post('createLedgerEntry',voucher,'qa-voucher')).postingReceipt.replayed,true);
   const conflict=await post('createLedgerEntry',{...voucher,amount:8},'qa-voucher',false);
   assert.equal(conflict.code,'VALIDATION_ERROR');
   stop();
-  result.sqliteAfterReplay=JSON.parse(execFileSync('python3',['qa/react_sqlite/read_device_db.py',acc.id,item.id,inv[0].entry.id,v.entry.id],{encoding:'utf8'}));
+  result.sqliteAfterReplay=inspectDatabase(acc.id,item.id,inv[0].entry.id,v.entry.id);
   assert.deepEqual(result.sqliteAfterReplay,firstDb);
   result.steps.push('Offline process restart, readback, repeated and conflicting postings; database identical');
   view=await attach();
   console.log('Submitting account, stock, invoice and voucher through the React forms');
   const ids=await exerciseForms(view,until,()=>request('getSnapshot',{workspaceId}));
   stop();
-  result.formsDatabase=JSON.parse(execFileSync('python3',['qa/react_sqlite/read_device_db.py',...ids,'forms'],{encoding:'utf8'}));
+  result.formsDatabase=inspectDatabase(...ids,'forms');
   view=await attach();
   const final=await request('getSnapshot',{workspaceId});
-  assert.equal(final.accounts.length,2); assert.equal(final.ledger.length,4);
+  assert.equal(final.accounts.length,counts.accounts+2); assert.equal(final.ledger.length,counts.entries+4);
   assert.equal(final.inventory.find(i=>i.id===ids[1]).quantity,13);
   assert(final.ledger.some(e=>e.id===ids[2]) && final.ledger.some(e=>e.id===ids[3]));
   result.steps.push('Submitted the four real React forms, force-stopped the APK and verified their native rows from a new Android process');
   stop();
+  if (upgrade) execFileSync('python3',['qa/qa10021/upgrade.py','after-writes'],{stdio:'inherit'});
   result.passed=true;
 } catch(e) {
   result.passed=false;result.error=String(e.stack||e);
