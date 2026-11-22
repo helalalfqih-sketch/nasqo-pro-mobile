@@ -74,6 +74,7 @@ void main() {
   test('web invoice, balance and stock survive a cold reopen', () async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    databaseFactory = databaseFactoryFfi;
     final dir = await Directory.systemTemp.createTemp('nasqo-web-reconcile');
     final store = LocalDatabase.withFactory(databaseFactoryFfi, '${dir.path}/data.db');
     final first = ErpController(autoInitDb: false, localDatabase: store);
