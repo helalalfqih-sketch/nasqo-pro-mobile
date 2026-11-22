@@ -18,6 +18,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '24.22.3'
@@ -31,5 +32,6 @@ jobs:
       - name: Confirm no live DB, APK or production deployment is involved
         run: |
           set -euo pipefail
-          git diff --name-only HEAD~4 HEAD | tee /tmp/qa-changed-paths.txt
+          git merge-base --is-ancestor 96e17c26deaeff49bf973f6bedaa20283325251d HEAD
+          git diff --name-only 96e17c26deaeff49bf973f6bedaa20283325251d HEAD | tee /tmp/qa-changed-paths.txt
           ! grep -E '^flutter_app/(android|lib|assets)/' /tmp/qa-changed-paths.txt
