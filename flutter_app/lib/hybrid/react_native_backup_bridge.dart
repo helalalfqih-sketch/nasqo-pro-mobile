@@ -39,13 +39,13 @@ class ReactNativeBackupBridge {
   String? _completedKey;
   Map<String, Object?>? _completedReceipt;
 
-  static Future<XFile?> _androidPicker() => openFile(
-        acceptedTypeGroups: [
-          const XTypeGroup(label: 'NASQO Web backup', extensions: [
-            'json', 'sqlite', 'sqlite3', 'db', 'backup', 'back', 'gz'
-          ])
-        ],
-      );
+  // Android's document providers do not consistently advertise a MIME type
+  // for SmartPro's .back extension. An extension-filtered ACTION_OPEN_DOCUMENT
+  // may display the file as disabled, leaving the picker open indefinitely.
+  // Accept any document in the system picker, then reject unsupported content
+  // through the existing strict size, SQLite header, schema and JSON checks.
+  // Never trust the extension, and never pass file bytes to the React WebView.
+  static Future<XFile?> _androidPicker() => openFile();
 
   static String _newToken() {
     final rng = Random.secure();
