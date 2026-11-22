@@ -417,6 +417,9 @@ class ReactWorkspace {
             as Map<String, dynamic>;
     final boxes = controller.accounts.where((a) => a.isCashAccount).toList()
       ..sort((a, b) => a.codeNumber.compareTo(b.codeNumber));
+    final archive = controller.restoredGroups;
+    final hasDirectory = archive != null && archive.groups.isNotEmpty;
+    final categories = controller.accounts.map((a) => a.category).toSet();
     return {
       'workspaceId': workspaceId,
       'userEmail': 'offline@nasqo.local',
@@ -442,15 +445,30 @@ class ReactWorkspace {
           }
       ],
       'accountGroups': [
-        for (final g in AccountCategory.values)
-          {
-            'id': g.index + 1,
-            'name': g.label,
-            'category': g.name,
-            'hasBill': true,
-            'isEmployee': g == AccountCategory.employees,
-            'sortOrder': g.index + 1
-          }
+        if (hasDirectory)
+          for (final group in archive.groups)
+            {
+              'id': group.id,
+              'name': group.name,
+              'legacyId': group.number,
+              'category': archive.groupCategories[group.id] ?? 'shop',
+              'currencyCode': _groupCurrency(archive.groupCurrencies[group.id]),
+              'sortOrder': group.order,
+              'hasBill': true,
+              'isEmployee': archive.groupCategories[group.id] == 'employees',
+            }
+        else
+          for (final category
+              in AccountCategory.values.where(categories.contains))
+            {
+              'id': category.index + 1,
+              'name': category.label,
+              'category': category.name,
+              'currencyCode': controller.defaultCurrency.label,
+              'sortOrder': category.index + 1,
+              'hasBill': true,
+              'isEmployee': category == AccountCategory.employees,
+            }
       ],
       'cashboxes': [
         for (final a in boxes)
@@ -465,7 +483,13 @@ class ReactWorkspace {
             'isActive': true
           }
       ],
-      'accounts': controller.accounts.map(_accountToHybridJson).toList(),
+      'accounts': [
+        for (final a in controller.accounts)
+          _accountToHybridJson(a,
+              groupId: hasDirectory
+                  ? archive.membership[a.id]
+                  : a.category.index + 1),
+      ],
       'warehouses': [
         for (final (i, w) in controller.warehouses.indexed)
           _warehouseToHybridJson(w, i + 1)
@@ -490,6 +514,14 @@ class ReactWorkspace {
     };
   }
 
+  String _groupCurrency(String? value) =>
+      CurrencyCode.values
+          .where((c) =>
+              c.name.toUpperCase() == value?.toUpperCase() || c.label == value)
+          .firstOrNull
+          ?.label ??
+      controller.defaultCurrency.label;
+
   Map<String, Object?> _accountToHybridJson(
     AccountRecord a, {
     int? groupId,
@@ -497,7 +529,7 @@ class ReactWorkspace {
       <String, Object?>{
         'id': a.id,
         'ownerId': workspaceId,
-        'groupId': groupId ?? (AccountCategory.values.indexOf(a.category) + 1),
+        if (groupId != null) 'groupId': groupId,
         'name': a.name,
         'category': a.category.name,
         'phone': a.phone,

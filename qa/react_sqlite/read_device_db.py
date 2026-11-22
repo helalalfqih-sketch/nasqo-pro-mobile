@@ -15,6 +15,16 @@ base = 'nasqo_pro_erp.db'
 adb = ['adb', 'exec-out', 'run-as', package]
 available = subprocess.check_output([*adb, 'ls', 'databases']).decode().split()
 assert base in available, available
+# Some emulator system images provide the Android SQLite shell. Independently
+# query the stopped app's DB in place before the byte-for-byte host inspection.
+android_sql = None
+sqlite_shell = subprocess.run(['adb','shell','command','-v','sqlite3'], capture_output=True, text=True)
+if sqlite_shell.returncode == 0 and sqlite_shell.stdout.strip().endswith('/sqlite3'):
+    native = subprocess.run([*adb, 'sqlite3', '-readonly', 'databases/' + base],
+        input="PRAGMA integrity_check;\nSELECT sqlite_version();\nSELECT count(*) FROM ledger_entries;\n",
+        capture_output=True, text=True, check=True).stdout.strip().splitlines()
+    assert len(native) == 3 and native[0] == 'ok' and int(native[2]) == 2 * expected, native
+    android_sql = dict(integrity=native[0], sqliteVersion=native[1], ledgerRows=int(native[2]))
 with tempfile.TemporaryDirectory() as temp:
     for suffix in ('', '-wal', '-journal'):
         filename = base + suffix
@@ -33,4 +43,4 @@ with tempfile.TemporaryDirectory() as temp:
         assert lines == [(invoice, item, 3, 5)], lines
         receipts = db.execute("SELECT COUNT(*) FROM erp_state WHERE stateKey LIKE 'react_receipt/%'").fetchone()[0]
         assert receipts == 4 * expected, receipts
-        print(json.dumps(dict(integrity='ok', accounts=expected, entries=entries, inventory=stock, lines=lines, receipts=receipts), ensure_ascii=False))
+        print(json.dumps(dict(integrity='ok', androidSql=android_sql, accounts=expected, entries=entries, inventory=stock, lines=lines, receipts=receipts), ensure_ascii=False))

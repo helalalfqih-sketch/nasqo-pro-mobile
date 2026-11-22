@@ -12,7 +12,7 @@
   "cspEnforced": true,
   "mockHostStripped": true,
   "totalFiles": 60,
-  "totalBytes": 4006157,
+  "totalBytes": 4006104,
   "files": [
     {
       "path": "assets/cairo-arabic-600-normal-B3EOalmC.woff",
@@ -305,14 +305,14 @@
       "sha256": "5a45703b03c6a126b795141e3599ae067d3e8aae12f3501603b3c1d34b7c5976"
     },
     {
-      "path": "assets/style-Chkpssa5.css",
-      "bytes": 332051,
-      "sha256": "0b0944dd8d6037679db692459c2e68e85269b68e6bfa906d61da59d7e2d68a0e"
+      "path": "assets/style-CVIT8ilZ.css",
+      "bytes": 331998,
+      "sha256": "1fab9b26cad72a32220a3721239db122265b3bb2745546958c2d4324bb2ffcab"
     },
     {
       "path": "index.html",
       "bytes": 882,
-      "sha256": "b994a8557a53a23ce2b941a52af596e0e2470fe3f5ef2d0c9b454f308c456d5c"
+      "sha256": "fe8c0ef9494b20098ee31c732083f29533dd9f38532119b0497a740a08684ccb"
     }
   ]
 }

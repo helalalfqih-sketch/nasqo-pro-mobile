@@ -52,12 +52,15 @@ void main() {
       return r['data'] as Map;
     }
 
+    expect((await app.snapshot())['accountGroups'], isEmpty);
     expect(controller.accounts, isEmpty);
     expect(controller.ledger, isEmpty);
     final acc = (await save(
         'saveAccount',
         {'name': 'مورد اختبار', 'category': 'purchases'},
         'account-001'))['account'];
+    final groups = (await app.snapshot())['accountGroups'] as List;
+    expect(groups.single['id'], acc['groupId']);
     final item = (await save(
         'createInventoryItem',
         {

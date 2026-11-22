@@ -125,10 +125,10 @@ body,
 }
 
 /* Touch target & overflow hardening for narrow screens (320px - 360px) and 130% font scale */
-.hybrid-webview-viewport button:not(.smart-tile-corner-btn),
-.hybrid-webview-viewport [role="button"]:not(.smart-tile-corner-btn),
-.hybrid-webview-viewport select {
-  min-height: 36px;
+@media (max-width: 360px) {
+  :where(.hybrid-webview-viewport) :where(button:not(.smart-tile-corner-btn), select) {
+    min-height: 36px;
+  }
 }
 
 .hybrid-webview-viewport .modal-card,
