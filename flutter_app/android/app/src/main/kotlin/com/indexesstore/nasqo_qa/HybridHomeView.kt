@@ -12,6 +12,9 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebChromeClient
+import android.webkit.PermissionRequest
+import android.webkit.ValueCallback
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewCompat
@@ -99,6 +102,47 @@ private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: I
             @Deprecated("Needed on Android 6")
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean = true
         }
+        if (reactWorkspace) {
+            // Only the offline appassets origin may request video capture.
+            // No microphone, arbitrary origins, or unrestricted file access.
+            web.webChromeClient = object : WebChromeClient() {
+                override fun onPermissionRequest(request: PermissionRequest) {
+                    val validOrigin = request.origin.scheme == "https" &&
+                        request.origin.host == origin.host &&
+                        (request.origin.port == -1 || request.origin.port == 443)
+                    if (!validOrigin ||
+                        request.resources.toSet() != setOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
+                        request.deny()
+                        return
+                    }
+                    val host = activity as? MainActivity
+                    if (host == null) request.deny() else host.requestReactQrCamera(request)
+                }
+
+                override fun onPermissionRequestCanceled(request: PermissionRequest) {
+                    (activity as? MainActivity)?.cancelReactQrCamera(request)
+                }
+
+                override fun onShowFileChooser(
+                    webView: WebView?,
+                    filePathCallback: ValueCallback<Array<Uri>>?,
+                    fileChooserParams: FileChooserParams?
+                ): Boolean {
+                    if (filePathCallback == null ||
+                        fileChooserParams == null ||
+                        !fileChooserParams.acceptTypes.any { it.startsWith("image/") }) {
+                        return false
+                    }
+                    val host = activity as? MainActivity
+                    if (host == null) {
+                        filePathCallback.onReceiveValue(null)
+                    } else {
+                        host.openReactQrImagePicker(filePathCallback)
+                    }
+                    return true
+                }
+            }
+        }
         channel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "start" -> {
@@ -185,6 +229,8 @@ private class HybridHomeView(context: Context, messenger: BinaryMessenger, id: I
 
     override fun getView(): View = web
     override fun dispose() {
+        web.webChromeClient = null
+        web.loadUrl("about:blank")
         channel.setMethodCallHandler(null)
         if (started) WebViewCompat.removeWebMessageListener(web, "NasqoHome")
         started = false
