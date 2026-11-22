@@ -1776,25 +1776,13 @@ export function AuthenticatedWorkspace({
 
   const triggerJsonRestore = useCallback(() => {
     if (hybrid.isHybrid) {
-      void hybrid
-        .pickFile({
-          purpose: "restore-backup",
-          accept: [".json", ".db", ".sqlite", ".sqlite3", ".sql", ".backup", ".gz"],
-        })
-        .then(async (picked) => {
-          if (!picked || !picked.base64Content) return;
-          const binary = atob(picked.base64Content);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-          await restoreBackupRef.current?.(bytes, picked.fileName || "backup.sqlite");
-        })
-        .catch((err) => {
-          showToast(err instanceof Error ? err.message : "تعذر اختيار ملف النسخة الاحتياطية.");
-        });
+      // Use the existing React data center. The native picker and SQLite trial
+      // now run exclusively in Dart; no multi-MiB file reaches WebView.
+      setOverlay("full-sqlite-import");
       return;
     }
     jsonRestoreInputRef.current?.click();
-  }, [hybrid, showToast]);
+  }, [hybrid.isHybrid]);
 
   const triggerCsvImport = useCallback(() => {
     if (hybrid.isHybrid) {
