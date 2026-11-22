@@ -8,6 +8,8 @@ on:
       - qa/react_sqlite/release_upgrade.py
       - qa/react_sqlite/run_signed_upgrade.sh
       - qa/react_sqlite/run_release_forms.sh
+      - qa/react_sqlite/assert_one_ui.py
+  workflow_dispatch:
 permissions:
   contents: read
   actions: read
