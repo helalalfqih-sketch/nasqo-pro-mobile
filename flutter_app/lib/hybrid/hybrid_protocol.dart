@@ -17,6 +17,8 @@ const Set<String> kHybridAllowedCommands = <String>{
   'printDocument',
   'exportPdf',
   'pickFile',
+  'beginBackupInspection',
+  'getBackupInspectionStatus',
   'saveLegacyArchive',
   'listLegacyArchives',
   'describeLegacyArchive',
