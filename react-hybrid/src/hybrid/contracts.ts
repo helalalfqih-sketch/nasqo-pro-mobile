@@ -200,12 +200,30 @@ export interface HybridPickFileRequest {
   accept: string[];
 }
 
+export interface NativeWebImportPreview {
+  fileName: string;
+  format: "JSON" | "SQLite";
+  version: number;
+  sizeBytes: number;
+  sourceSha256: string;
+  previewToken: string;
+  counts: Record<"accounts" | "groups" | "currencies" | "invoices" | "vouchers" | "movements" | "invoiceLines" | "warehouses" | "items", number>;
+  unsupported: Array<{ section: string; count: number }>;
+  trialIntegrity: string;
+  trialMatchedRecords: number;
+  trialError?: string | null;
+  canRestore: boolean;
+}
+
 export interface HybridPickFileResult {
   cancelled?: boolean;
   fileName: string;
-  mimeType: string;
-  sizeBytes: number;
-  base64Content: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  // Legacy small-file consumers only; native Android restore never sends bytes.
+  base64Content?: string;
+  preview?: NativeWebImportPreview;
+  previewToken?: string;
 }
 
 export interface HybridCommandPayloadMap {
@@ -280,7 +298,16 @@ export interface HybridCommandPayloadMap {
   getProductPriceStats: { workspaceId: string; itemId: string };
   saveErpData: { workspaceId: string; data: ErpWorkspaceData };
   backupWorkspace: { workspaceId: string; backupName?: string; target: "local" | "cloud" };
-  restoreWorkspace: { workspaceId: string; fileName: string; format: "json" | "sqlite" | "sql"; base64Content: string };
+  restoreWorkspace: {
+    workspaceId: string;
+    previewToken?: string;
+    sourceSha256?: string;
+    confirmation?: "REPLACE_AFTER_VERIFIED_PREVIEW";
+    // Unsupported legacy byte transport remains typed only for older website code.
+    fileName?: string;
+    format?: "json" | "sqlite" | "sql";
+    base64Content?: string;
+  };
   resetWorkspace: { workspaceId: string; mode: "empty" | "demo" };
   googleDriveAction: { operation: string; args?: Record<string, unknown> };
 }
