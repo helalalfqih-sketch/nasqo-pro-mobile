@@ -290,7 +290,7 @@ export interface HybridCommandPayloadMap {
   getProductPriceStats: { workspaceId: string; itemId: string };
   saveErpData: { workspaceId: string; data: ErpWorkspaceData };
   backupWorkspace: { workspaceId: string; backupName?: string; target: "local" | "cloud" };
-  restoreWorkspace: { workspaceId: string; session: string; confirmed: boolean };
+  restoreWorkspace: { workspaceId: string; session: string; confirmed: boolean } | { workspaceId: string; fileName: string; format: "json" | "sqlite" | "sql"; base64Content: string };
   resetWorkspace: { workspaceId: string; mode: "empty" | "demo" };
   googleDriveAction: { operation: string; args?: Record<string, unknown> };
 }
