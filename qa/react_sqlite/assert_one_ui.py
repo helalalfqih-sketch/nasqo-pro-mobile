@@ -5,16 +5,16 @@ import json
 import pathlib
 import subprocess
 import sys
+import time
 import xml.etree.ElementTree as ET
 
 out = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "qa-release-evidence")
 out.mkdir(parents=True, exist_ok=True)
-subprocess.run(["adb", "shell", "uiautomator", "dump", "/sdcard/nasqo-release-ui.xml"],
-               check=True, capture_output=True, timeout=35)
-xml = subprocess.run(["adb", "exec-out", "cat", "/sdcard/nasqo-release-ui.xml"],
-                     check=True, capture_output=True, timeout=20).stdout
-(out / "android-UI-hierarchy.xml").write_bytes(xml)
-root = ET.fromstring(xml)
+# A resumed FlutterActivity may briefly show its splash screen while
+# Android creates the single native PlatformView. Never convert "no WebView
+# yet" into a pass: allow a bounded startup interval, then fail closed.
+deadline = time.monotonic() + 50
+xml = b""
 webviews = []
 outside = []
 
@@ -28,9 +28,33 @@ def visit(node, in_webview=False):
     for child in node:
         visit(child, inside)
 
-visit(root)
+while True:
+    try:
+        subprocess.run(
+            ["adb", "shell", "uiautomator", "dump",
+             "/sdcard/nasqo-release-ui.xml"],
+            check=True, capture_output=True, timeout=12)
+        xml = subprocess.run(
+            ["adb", "exec-out", "cat", "/sdcard/nasqo-release-ui.xml"],
+            check=True, capture_output=True, timeout=12).stdout
+        root = ET.fromstring(xml)
+        webviews = []
+        outside = []
+        visit(root)
+        if webviews:
+            break
+    except (ET.ParseError, subprocess.CalledProcessError,
+            subprocess.TimeoutExpired):
+        pass
+    if time.monotonic() >= deadline:
+        break
+    time.sleep(1)
+
+if xml:
+    (out / "android-UI-hierarchy.xml").write_bytes(xml)
 if len(webviews) != 1:
-    raise AssertionError(f"Expected a single React WebView, found {len(webviews)}")
+    raise AssertionError(
+        f"Expected a single React WebView after startup, found {len(webviews)}")
 native_nav_labels = {
     "الرئيسية", "الخدمات", "التقارير", "الإعدادات",
     "الملف الشخصي", "القائمة", "فتح القائمة",
